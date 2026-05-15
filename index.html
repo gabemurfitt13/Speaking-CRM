@@ -557,8 +557,12 @@ function App(){
   useEffect(()=>{
     try{
       const raw=localStorage.getItem(STORAGE_KEY);
-      if(raw){const p=JSON.parse(raw);setContacts(p.length?p:SEED);}
-      else{setContacts(SEED);localStorage.setItem(STORAGE_KEY,JSON.stringify(SEED));}
+      if(raw){
+        const p=JSON.parse(raw);
+        const migrated=p.length?p.map(c=>({...c,state:c.state||'ID'})):SEED;
+        setContacts(migrated);
+        localStorage.setItem(STORAGE_KEY,JSON.stringify(migrated));
+      } else{setContacts(SEED);localStorage.setItem(STORAGE_KEY,JSON.stringify(SEED));}
     }catch{setContacts(SEED);}
     setLoaded(true);
 
