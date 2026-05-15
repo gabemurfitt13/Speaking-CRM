@@ -21,8 +21,30 @@ function esc(v){return String(v??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&l
   function cleanState(v){return String(v||'ID').trim().toUpperCase().slice(0,2)}
 function load(){try{state.contacts=JSON.parse(localStorage.getItem(KEY))||[]}catch{state.contacts=[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(state.contacts));draw()}
-function normalizeContact(c,i){return {id:c.id||('c-'+Date.now()+'-'+i),school:c.school||'',type:c.type||'High School',cls:c.cls||'',district:c.district||'',city:c.city||'',priority:Number(c.priority)||1,contact:c.contact||'',role:c.role||'',phone:c.phone||'',email:c.email||'',principal:c.principal||'',pPhone:c.pPhone||'',sca:c.sca||'',scaPhone:c.scaPhone||'',status:STATUSES.includes(c.status)?c.status:'Not Started',notes:c.notes||'',followUp:c.followUp||'',contacted:c.contacted||'',log:Array.isArray(c.log)?c.log:[]}}
+function normalizeContact(c,i){
+return {
+id:c.id||('c-'+Date.now()+'-'+i),
+school:c.school||'',
+type:c.type||'High School',
+cls:c.cls||'',
+district:c.district||'',
+city:c.city||'',
 state:cleanState(c.state),
+priority:Number(c.priority)||1,
+contact:c.contact||'',
+role:c.role||'',
+phone:c.phone||'',
+email:c.email||'',
+principal:c.principal||'',
+pPhone:c.pPhone||'',
+sca:c.sca||'',
+scaPhone:c.scaPhone||'',
+status:STATUSES.includes(c.status)?c.status:'Not Started',
+notes:c.notes||'',
+followUp:c.followUp||'',
+contacted:c.contacted||'',
+log:Array.isArray(c.log)?c.log:[]
+}}
   function today(){return new Date().toISOString().slice(0,10)}
 function pill(status){const c=COLORS[status]||COLORS['Not Started'];return `<span class="pill" style="background:${c[0]};color:${c[1]};border-color:${c[2]}">${esc(status)}</span>`}
 function due(){const t=today();return state.contacts.filter(c=>c.followUp&&c.followUp<=t&&!['Booked!','Not Interested'].includes(c.status)).sort((a,b)=>a.followUp.localeCompare(b.followUp))}
