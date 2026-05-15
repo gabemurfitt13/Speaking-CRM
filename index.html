@@ -1,49 +1,679 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Speaker CRM</title>
-  <style>
-    body{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#eef1f5;color:#172033}*{box-sizing:border-box}.app{min-height:100vh;display:grid;grid-template-columns:230px 1fr}.side{background:#151922;color:white;padding:18px}.side h1{font-size:20px;margin:0 0 4px}.side p{font-size:13px;color:#b8bfcc;margin:0 0 18px}.nav button,.add-btn{width:100%;border:0;border-radius:12px;background:transparent;color:#e5e7eb;padding:11px 12px;text-align:left;cursor:pointer;margin-bottom:7px;font-size:14px}.nav button.active,.nav button:hover,.add-btn:hover{background:#2b3240}.main{min-width:0}.top{min-height:66px;background:white;border-bottom:1px solid #d9dee8;display:flex;align-items:center;gap:10px;padding:12px 16px;flex-wrap:wrap}.top input,.top select{height:38px;border:1px solid #d9dee8;border-radius:11px;padding:0 11px;background:white}.top input{flex:1;min-width:220px}.content{padding:16px}.grid{display:grid;grid-template-columns:minmax(280px,420px) 1fr;gap:16px}.cards{display:flex;flex-direction:column;gap:10px}.card,.panel,.stat{background:white;border:1px solid #d9dee8;border-radius:16px;box-shadow:0 1px 2px rgba(0,0,0,.04)}.card{padding:13px;cursor:pointer}.card:hover,.card.selected{border-color:#8ba6cc;box-shadow:0 3px 10px rgba(0,0,0,.08)}.card-top{display:flex;align-items:start;justify-content:space-between;gap:8px}.card h3{font-size:15px;margin:0}.meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}.badge,.pill{display:inline-flex;border:1px solid #d9dee8;border-radius:999px;padding:3px 8px;font-size:11px}.pill{font-weight:700}.contact{font-size:12px;color:#536072;margin-top:8px}.panel{padding:16px}.panel h2{margin:0 0 4px;font-size:21px}.row{display:grid;grid-template-columns:120px 1fr;gap:8px;font-size:13px;margin:8px 0}.label{color:#6b7280}.section{border-top:1px solid #e5e7eb;margin-top:14px;padding-top:14px}.section h4{font-size:12px;text-transform:uppercase;color:#6b7280;letter-spacing:.05em;margin:0 0 8px}.panel input,.panel select,.panel textarea,.modal input,.modal select,.modal textarea{width:100%;border:1px solid #d9dee8;border-radius:11px;padding:9px;font-family:inherit}.panel textarea,.modal textarea{min-height:90px;resize:vertical}.btn{height:36px;border:1px solid #d9dee8;border-radius:11px;background:white;padding:0 13px;cursor:pointer}.btn.primary{background:#1f2937;color:white;border-color:#1f2937}.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}.stat{padding:15px}.stat .n{font-size:30px;font-weight:800}.stat .l{font-size:12px;color:#6b7280}.empty{padding:30px;text-align:center;color:#6b7280}.log{border-top:1px solid #eef1f5;margin-top:8px;padding-top:8px}.log small{color:#6b7280}.modal-back{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;padding-top:28px}.modal{width:min(760px,calc(100vw - 32px));max-height:calc(100vh - 56px);overflow:auto;background:white;border-radius:18px;padding:18px}.form{display:grid;grid-template-columns:1fr 1fr;gap:10px}.form label{display:block;font-size:12px;color:#6b7280;margin-bottom:4px}.full{grid-column:1/-1}@media(max-width:900px){.app{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gabe Murfitt – Speaker CRM</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f4f0;--bg-card:#ffffff;--bg-sidebar:#111827;--bg-sidebar-hover:rgba(255,255,255,0.08);
+  --bg-sidebar-active:rgba(255,255,255,0.14);--border:#e4e3df;--border-strong:#c9c8c4;
+  --text:#111827;--text-muted:#6b7280;--text-light:#9ca3af;--text-sidebar:#d1d5db;
+  --text-sidebar-active:#ffffff;--accent:#2563eb;--accent-bg:#eff6ff;
+  --radius:8px;--radius-lg:12px;--shadow:0 1px 3px rgba(0,0,0,0.07),0 1px 2px rgba(0,0,0,0.04);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+#root{flex:1;overflow:hidden}
+.crm{display:flex;height:100%;overflow:hidden}
+.sidebar{width:210px;min-width:210px;background:var(--bg-sidebar);display:flex;flex-direction:column;overflow:hidden}
+.sid-brand{padding:18px 16px 14px;border-bottom:1px solid rgba(255,255,255,0.08)}
+.sid-brand h1{font-size:15px;font-weight:600;color:#fff;letter-spacing:-0.2px}
+.sid-brand p{font-size:11px;color:var(--text-light);margin-top:2px}
+.sid-nav{flex:1;padding:8px 8px 0;display:flex;flex-direction:column;gap:1px;overflow-y:auto}
+.nav-btn{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--radius);border:none;background:transparent;color:var(--text-sidebar);cursor:pointer;font-size:12.5px;font-family:inherit;text-align:left;width:100%;transition:background 0.1s}
+.nav-btn:hover{background:var(--bg-sidebar-hover);color:var(--text-sidebar-active)}
+.nav-btn.active{background:var(--bg-sidebar-active);color:var(--text-sidebar-active);font-weight:500}
+.nav-btn i{font-size:16px;opacity:0.9}
+.nav-divider{height:1px;background:rgba(255,255,255,0.08);margin:6px 10px}
+.sid-footer{padding:12px 8px;border-top:1px solid rgba(255,255,255,0.08)}
+.sid-stats{padding:12px 16px;border-top:1px solid rgba(255,255,255,0.08);display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ss-card{background:rgba(255,255,255,0.06);border-radius:6px;padding:8px 10px}
+.ss-card .num{font-size:20px;font-weight:600;color:#fff;line-height:1}
+.ss-card .lbl{font-size:10px;color:var(--text-light);margin-top:2px;text-transform:uppercase;letter-spacing:0.4px}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.topbar{padding:12px 16px;border-bottom:1px solid var(--border);background:var(--bg-card);display:flex;align-items:center;gap:10px;flex-shrink:0;box-shadow:var(--shadow)}
+.topbar-title{font-size:15px;font-weight:600;flex:1;color:var(--text)}
+.srch-wrap{position:relative;flex:1;max-width:280px}
+.srch{width:100%;height:32px;font-size:12px;padding:0 10px 0 32px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:inherit}
+.srch:focus{outline:none;border-color:var(--accent);background:#fff}
+.srch-icon{position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--text-light);pointer-events:none}
+.sel{height:32px;font-size:12px;padding:0 28px 0 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg);color:var(--text-muted);font-family:inherit;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+.sel:focus{outline:none;border-color:var(--accent)}
+.btn{height:32px;padding:0 14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:12px;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;transition:background 0.1s,border-color 0.1s}
+.btn:hover{background:var(--bg);border-color:var(--border-strong)}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn.primary:hover{background:#1d4ed8;border-color:#1d4ed8}
+.btn.success{background:#16a34a;color:#fff;border-color:#16a34a}
+.btn.success:hover{background:#15803d}
+.btn.sm{height:28px;padding:0 10px;font-size:11px}
+.content{flex:1;display:flex;overflow:hidden}
+.list-area{flex:1;overflow-y:auto;padding:12px}
+.detail-area{width:272px;border-left:1px solid var(--border);overflow-y:auto;background:var(--bg-card);flex-shrink:0}
+.detail-inner{padding:16px}
+.badge{font-size:10.5px;color:var(--text-muted);background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:1px 6px;white-space:nowrap}
+.pill{display:inline-flex;align-items:center;padding:2px 9px;border-radius:100px;font-size:10.5px;font-weight:500;white-space:nowrap;border:1px solid transparent}
+.fup-tag{font-size:10px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:5px;padding:1px 6px;display:inline-flex;align-items:center;gap:3px}
+.pri-1{background:#eff6ff;color:#1e40af;border-color:#bfdbfe}
+.pri-2{background:#f0fdf4;color:#166534;border-color:#bbf7d0}
+.pri-3{background:#fffbeb;color:#92400e;border-color:#fde68a}
+.pri-4{background:#fff7ed;color:#9a3412;border-color:#fdba74}
+.pri-5{background:#f9fafb;color:#374151;border-color:#d1d5db}
+.c-card{border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 14px;margin-bottom:8px;background:var(--bg-card);cursor:pointer;transition:border-color 0.1s,box-shadow 0.1s}
+.c-card:hover{border-color:var(--border-strong);box-shadow:var(--shadow)}
+.c-card.active{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,0.08)}
+.c-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:7px}
+.c-card h4{font-size:13px;font-weight:600;color:var(--text);line-height:1.3}
+.c-card-meta{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:6px}
+.c-card-contact{font-size:11.5px;color:var(--text-muted);display:flex;align-items:center;gap:5px}
+.c-card-contact strong{color:var(--text);font-weight:500}
+.dash-wrap{flex:1;overflow-y:auto;padding:16px}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.stat-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;box-shadow:var(--shadow)}
+.stat-card .s-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+.stat-card .s-num{font-size:28px;font-weight:700;color:var(--text);line-height:1}
+.stat-card .s-sub{font-size:11px;color:var(--text-light);margin-top:4px}
+.stat-card.booked .s-num{color:#16a34a}
+.stat-card.fup .s-num{color:#d97706}
+.dash-section{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;margin-bottom:14px;box-shadow:var(--shadow)}
+.dash-section h3{font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px}
+.pipeline-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.pipeline-row:last-child{margin-bottom:0}
+.p-label{font-size:12px;color:var(--text-muted);width:130px;flex-shrink:0}
+.p-bar-wrap{flex:1;height:8px;background:var(--bg);border-radius:4px;overflow:hidden}
+.p-bar{height:100%;border-radius:4px}
+.p-count{font-size:12px;color:var(--text-light);width:24px;text-align:right;flex-shrink:0}
+.fup-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;cursor:pointer;transition:background 0.1s}
+.fup-row:hover{background:var(--bg)}
+.fup-row-left{flex:1;min-width:0}
+.fup-row h4{font-size:12.5px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fup-row p{font-size:11px;color:var(--text-muted);margin-top:2px}
+.det-head{padding:16px 16px 14px;border-bottom:1px solid var(--border)}
+.det-head-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px}
+.det-head h3{font-size:14px;font-weight:600;color:var(--text);line-height:1.3}
+.det-head-meta{display:flex;gap:5px;flex-wrap:wrap}
+.det-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg-card)}
+.det-tab{flex:1;padding:9px 4px;font-size:11.5px;font-weight:500;color:var(--text-muted);border:none;background:transparent;cursor:pointer;border-bottom:2px solid transparent;font-family:inherit;transition:color 0.1s}
+.det-tab:hover{color:var(--text)}
+.det-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.det-sect{margin-bottom:16px}
+.det-sect h5{font-size:10px;color:var(--text-light);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px;font-weight:600}
+.det-row{display:flex;gap:8px;align-items:flex-start;margin-bottom:6px;font-size:12px}
+.det-row .d-lbl{color:var(--text-muted);min-width:54px;flex-shrink:0;padding-top:1px}
+.det-row .d-val{color:var(--text);word-break:break-word;flex:1}
+.det-row .d-val a{color:var(--accent);text-decoration:none}
+.det-row .d-val a:hover{text-decoration:underline}
+.field-group{margin-bottom:10px}
+.field-group label{display:block;font-size:10.5px;color:var(--text-muted);margin-bottom:4px;font-weight:500}
+.field-inp{width:100%;height:30px;font-size:12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:inherit;padding:0 10px}
+.field-inp:focus{outline:none;border-color:var(--accent);background:#fff}
+.field-ta{width:100%;font-size:12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:inherit;padding:8px 10px;resize:vertical;min-height:64px}
+.field-ta:focus{outline:none;border-color:var(--accent);background:#fff}
+.status-sel{width:100%;height:30px;font-size:12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:inherit;padding:0 8px;cursor:pointer}
+.status-sel:focus{outline:none;border-color:var(--accent)}
+.log-input-row{display:flex;gap:6px;margin-bottom:6px}
+.log-type-sel{height:30px;font-size:11px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg);color:var(--text-muted);font-family:inherit;padding:0 6px;cursor:pointer;flex-shrink:0}
+.log-inp{flex:1;height:30px;font-size:12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:inherit;padding:0 10px}
+.log-inp:focus{outline:none;border-color:var(--accent);background:#fff}
+.log-item{border-left:2px solid var(--border-strong);padding:4px 10px;margin-bottom:7px}
+.log-date{font-size:10.5px;color:var(--text-light);margin-bottom:2px;display:flex;gap:6px}
+.log-type{font-weight:500;color:var(--text-muted)}
+.log-note{font-size:12px;color:var(--text);line-height:1.4}
+.email-tpl{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px;font-size:12px;color:var(--text);line-height:1.7;white-space:pre-wrap;word-break:break-word;font-family:inherit}
+.email-subject{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;font-size:12px;color:var(--text);font-weight:500;margin-bottom:8px}
+.email-actions{display:flex;gap:6px;margin-top:8px}
+.tpl-picker{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.tpl-btn{padding:4px 10px;border-radius:100px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-muted);font-size:11px;cursor:pointer;font-family:inherit;transition:all 0.1s}
+.tpl-btn:hover{border-color:var(--accent);color:var(--accent)}
+.tpl-btn.active{background:var(--accent-bg);border-color:var(--accent);color:var(--accent);font-weight:500}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:flex-start;justify-content:center;padding-top:48px;z-index:100}
+.modal{background:var(--bg-card);border-radius:var(--radius-lg);width:460px;max-height:calc(100vh - 96px);overflow-y:auto;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,0.25);border:1px solid var(--border)}
+.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.modal-head h3{font-size:15px;font-weight:600;color:var(--text)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-field{display:flex;flex-direction:column;gap:4px}
+.form-field.full{grid-column:1/-1}
+.form-field label{font-size:10.5px;color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:0.4px}
+.form-field input,.form-field select,.form-field textarea{height:32px;font-size:12.5px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:inherit;padding:0 10px}
+.form-field textarea{height:64px;padding:8px 10px;resize:none}
+.form-field input:focus,.form-field select:focus,.form-field textarea:focus{outline:none;border-color:var(--accent);background:#fff}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:240px;color:var(--text-light);gap:10px}
+.empty-state i{font-size:36px}
+.empty-state p{font-size:13px}
+.info-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--radius);padding:10px 12px;font-size:11.5px;color:#1e40af;line-height:1.5;margin-bottom:12px}
+.info-box i{margin-right:4px}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:3px}
+.toast{position:fixed;bottom:20px;right:20px;background:#111827;color:#fff;padding:10px 16px;border-radius:var(--radius);font-size:12px;z-index:200;opacity:0;transition:opacity 0.2s;pointer-events:none;display:flex;align-items:center;gap:8px}
+.toast.show{opacity:1}
+input[type=file]{display:none}
+</style>
 </head>
 <body>
 <div id="root"></div>
-<input id="importFile" type="file" accept="application/json,.json" style="display:none" />
-<script>
-const STATUSES=['Not Started','Left Voicemail','Emailed','In Discussion','Booked!','Not Interested','Try Next Year'];
-const COLORS={'Not Started':['#f6f7f9','#555','#ddd'],'Left Voicemail':['#FAEEDA','#633806','#FAC775'],'Emailed':['#E6F1FB','#042C53','#85B7EB'],'In Discussion':['#EEEDFE','#26215C','#AFA9EC'],'Booked!':['#EAF3DE','#173404','#97C459'],'Not Interested':['#FCEBEB','#501313','#F09595'],'Try Next Year':['#FAECE7','#4A1B0C','#F0997B']};
-const KEY='gabe-speaker-crm-v1';
-let state={contacts:[],view:'contacts',selected:null,search:'',status:'All',type:'All',showAdd:false};
-const $=s=>document.querySelector(s);
-function esc(v){return String(v??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[m]||m))}
-function cleanState(v){return String(v||'ID').trim().toUpperCase().slice(0,2)}
-function normalizeContact(c,i){return {id:c.id||('c-'+Date.now()+'-'+i),school:c.school||'',type:c.type||'High School',cls:c.cls||'',district:c.district||'',city:c.city||'',state:cleanState(c.state),priority:Number(c.priority)||1,contact:c.contact||'',role:c.role||'',phone:c.phone||'',email:c.email||'',principal:c.principal||'',pPhone:c.pPhone||'',sca:c.sca||'',scaPhone:c.scaPhone||'',status:STATUSES.includes(c.status)?c.status:'Not Started',notes:c.notes||'',followUp:c.followUp||'',contacted:c.contacted||'',log:Array.isArray(c.log)?c.log:[]}}
-function load(){try{state.contacts=(JSON.parse(localStorage.getItem(KEY))||[]).map(normalizeContact)}catch{state.contacts=[]}localStorage.setItem(KEY,JSON.stringify(state.contacts))}
-function save(){localStorage.setItem(KEY,JSON.stringify(state.contacts));draw()}
-function today(){return new Date().toISOString().slice(0,10)}
-function pill(status){const c=COLORS[status]||COLORS['Not Started'];return `<span class="pill" style="background:${c[0]};color:${c[1]};border-color:${c[2]}">${esc(status)}</span>`}
-function due(){const t=today();return state.contacts.filter(c=>c.followUp&&c.followUp<=t&&!['Booked!','Not Interested'].includes(c.status)).sort((a,b)=>a.followUp.localeCompare(b.followUp))}
-function filtered(){const q=state.search.toLowerCase();return state.contacts.filter(c=>(!q||[c.school,c.contact,c.city,c.state,c.district].join(' ').toLowerCase().includes(q))&&(state.status==='All'||c.status===state.status)&&(state.type==='All'||c.type===state.type)).sort((a,b)=>(a.priority||9)-(b.priority||9)||a.state.localeCompare(b.state)||a.school.localeCompare(b.school))}
-function stats(){return {total:state.contacts.length,contacted:state.contacts.filter(c=>c.status!=='Not Started').length,booked:state.contacts.filter(c=>c.status==='Booked!').length,followups:due().length}}
-function draw(){const s=stats();document.getElementById('root').innerHTML=`<div class="app"><aside class="side"><h1>Gabe Murfitt</h1><p>Speaker CRM</p><div class="nav"><button class="${state.view==='dashboard'?'active':''}" onclick="setView('dashboard')">Dashboard</button><button class="${state.view==='contacts'?'active':''}" onclick="setView('contacts')">All Schools</button><button class="${state.view==='followups'?'active':''}" onclick="setView('followups')">Follow-ups ${s.followups?`(${s.followups})`:''}</button></div><button class="add-btn" onclick="openAdd()">+ Add School</button><button class="add-btn" onclick="startImport()">Import JSON</button><button class="add-btn" onclick="exportData()">Export Backup</button></aside><main class="main">${topbar()}<div class="content">${state.view==='dashboard'?dashboard():state.view==='followups'?contactList(due()):contactList(filtered())}</div></main></div>${state.showAdd?modal():''}`}
-function topbar(){if(state.view==='dashboard')return `<div class="top"><h2>Dashboard</h2></div>`;if(state.view==='followups')return `<div class="top"><h2>Follow-ups</h2><span>${due().length} due</span></div>`;return `<div class="top"><input placeholder="Search schools, contacts, cities, states..." value="${esc(state.search)}" oninput="state.search=this.value;draw()"><select onchange="state.status=this.value;draw()"><option>All</option>${STATUSES.map(x=>`<option ${state.status===x?'selected':''}>${x}</option>`).join('')}</select><select onchange="state.type=this.value;draw()"><option>All</option>${['High School','Middle/Jr High','Elementary'].map(x=>`<option ${state.type===x?'selected':''}>${x}</option>`).join('')}</select></div>`}
-function dashboard(){const s=stats();return `<div style="width:100%"><div class="stats">${[['Total Schools',s.total],['Reached Out',s.contacted],['Booked!',s.booked],['Follow-ups Due',s.followups]].map(x=>`<div class="stat"><div class="l">${x[0]}</div><div class="n">${x[1]}</div></div>`).join('')}</div><div class="panel"><h2>Status Breakdown</h2>${STATUSES.map(st=>`<p>${pill(st)} <strong>${state.contacts.filter(c=>c.status===st).length}</strong></p>`).join('')}</div></div>`}
-function contactList(list){return `<div class="grid"><div class="cards">${list.length?list.map(card).join(''):`<div class="empty">No schools yet. Use Import JSON or Add School.</div>`}</div>${state.selected?detail(state.contacts.find(c=>c.id===state.selected)):''}</div>`}
-function card(c){let overdue=c.followUp&&c.followUp<=today()&&!['Booked!','Not Interested'].includes(c.status);return `<div class="card ${state.selected===c.id?'selected':''}" onclick="state.selected='${c.id}';draw()"><div class="card-top"><h3>${esc(c.school)} <span style="color:#6b7280;font-weight:600">(${esc(c.state)})</span></h3>${pill(c.status)}</div><div class="meta"><span class="badge">${esc(c.type)}</span><span class="badge">${esc(c.city)}, ${esc(c.state)}</span><span class="badge">Priority ${esc(c.priority)}</span>${overdue?'<span class="badge" style="background:#fff1f1;color:#8a1212;border-color:#f0a0a0">Follow-up due</span>':''}</div>${c.contact?`<div class="contact"><strong>${esc(c.contact)}</strong> · ${esc(c.role)}</div>`:''}</div>`}
-function detail(c){if(!c)return'';return `<div class="panel"><h2>${esc(c.school)} (${esc(c.state)})</h2><p>${esc(c.type)} · ${esc(c.cls)} · ${esc(c.district)}</p><div class="section"><h4>School Info</h4>${row('City/State',`${esc(c.city)}, ${esc(c.state)}`)}${row('District',esc(c.district))}${row('Class/Grade',esc(c.cls))}</div><div class="section"><h4>Primary Contact</h4>${row('Name',esc(c.contact))}${row('Role',esc(c.role))}${row('Phone',esc(c.phone))}${row('Email',c.email?`<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`:'')}</div><div class="section"><h4>Other Contacts</h4>${row('Principal',esc(c.principal))}${row('Main Phone',esc(c.pPhone))}${row('SCA',esc(c.sca))}${row('SCA Phone',esc(c.scaPhone))}</div><div class="section"><h4>Status</h4><select id="status">${STATUSES.map(st=>`<option ${c.status===st?'selected':''}>${st}</option>`).join('')}</select><h4 style="margin-top:10px">Date Contacted</h4><input id="contacted" type="date" value="${esc(c.contacted)}"><h4 style="margin-top:10px">Follow-up Date</h4><input id="followUp" type="date" value="${esc(c.followUp)}"><h4 style="margin-top:10px">Notes</h4><textarea id="notes">${esc(c.notes)}</textarea><div class="actions"><button class="btn" onclick="deleteContact('${c.id}')">Delete</button><button class="btn primary" onclick="saveContact('${c.id}')">Save Changes</button></div></div><div class="section"><h4>Log Activity</h4><div style="display:flex;gap:8px"><select id="logType"><option>Call</option><option>Email</option><option>Meeting</option><option>Note</option></select><input id="logNote" placeholder="What happened?"><button class="btn" onclick="addLog('${c.id}')">Add</button></div>${(c.log||[]).map(l=>`<div class="log"><small>${esc(l.date)} · ${esc(l.type)}</small><div>${esc(l.note)}</div></div>`).join('')}</div></div>`}
-function row(a,b){return `<div class="row"><div class="label">${a}</div><div>${b||''}</div></div>`}
-function modal(){return `<div class="modal-back"><div class="modal"><h2>Add School</h2><div class="form"><div class="full"><label>School Name</label><input id="mSchool"></div><div><label>Type</label><select id="mType"><option>High School</option><option>Middle/Jr High</option><option>Elementary</option></select></div><div><label>Class/Grade</label><input id="mCls" value="6A"></div><div><label>District</label><input id="mDistrict"></div><div><label>City</label><input id="mCity"></div><div><label>State</label><input id="mState" value="ID" maxlength="2" placeholder="ID"></div><div><label>Priority</label><select id="mPriority"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div><div><label>Primary Contact</label><input id="mContact"></div><div><label>Role</label><input id="mRole" value="Activities Director"></div><div><label>Phone</label><input id="mPhone"></div><div><label>Email</label><input id="mEmail"></div><div class="full"><label>Notes</label><textarea id="mNotes"></textarea></div></div><div class="actions"><button class="btn" onclick="closeAdd()">Cancel</button><button class="btn primary" onclick="saveNew()">Add School</button></div></div></div>`}
-function setView(v){state.view=v;state.selected=null;draw()}function openAdd(){state.showAdd=true;draw()}function closeAdd(){state.showAdd=false;draw()}
-function saveContact(id){const c=state.contacts.find(x=>x.id===id);c.status=$('#status').value;c.contacted=$('#contacted').value;c.followUp=$('#followUp').value;c.notes=$('#notes').value;save()}
-function addLog(id){const note=$('#logNote').value.trim();if(!note)return;const c=state.contacts.find(x=>x.id===id);c.log=[{date:today(),type:$('#logType').value,note},...(c.log||[])];save()}
-function deleteContact(id){if(!confirm('Delete this school?'))return;state.contacts=state.contacts.filter(c=>c.id!==id);state.selected=null;save()}
-function saveNew(){const school=$('#mSchool').value.trim();if(!school)return alert('School name is required.');state.contacts.push(normalizeContact({id:'c-'+Date.now(),school,type:$('#mType').value,cls:$('#mCls').value,district:$('#mDistrict').value,city:$('#mCity').value,state:$('#mState').value,priority:+$('#mPriority').value,contact:$('#mContact').value,role:$('#mRole').value,phone:$('#mPhone').value,email:$('#mEmail').value,status:'Not Started',notes:$('#mNotes').value,followUp:'',contacted:'',log:[]},0));state.showAdd=false;save()}
-function startImport(){document.getElementById('importFile').click()}
-document.getElementById('importFile').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{const text=await file.text();const parsed=JSON.parse(text);const arr=Array.isArray(parsed)?parsed:(Array.isArray(parsed.contacts)?parsed.contacts:null);if(!arr)throw new Error('JSON must be an array or an object with a contacts array.');const cleaned=arr.map(normalizeContact).filter(c=>c.school);if(!cleaned.length)throw new Error('No valid school records found.');const mode=confirm('Click OK to replace current CRM data. Click Cancel to add imported records to the current list.');state.contacts=mode?cleaned:[...state.contacts,...cleaned];state.selected=null;state.view='contacts';save();alert('Imported '+cleaned.length+' schools.');}catch(err){alert('Import failed: '+err.message)}finally{e.target.value=''}});
-function exportData(){const blob=new Blob([JSON.stringify(state.contacts,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='speaker-crm-backup-'+today()+'.json';a.click();URL.revokeObjectURL(a.href)}
-load();draw();
+<div class="toast" id="toast"></div>
+<input type="file" id="import-file" accept=".json">
+
+<script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+<script type="text/babel">
+const {useState,useEffect,useRef,useCallback}=React;
+const STORAGE_KEY='gabe-crm-v1';
+
+const STATUS_CFG={
+  'Not Started':{bg:'#f3f4f6',color:'#374151',border:'#d1d5db',bar:'#9ca3af'},
+  'Left Voicemail':{bg:'#fffbeb',color:'#92400e',border:'#fcd34d',bar:'#f59e0b'},
+  'Emailed':{bg:'#eff6ff',color:'#1e40af',border:'#bfdbfe',bar:'#3b82f6'},
+  'In Discussion':{bg:'#f5f3ff',color:'#5b21b6',border:'#ddd6fe',bar:'#8b5cf6'},
+  'Booked!':{bg:'#f0fdf4',color:'#166534',border:'#bbf7d0',bar:'#22c55e'},
+  'Not Interested':{bg:'#fef2f2',color:'#991b1b',border:'#fecaca',bar:'#ef4444'},
+  'Try Next Year':{bg:'#fff7ed',color:'#9a3412',border:'#fdba74',bar:'#f97316'},
+};
+const STATUSES=Object.keys(STATUS_CFG);
+
+const SEED=[
+  {id:'hs-01',school:'Boise High School',type:'High School',cls:'6A',district:'Boise SD',city:'Boise',priority:1,contact:'Peter Horan',role:'Activities Director',phone:'208-305-3511',email:'peter.horan@boiseschools.org',principal:'Deborah Watts',pPhone:'208-854-4270',sca:'Amber Tetrick',scaPhone:'208-854-4270',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'hs-02',school:'Borah High School',type:'High School',cls:'6A',district:'Boise SD',city:'Boise',priority:1,contact:'Vince Mann',role:'Activities Director',phone:'208-854-4391',email:'vince.mann@boiseschools.org',principal:'Tim Standlee',pPhone:'208-854-4370',sca:'Meagan Lyons',scaPhone:'208-854-4370',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'hs-03',school:'Capital High School',type:'High School',cls:'6A',district:'Boise SD',city:'Boise',priority:1,contact:'Jason Willer',role:'Activities Director',phone:'208-854-4501',email:'jason.willer@boiseschools.org',principal:'',pPhone:'208-854-4501',sca:'',scaPhone:'',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'hs-04',school:'Timberline High School',type:'High School',cls:'5A',district:'Boise SD',city:'Boise',priority:2,contact:'',role:'Activities Director',phone:'208-854-4870',email:'',principal:'Diane Molino',pPhone:'208-854-4870',sca:'',scaPhone:'',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'hs-05',school:'Rocky Mountain High School',type:'High School',cls:'6A',district:'West Ada SD',city:'Meridian',priority:1,contact:'Troy Rice',role:'Activities Director',phone:'208-350-4358',email:'Rice.Troy@westada.org',principal:'Scott Connors',pPhone:'208-350-4342',sca:'Dan Drlik',scaPhone:'208-350-4340',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'hs-06',school:'Centennial High School',type:'High School',cls:'6A',district:'West Ada SD',city:'Nampa',priority:1,contact:'J. Keelan McCaffrey',role:'Activities Director',phone:'208-350-5524',email:'McCaffrey.Keelan@westada.org',principal:'',pPhone:'208-350-5524',sca:'',scaPhone:'',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'hs-07',school:'Eagle High School',type:'High School',cls:'6A',district:'West Ada SD',city:'Eagle',priority:1,contact:'Tony Brulotte',role:'Activities Director',phone:'208-350-4235',email:'Brulotte.Tony@westada.org',principal:'',pPhone:'208-350-4235',sca:'',scaPhone:'',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'hs-08',school:'Meridian High School',type:'High School',cls:'6A',district:'West Ada SD',city:'Meridian',priority:1,contact:'Nichole Williamson',role:'Activities Director',phone:'208-350-4160',email:'Williamson.Nichole@westada.org',principal:'',pPhone:'208-350-4160',sca:'',scaPhone:'',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'hs-09',school:'Mountain View High School',type:'High School',cls:'6A',district:'West Ada SD',city:'Meridian',priority:1,contact:'Dane Pence',role:'Activities Director',phone:'208-855-4050',email:'Pence.Dane@westada.org',principal:'',pPhone:'208-855-4050',sca:'David Toves',scaPhone:'208-855-4050',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'hs-10',school:'Owyhee High School',type:'High School',cls:'6A',district:'West Ada SD',city:'Meridian',priority:1,contact:'Dane Roy',role:'Activities Director',phone:'208-350-4620',email:'Roy.Dane@westada.org',principal:'',pPhone:'208-350-4620',sca:'',scaPhone:'',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'hs-11',school:'Kuna High School',type:'High School',cls:'6A',district:'Kuna SD',city:'Kuna',priority:1,contact:'Luke Wolf',role:'Activities Director',phone:'208-955-0200',email:'lwolf@kunaschools.org',principal:'',pPhone:'208-955-0200',sca:'',scaPhone:'',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'hs-12',school:'Caldwell High School',type:'High School',cls:'6A',district:'Caldwell SD',city:'Caldwell',priority:1,contact:'Jon Hallock',role:'Activities Director',phone:'208-455-3304',email:'jhallock@caldwellschools.org',principal:'',pPhone:'208-455-3304',sca:'',scaPhone:'',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'hs-13',school:'Bishop Kelly High School',type:'High School',cls:'5A',district:'Private',city:'Boise',priority:2,contact:'Tom Shanahan',role:'Activities Director',phone:'208-375-6010 x2030',email:'tshanahan@bishopkelly.org',principal:'',pPhone:'208-375-6010',sca:'',scaPhone:'',status:'Not Started',notes:'Private Catholic school',followUp:'',contacted:'',log:[]},
+  {id:'hs-14',school:'Columbia High School',type:'High School',cls:'5A',district:'Nampa SD',city:'Nampa',priority:2,contact:'Todd Cady',role:'Activities Director',phone:'208-880-2810',email:'tcady@nsd131.org',principal:'',pPhone:'208-880-2810',sca:'',scaPhone:'',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'hs-15',school:'Nampa High School',type:'High School',cls:'5A',district:'Nampa SD',city:'Nampa',priority:2,contact:'Greg Carpenter',role:'Activities Director',phone:'208-498-0551',email:'gcarpenter@nsd131.org',principal:'',pPhone:'208-498-0551',sca:'',scaPhone:'',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'hs-16',school:'Middleton High School',type:'High School',cls:'5A',district:'Middleton SD',city:'Middleton',priority:2,contact:'Andy Ankeny',role:'Activities Director',phone:'208-585-6657 x2017',email:'aankeny@middletonsd.org',principal:'',pPhone:'208-585-6657',sca:'',scaPhone:'',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'hs-17',school:'Emmett High School',type:'High School',cls:'5A',district:'Emmett SD',city:'Emmett',priority:2,contact:'Jim Boeder',role:'Activities Director',phone:'208-365-6323 x1631',email:'jboeder@emmettsd.org',principal:'',pPhone:'208-365-6323',sca:'',scaPhone:'',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'ms-01',school:'East Junior High School',type:'Middle/Jr High',cls:'7–9',district:'Boise SD',city:'Boise',priority:1,contact:'Donny Alves Fortes',role:'Athletic Director',phone:'208-854-4730',email:'donny.alvesfortes@boiseschools.org',principal:'Chris Taylor',pPhone:'208-854-4730',sca:'',scaPhone:'',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'ms-02',school:'Fairmont Junior High',type:'Middle/Jr High',cls:'7–9',district:'Boise SD',city:'Boise',priority:1,contact:'',role:'Activities Director',phone:'208-854-4680',email:'',principal:'Meghan Wonderlich',pPhone:'208-854-4680',sca:'',scaPhone:'',status:'Not Started',notes:'Call office for AD name',followUp:'',contacted:'',log:[]},
+  {id:'ms-03',school:'Hillside Junior High',type:'Middle/Jr High',cls:'7–9',district:'Boise SD',city:'Boise',priority:1,contact:'',role:'Activities Director',phone:'208-854-5120',email:'',principal:'',pPhone:'208-854-5120',sca:'',scaPhone:'',status:'Not Started',notes:'Call office for contacts',followUp:'',contacted:'',log:[]},
+  {id:'ms-04',school:'Les Bois Junior High',type:'Middle/Jr High',cls:'7–9',district:'Boise SD',city:'Boise',priority:1,contact:'',role:'Activities Director',phone:'208-854-5340',email:'',principal:'',pPhone:'208-854-5340',sca:'',scaPhone:'',status:'Not Started',notes:'Call office for contacts',followUp:'',contacted:'',log:[]},
+  {id:'ms-05',school:'North Junior High',type:'Middle/Jr High',cls:'7–9',district:'Boise SD',city:'Boise',priority:1,contact:'',role:'Activities Director',phone:'208-854-5740',email:'',principal:'',pPhone:'208-854-5740',sca:'',scaPhone:'',status:'Not Started',notes:'Call office for contacts',followUp:'',contacted:'',log:[]},
+  {id:'ms-06',school:'Riverglen Junior High',type:'Middle/Jr High',cls:'7–9',district:'Boise SD',city:'Boise',priority:1,contact:'',role:'Activities Director',phone:'208-854-5910',email:'',principal:'Trevor McKenna',pPhone:'208-854-5910',sca:'',scaPhone:'',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'ms-07',school:'South Junior High',type:'Middle/Jr High',cls:'7–9',district:'Boise SD',city:'Boise',priority:1,contact:'',role:'Activities Director',phone:'208-854-6350',email:'',principal:'Melanie Koch',pPhone:'208-854-6350',sca:'',scaPhone:'',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'ms-08',school:'West Junior High',type:'Middle/Jr High',cls:'7–9',district:'Boise SD',city:'Boise',priority:1,contact:'',role:'Activities Director',phone:'208-854-6450',email:'',principal:'',pPhone:'208-854-6450',sca:'',scaPhone:'',status:'Not Started',notes:'Call office for contacts',followUp:'',contacted:'',log:[]},
+  {id:'ms-09',school:'Eagle Middle School',type:'Middle/Jr High',cls:'6–8',district:'West Ada SD',city:'Eagle',priority:1,contact:'Jen Devore',role:'Activities Director',phone:'208-350-4455',email:'Devore.Jen@westada.org',principal:'',pPhone:'208-350-4455',sca:'',scaPhone:'',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'ms-10',school:'Heritage Middle School',type:'Middle/Jr High',cls:'6–8',district:'West Ada SD',city:'Meridian',priority:1,contact:'Brady Potter',role:'Activities Director',phone:'208-350-4460',email:'Potter.Brady@westada.org',principal:'',pPhone:'208-350-4460',sca:'',scaPhone:'',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'ms-11',school:'Lowell Scott Middle School',type:'Middle/Jr High',cls:'6–8',district:'West Ada SD',city:'Boise',priority:1,contact:'Curt Clark',role:'Activities Director',phone:'208-350-4475',email:'Clark.Curt@westada.org',principal:'',pPhone:'208-350-4475',sca:'',scaPhone:'',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'ms-12',school:'Sawtooth Middle School',type:'Middle/Jr High',cls:'6–8',district:'West Ada SD',city:'Meridian',priority:1,contact:'Brian White',role:'Activities Director',phone:'208-350-4485',email:'White.Brian@westada.org',principal:'',pPhone:'208-350-4485',sca:'',scaPhone:'',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'ms-13',school:'Victory Middle School',type:'Middle/Jr High',cls:'6–8',district:'West Ada SD',city:'Meridian',priority:1,contact:'',role:'Activities Director',phone:'208-350-4443',email:'',principal:'Will Schumaker',pPhone:'208-350-4443',sca:'',scaPhone:'',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]},
+  {id:'ms-14',school:'South Middle School',type:'Middle/Jr High',cls:'6–8',district:'Nampa SD',city:'Nampa',priority:2,contact:'',role:'Activities Director',phone:'208-468-4630',email:'',principal:'',pPhone:'208-468-4630',sca:'',scaPhone:'',status:'Not Started',notes:'Call office for contacts',followUp:'',contacted:'',log:[]},
+];
+
+function showToast(msg,icon='ti-check'){
+  const t=document.getElementById('toast');
+  t.innerHTML=`<i class="ti ${icon}"></i>${msg}`;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2400);
+}
+
+function exportData(contacts){
+  const payload={version:1,exported:new Date().toISOString(),contacts};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`gabe-crm-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Backup downloaded','ti-download');
+}
+
+function buildEmailTemplate(c,tplType){
+  const firstName=c.contact?c.contact.split(' ')[0]:'there';
+  const school=c.school;
+  const templates={
+    initial:{
+      subject:`Quick Question – Student Speaker for ${school}`,
+      body:`Hi ${firstName},
+
+My name is Gabe Murfitt, and I'm a speaker who works with middle and high school students across Idaho. I reach over 50,000 students a year sharing my story — I was born without arms and legs, and I speak on resilience, leadership, and what it really means to push past limits.
+
+I'd love to connect about bringing a student assembly to ${school}. Students tell me it's one of the most memorable experiences they've had, and I keep it real — no lectures, just honest storytelling that sticks.
+
+Would you have 15 minutes for a quick call this week or next? I'm happy to work around your schedule.
+
+Thanks for your time,
+Gabe Murfitt
+gabemurfitt.com
+[Your phone number]`
+    },
+    followup:{
+      subject:`Following Up – Student Speaker for ${school}`,
+      body:`Hi ${firstName},
+
+I wanted to follow up on my previous message about bringing a student speaker to ${school}. I know things get busy — no worries at all.
+
+If it's easier, I'm happy to answer any questions by email. I can also send a short video of a past assembly so you can get a feel for what students experience.
+
+Would this be something worth exploring for the rest of this school year, or would fall be a better time to plan?
+
+Thanks again,
+Gabe Murfitt
+gabemurfitt.com
+[Your phone number]`
+    },
+    booked:{
+      subject:`Confirmed – Gabe Murfitt Speaking at ${school}`,
+      body:`Hi ${firstName},
+
+I'm so excited to be coming to ${school}! I wanted to confirm the details and make sure we're all set.
+
+Here's what I need from you to prepare:
+- Confirmed date, time, and location
+- Approximate number of students attending
+- Any specific themes or topics you'd like me to emphasize
+- AV setup available (microphone, projector/screen?)
+- Point of contact on the day of the event
+
+Please feel free to reach out with any questions — I want to make this the best possible experience for your students.
+
+See you soon!
+Gabe Murfitt
+gabemurfitt.com
+[Your phone number]`
+    },
+  };
+  return templates[tplType]||templates.initial;
+}
+
+function Pill({status}){
+  const s=STATUS_CFG[status]||STATUS_CFG['Not Started'];
+  return <span className="pill" style={{background:s.bg,color:s.color,borderColor:s.border}}>{status}</span>;
+}
+function PriBadge({p}){
+  const cls=['pri-1','pri-2','pri-3','pri-4','pri-5'][(p||1)-1]||'pri-5';
+  const lbl=['6A','5A','4A','3A','2A'][p-1]||'';
+  return <span className={'pill '+cls} style={{fontSize:'10px'}}>{lbl}</span>;
+}
+function ContactCard({c,isActive,onClick}){
+  const today=new Date().toISOString().slice(0,10);
+  const overdue=c.followUp&&c.followUp<=today&&!['Booked!','Not Interested'].includes(c.status);
+  return (
+    <div className={'c-card'+(isActive?' active':'')} onClick={onClick}>
+      <div className="c-card-top">
+        <h4>{c.school}</h4>
+        <Pill status={c.status}/>
+      </div>
+      <div className="c-card-meta">
+        <span className="badge">{c.type}</span>
+        <span className="badge">{c.city}</span>
+        <PriBadge p={c.priority}/>
+        {overdue&&<span className="fup-tag"><i className="ti ti-bell" style={{fontSize:10}}/> Follow-up due</span>}
+      </div>
+      {c.contact&&<div className="c-card-contact"><i className="ti ti-user" style={{fontSize:13,color:'var(--text-light)'}}/><strong>{c.contact}</strong> · {c.role}</div>}
+    </div>
+  );
+}
+
+function DetailPanel({c,onUpdate,onClose}){
+  const [tab,setTab]=useState('track');
+  const [status,setStatus]=useState(c.status);
+  const [notes,setNotes]=useState(c.notes);
+  const [followUp,setFollowUp]=useState(c.followUp||'');
+  const [contacted,setContacted]=useState(c.contacted||'');
+  const [logNote,setLogNote]=useState('');
+  const [logType,setLogType]=useState('Call');
+  const [tplType,setTplType]=useState('initial');
+  const [copied,setCopied]=useState(false);
+
+  useEffect(()=>{
+    setStatus(c.status);setNotes(c.notes);
+    setFollowUp(c.followUp||'');setContacted(c.contacted||'');
+    setTab('track');setCopied(false);
+  },[c.id]);
+
+  function save(){onUpdate({...c,status,notes,followUp,contacted});showToast('Saved');}
+  function addLog(){
+    if(!logNote.trim())return;
+    const entry={date:new Date().toISOString().slice(0,10),type:logType,note:logNote.trim()};
+    onUpdate({...c,status,notes,followUp,contacted,log:[entry,...(c.log||[])]});
+    setLogNote('');showToast('Activity logged');
+  }
+
+  const tpl=buildEmailTemplate(c,tplType);
+  const st=STATUS_CFG[status]||STATUS_CFG['Not Started'];
+
+  function copyEmail(){
+    navigator.clipboard.writeText(`Subject: ${tpl.subject}\n\n${tpl.body}`).then(()=>{
+      setCopied(true);showToast('Copied to clipboard','ti-clipboard-check');
+      setTimeout(()=>setCopied(false),2000);
+    });
+  }
+  function openMailto(){
+    const uri=`mailto:${c.email}?subject=${encodeURIComponent(tpl.subject)}&body=${encodeURIComponent(tpl.body)}`;
+    window.open(uri);
+  }
+
+  return (
+    <div className="detail-area">
+      <div className="det-head">
+        <div className="det-head-top">
+          <h3>{c.school}</h3>
+          <button className="btn sm" onClick={onClose}><i className="ti ti-x"/></button>
+        </div>
+        <div className="det-head-meta">
+          <span className="badge">{c.type}</span>
+          <span className="badge">{c.cls}</span>
+          <span className="badge">{c.district}</span>
+        </div>
+      </div>
+      <div className="det-tabs">
+        {[['track','ti-chart-bar','Track'],['contacts','ti-users','Contacts'],['email','ti-mail','Email']].map(([v,ic,lb])=>(
+          <button key={v} className={'det-tab'+(tab===v?' active':'')} onClick={()=>setTab(v)}>
+            <i className={'ti '+ic} style={{marginRight:4,fontSize:13,verticalAlign:-2}}/>{lb}
+          </button>
+        ))}
+      </div>
+      <div className="detail-inner">
+        {tab==='track'&&<>
+          <div className="det-sect">
+            <h5>Status & Tracking</h5>
+            <div className="field-group">
+              <label>Status</label>
+              <select className="status-sel" value={status} onChange={e=>setStatus(e.target.value)} style={{background:st.bg,color:st.color,borderColor:st.border}}>
+                {STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="field-group">
+              <label>Date Contacted</label>
+              <input type="date" className="field-inp" value={contacted} onChange={e=>setContacted(e.target.value)}/>
+            </div>
+            <div className="field-group">
+              <label>Follow-up Date</label>
+              <input type="date" className="field-inp" value={followUp} onChange={e=>setFollowUp(e.target.value)}/>
+            </div>
+            <div className="field-group">
+              <label>Notes</label>
+              <textarea className="field-ta" value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Add notes..."/>
+            </div>
+            <button className="btn primary" style={{width:'100%',justifyContent:'center'}} onClick={save}>
+              <i className="ti ti-device-floppy"/> Save Changes
+            </button>
+          </div>
+          <div className="det-sect">
+            <h5>Activity Log</h5>
+            <div className="log-input-row">
+              <select className="log-type-sel" value={logType} onChange={e=>setLogType(e.target.value)}>
+                {['Call','Email','Meeting','Note'].map(t=><option key={t}>{t}</option>)}
+              </select>
+              <input className="log-inp" placeholder="What happened?..." value={logNote} onChange={e=>setLogNote(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addLog()}/>
+              <button className="btn sm" onClick={addLog}>Add</button>
+            </div>
+            {(c.log||[]).map((l,i)=>(
+              <div className="log-item" key={i}>
+                <div className="log-date"><span className="log-type">{l.type}</span>{l.date}</div>
+                <div className="log-note">{l.note}</div>
+              </div>
+            ))}
+            {!(c.log||[]).length&&<p style={{fontSize:11,color:'var(--text-light)',fontStyle:'italic'}}>No activity logged yet.</p>}
+          </div>
+        </>}
+
+        {tab==='contacts'&&<>
+          <div className="det-sect">
+            <h5>Primary Contact</h5>
+            {c.contact?<>
+              <div className="det-row"><span className="d-lbl">Name</span><span className="d-val">{c.contact}</span></div>
+              <div className="det-row"><span className="d-lbl">Role</span><span className="d-val">{c.role}</span></div>
+              <div className="det-row"><span className="d-lbl">Phone</span><span className="d-val"><a href={'tel:'+c.phone}>{c.phone}</a></span></div>
+              {c.email&&<div className="det-row"><span className="d-lbl">Email</span><span className="d-val" style={{wordBreak:'break-all'}}><a href={'mailto:'+c.email}>{c.email}</a></span></div>}
+            </>:<p style={{fontSize:11,color:'var(--text-light)',fontStyle:'italic'}}>No AD on file — call: <a href={'tel:'+c.pPhone} style={{color:'var(--accent)'}}>{c.pPhone}</a></p>}
+          </div>
+          {(c.principal||c.sca)&&<div className="det-sect">
+            <h5>Other Contacts</h5>
+            {c.principal&&<div className="det-row"><span className="d-lbl">Principal</span><span className="d-val">{c.principal}{c.pPhone&&<><br/><a href={'tel:'+c.pPhone}>{c.pPhone}</a></>}</span></div>}
+            {c.sca&&<div className="det-row"><span className="d-lbl">SCA</span><span className="d-val">{c.sca}{c.scaPhone&&<><br/><a href={'tel:'+c.scaPhone}>{c.scaPhone}</a></>}</span></div>}
+          </div>}
+        </>}
+
+        {tab==='email'&&<>
+          <div className="tpl-picker">
+            {[['initial','First Outreach'],['followup','Follow-up'],['booked','Booking Confirm']].map(([v,l])=>(
+              <button key={v} className={'tpl-btn'+(tplType===v?' active':'')} onClick={()=>{setTplType(v);setCopied(false);}}>{l}</button>
+            ))}
+          </div>
+          <div className="email-subject"><i className="ti ti-tag" style={{marginRight:6,fontSize:12,color:'var(--text-muted)'}}/>{tpl.subject}</div>
+          <div className="email-tpl">{tpl.body}</div>
+          <div className="email-actions">
+            <button className="btn sm" style={{flex:1,justifyContent:'center'}} onClick={copyEmail}>
+              <i className={'ti '+(copied?'ti-check':'ti-copy')}/>{copied?'Copied!':'Copy All'}
+            </button>
+            {c.email&&<button className="btn sm primary" style={{flex:1,justifyContent:'center'}} onClick={openMailto}>
+              <i className="ti ti-mail"/> Open in Mail
+            </button>}
+          </div>
+          {!c.email&&<p style={{fontSize:11,color:'var(--text-muted)',marginTop:8,fontStyle:'italic'}}>Add email address in Contacts tab to enable Open in Mail.</p>}
+        </>}
+      </div>
+    </div>
+  );
+}
+
+function AddModal({onSave,onClose}){
+  const [f,setF]=useState({school:'',type:'High School',cls:'6A',district:'',city:'',priority:1,contact:'',role:'Activities Director',phone:'',email:'',principal:'',pPhone:'',sca:'',scaPhone:'',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]});
+  const u=(k,v)=>setF(p=>({...p,[k]:v}));
+  function save(){
+    if(!f.school.trim()){alert('School name is required.');return;}
+    onSave({...f,id:'c-'+Date.now()});
+    showToast('School added!','ti-building-school');
+  }
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal">
+        <div className="modal-head">
+          <h3>Add New School</h3>
+          <button className="btn sm" onClick={onClose}><i className="ti ti-x"/></button>
+        </div>
+        <div className="form-grid">
+          <div className="form-field full"><label>School Name *</label><input value={f.school} onChange={e=>u('school',e.target.value)} placeholder="School name"/></div>
+          <div className="form-field"><label>Type</label><select value={f.type} onChange={e=>u('type',e.target.value)}>{['High School','Middle/Jr High','Elementary'].map(t=><option key={t}>{t}</option>)}</select></div>
+          <div className="form-field"><label>Classification</label><input value={f.cls} onChange={e=>u('cls',e.target.value)} placeholder="6A, 5A, 6-8..."/></div>
+          <div className="form-field"><label>District</label><input value={f.district} onChange={e=>u('district',e.target.value)} placeholder="Boise SD"/></div>
+          <div className="form-field"><label>City</label><input value={f.city} onChange={e=>u('city',e.target.value)} placeholder="Boise"/></div>
+          <div className="form-field"><label>Priority</label><select value={f.priority} onChange={e=>u('priority',+e.target.value)}>{[1,2,3,4,5].map(n=><option key={n} value={n}>{n} – {['6A Top','5A High','4A Med','3A Lower','2A-1A'][n-1]}</option>)}</select></div>
+          <div className="form-field"><label>Primary Contact</label><input value={f.contact} onChange={e=>u('contact',e.target.value)} placeholder="Full name"/></div>
+          <div className="form-field"><label>Role</label><input value={f.role} onChange={e=>u('role',e.target.value)} placeholder="Activities Director"/></div>
+          <div className="form-field"><label>Phone</label><input value={f.phone} onChange={e=>u('phone',e.target.value)} placeholder="208-000-0000"/></div>
+          <div className="form-field"><label>Email</label><input value={f.email} onChange={e=>u('email',e.target.value)} placeholder="name@district.org"/></div>
+          <div className="form-field"><label>Principal</label><input value={f.principal} onChange={e=>u('principal',e.target.value)} placeholder="Name"/></div>
+          <div className="form-field"><label>Principal Phone</label><input value={f.pPhone} onChange={e=>u('pPhone',e.target.value)} placeholder="208-000-0000"/></div>
+          <div className="form-field full"><label>Notes</label><textarea value={f.notes} onChange={e=>u('notes',e.target.value)} placeholder="Any notes..."/></div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn primary" onClick={save}><i className="ti ti-plus"/> Add School</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Dashboard({contacts,onSelectContact,setView}){
+  const today=new Date().toISOString().slice(0,10);
+  const stats={
+    total:contacts.length,
+    contacted:contacts.filter(c=>c.status!=='Not Started').length,
+    booked:contacts.filter(c=>c.status==='Booked!').length,
+    fups:contacts.filter(c=>c.followUp&&c.followUp<=today&&!['Booked!','Not Interested'].includes(c.status)).length,
+  };
+  const fupList=contacts.filter(c=>c.followUp&&c.followUp<=today&&!['Booked!','Not Interested'].includes(c.status)).sort((a,b)=>a.followUp>b.followUp?1:-1);
+  return (
+    <div className="dash-wrap">
+      <div className="stat-grid">
+        <div className="stat-card"><div className="s-label">Total Schools</div><div className="s-num">{stats.total}</div><div className="s-sub">in pipeline</div></div>
+        <div className="stat-card"><div className="s-label">Reached Out</div><div className="s-num">{stats.contacted}</div><div className="s-sub">contacted</div></div>
+        <div className="stat-card booked"><div className="s-label">Booked</div><div className="s-num">{stats.booked}</div><div className="s-sub">speaking gigs</div></div>
+        <div className="stat-card fup"><div className="s-label">Follow-ups Due</div><div className="s-num">{stats.fups}</div><div className="s-sub">need attention</div></div>
+      </div>
+      {fupList.length>0&&<div className="dash-section">
+        <h3><i className="ti ti-bell"/>Follow-ups needed ({fupList.length})</h3>
+        {fupList.slice(0,5).map(c=>(
+          <div className="fup-row" key={c.id} onClick={()=>{setView('contacts');setTimeout(()=>onSelectContact(c),50)}}>
+            <div className="fup-row-left"><h4>{c.school}</h4><p>{c.contact||'No AD on file'} · {c.city} · Due: {c.followUp}</p></div>
+            <Pill status={c.status}/>
+          </div>
+        ))}
+      </div>}
+      <div className="dash-section">
+        <h3><i className="ti ti-chart-bar"/>Pipeline breakdown</h3>
+        {STATUSES.map(s=>{
+          const cnt=contacts.filter(c=>c.status===s).length;
+          const pct=contacts.length?Math.round(cnt/contacts.length*100):0;
+          return (
+            <div className="pipeline-row" key={s}>
+              <div className="p-label"><Pill status={s}/></div>
+              <div className="p-bar-wrap"><div className="p-bar" style={{width:pct+'%',background:STATUS_CFG[s].bar}}/></div>
+              <div className="p-count">{cnt}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function App(){
+  const [contacts,setContacts]=useState([]);
+  const [view,setView]=useState('dashboard');
+  const [selected,setSelected]=useState(null);
+  const [showAdd,setShowAdd]=useState(false);
+  const [search,setSearch]=useState('');
+  const [statusF,setStatusF]=useState('All');
+  const [typeF,setTypeF]=useState('All');
+  const [loaded,setLoaded]=useState(false);
+
+  useEffect(()=>{
+    try{
+      const raw=localStorage.getItem(STORAGE_KEY);
+      if(raw){const p=JSON.parse(raw);setContacts(p.length?p:SEED);}
+      else{setContacts(SEED);localStorage.setItem(STORAGE_KEY,JSON.stringify(SEED));}
+    }catch{setContacts(SEED);}
+    setLoaded(true);
+
+    // Import file handler
+    document.getElementById('import-file').addEventListener('change',function(e){
+      const file=e.target.files[0];
+      if(!file)return;
+      const reader=new FileReader();
+      reader.onload=function(ev){
+        try{
+          const parsed=JSON.parse(ev.target.result);
+          const data=parsed.contacts||parsed;
+          if(!Array.isArray(data))throw new Error('Invalid format');
+          if(window.confirm(`Import ${data.length} schools? This will replace your current data.`)){
+            setContacts(data);
+            localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+            showToast(`Imported ${data.length} schools`,'ti-upload');
+          }
+        }catch{showToast('Import failed — invalid file','ti-alert-circle');}
+      };
+      reader.readAsText(file);
+      e.target.value='';
+    });
+  },[]);
+
+  useEffect(()=>{
+    if(!loaded)return;
+    try{localStorage.setItem(STORAGE_KEY,JSON.stringify(contacts));}catch{}
+  },[contacts,loaded]);
+
+  function updateContact(updated){setContacts(cs=>cs.map(c=>c.id===updated.id?updated:c));setSelected(updated);}
+  function addContact(c){setContacts(cs=>[...cs,c]);setShowAdd(false);}
+
+  const today=new Date().toISOString().slice(0,10);
+  const fupCount=contacts.filter(c=>c.followUp&&c.followUp<=today&&!['Booked!','Not Interested'].includes(c.status)).length;
+  const fupContacts=contacts.filter(c=>c.followUp&&c.followUp<=today&&!['Booked!','Not Interested'].includes(c.status)).sort((a,b)=>a.followUp>b.followUp?1:-1);
+
+  const filtered=contacts.filter(c=>{
+    const q=search.toLowerCase();
+    if(q&&![c.school,c.contact,c.city,c.district].some(v=>v.toLowerCase().includes(q)))return false;
+    if(statusF!=='All'&&c.status!==statusF)return false;
+    if(typeF!=='All'&&c.type!==typeF)return false;
+    return true;
+  }).sort((a,b)=>a.priority-b.priority||(a.school>b.school?1:-1));
+
+  return (
+    <div className="crm">
+      {showAdd&&<AddModal onSave={addContact} onClose={()=>setShowAdd(false)}/>}
+      <div className="sidebar">
+        <div className="sid-brand">
+          <h1>Gabe Murfitt</h1>
+          <p>Speaker Outreach CRM</p>
+        </div>
+        <div className="sid-nav">
+          {[
+            {v:'dashboard',icon:'ti-layout-dashboard',label:'Dashboard'},
+            {v:'contacts',icon:'ti-building-school',label:'All Schools'},
+            {v:'followups',icon:'ti-bell',label:'Follow-ups'+(fupCount>0?` (${fupCount})`:'')},
+          ].map(({v,icon,label})=>(
+            <button key={v} className={'nav-btn'+(view===v?' active':'')} onClick={()=>setView(v)}>
+              <i className={'ti '+icon}/>{label}
+            </button>
+          ))}
+          <div className="nav-divider"/>
+          <button className="nav-btn" onClick={()=>setShowAdd(true)}><i className="ti ti-plus"/>Add School</button>
+          <div className="nav-divider"/>
+          <button className="nav-btn" onClick={()=>exportData(contacts)}><i className="ti ti-download"/>Export Backup</button>
+          <button className="nav-btn" onClick={()=>document.getElementById('import-file').click()}><i className="ti ti-upload"/>Import Backup</button>
+        </div>
+        <div className="sid-stats">
+          <div className="ss-card"><div className="num">{contacts.length}</div><div className="lbl">Schools</div></div>
+          <div className="ss-card"><div className="num">{contacts.filter(c=>c.status==='Booked!').length}</div><div className="lbl">Booked</div></div>
+        </div>
+      </div>
+
+      <div className="main">
+        {view==='dashboard'&&<>
+          <div className="topbar"><span className="topbar-title">Dashboard</span></div>
+          <div className="content"><Dashboard contacts={contacts} onSelectContact={setSelected} setView={setView}/></div>
+        </>}
+
+        {view==='contacts'&&<>
+          <div className="topbar">
+            <div className="srch-wrap"><i className="ti ti-search srch-icon"/><input className="srch" placeholder="Search schools, contacts, cities..." value={search} onChange={e=>setSearch(e.target.value)}/></div>
+            <select className="sel" value={statusF} onChange={e=>setStatusF(e.target.value)}>{['All',...STATUSES].map(s=><option key={s}>{s}</option>)}</select>
+            <select className="sel" value={typeF} onChange={e=>setTypeF(e.target.value)}>{['All','High School','Middle/Jr High','Elementary'].map(t=><option key={t}>{t}</option>)}</select>
+            <span style={{fontSize:11,color:'var(--text-light)',whiteSpace:'nowrap'}}>{filtered.length} schools</span>
+          </div>
+          <div className="content">
+            <div className="list-area">
+              {filtered.length===0
+                ?<div className="empty-state"><i className="ti ti-search"/><p>No schools match your filters.</p></div>
+                :filtered.map(c=><ContactCard key={c.id} c={c} isActive={selected&&selected.id===c.id} onClick={()=>setSelected(s=>s&&s.id===c.id?null:c)}/>)
+              }
+            </div>
+            {selected&&<DetailPanel c={selected} onUpdate={updateContact} onClose={()=>setSelected(null)}/>}
+          </div>
+        </>}
+
+        {view==='followups'&&<>
+          <div className="topbar"><span className="topbar-title">Follow-ups</span><span style={{fontSize:11,color:'var(--text-light)'}}>{fupContacts.length} due</span></div>
+          <div className="content">
+            <div className="list-area">
+              {fupContacts.length===0
+                ?<div className="empty-state"><i className="ti ti-check"/><p>All clear — no follow-ups due!</p></div>
+                :fupContacts.map(c=><ContactCard key={c.id} c={c} isActive={selected&&selected.id===c.id} onClick={()=>setSelected(s=>s&&s.id===c.id?null:c)}/>)
+              }
+            </div>
+            {selected&&<DetailPanel c={selected} onUpdate={updateContact} onClose={()=>setSelected(null)}/>}
+          </div>
+        </>}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
 </html>
