@@ -233,34 +233,34 @@ function buildEmailTemplate(c,tplType){
   const school=c.school;
   const templates={
     initial:{
-      subject:`Quick Question – Student Speaker for ${school}`,
+      subject:`Guest Speaker Inquiry – ${school}`,
       body:`Hi ${firstName},
 
-My name is Gabe Murfitt, and I'm a speaker who works with middle and high school students across Idaho. I reach over 50,000 students a year sharing my story — I was born without arms and legs, and I speak on resilience, leadership, and what it really means to push past limits.
+Could you point me in the right direction of who handles booking guest speakers or student assemblies at ${school} for the remainder of this school year?
 
-I'd love to connect about bringing a student assembly to ${school}. Students tell me it's one of the most memorable experiences they've had, and I keep it real — no lectures, just honest storytelling that sticks.
+I am an Idaho-based motivational speaker, and I share my story of being born without arms and legs to help students build resilience and coping skills.
 
-Would you have 15 minutes for a quick call this week or next? I'm happy to work around your schedule.
+You can see a quick overview of my work at gabemurfitt.com.
 
-Thanks for your time,
+If you are the right contact, do you have 5 minutes for a brief phone call next week to see if this would be a good fit for your students before the term ends? If not, I would greatly appreciate it if you could forward this to the correct person.
+
+Thanks so much for your help,
 Gabe Murfitt
-gabemurfitt.com
-[Your phone number]`
+gabemurfitt.com`
     },
     followup:{
-      subject:`Following Up – Student Speaker for ${school}`,
+      subject:`Following Up – ${school}`,
       body:`Hi ${firstName},
 
-I wanted to follow up on my previous message about bringing a student speaker to ${school}. I know things get busy — no worries at all.
+I'm following up on my note about bringing a message of resilience to ${school} students.
 
-If it's easier, I'm happy to answer any questions by email. I can also send a short video of a past assembly so you can get a feel for what students experience.
+I know things are incredibly busy right now. If it's easier than a phone call, you can watch a [2-minute assembly clip here] to see the message in action and get a feel for what the students experience.
 
-Would this be something worth exploring for the rest of this school year, or would fall be a better time to plan?
+Let me know if you think your students would benefit from this message.
 
 Thanks again,
 Gabe Murfitt
-gabemurfitt.com
-[Your phone number]`
+gabemurfitt.com`
     },
     booked:{
       subject:`Confirmed – Gabe Murfitt Speaking at ${school}`,
@@ -279,8 +279,7 @@ Please feel free to reach out with any questions — I want to make this the bes
 
 See you soon!
 Gabe Murfitt
-gabemurfitt.com
-[Your phone number]`
+gabemurfitt.com`
     },
   };
   return templates[tplType]||templates.initial;
