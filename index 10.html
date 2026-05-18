@@ -158,20 +158,6 @@ input[type=file]{display:none}
 </style>
 </head>
 <body>
-<div id="root"></div>
-<div id="fallback" style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1e3a5f;color:#fff;font-family:Arial;font-size:14px;flex-direction:column;gap:12px;">
-  <div>Initializing...</div>
-  <div id="fallback-msg" style="font-size:11px;color:#93c5fd;max-width:400px;text-align:center;"></div>
-</div>
-<script>
-window.onerror=function(msg,src,line,col,err){
-  document.getElementById('fallback-msg').innerText='Error: '+msg+' (line '+line+')';
-  return false;
-};
-window.addEventListener('unhandledrejection',function(e){
-  document.getElementById('fallback-msg').innerText='Promise error: '+(e.reason?.message||e.reason);
-});
-</script>
 <script>
 var SUPABASE_URL='https://hoyilsqwbdkbxismiatf.supabase.co';
 var SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhveWlsc3F3YmRrYnhpc21pYXRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMTM4MjcsImV4cCI6MjA5NDY4OTgyN30.GaAjxWcfmdBCRkSkRuw3Ix1tDqoxNMCHOPWaY6VGg1c';
@@ -6582,10 +6568,111 @@ var SEED_RAW=[];
 ]);</script>
 <script>
 var SEED=SEED_RAW.map(function(r){
-  return {id:r[0],school:r[1],type:r[2],cls:r[3],district:r[4],city:r[5],state:r[6],priority:r[7],contact:r[8],role:r[9],phone:r[10],email:r[11],status:r[12],notes:r[13],principal:'',pPhone:'',sca:'',scaPhone:'',followUp:'',contacted:'',log:[]};
+  return {id:r[0],school:r[1],type:r[2],cls:r[3],district:r[4],city:r[5],state:r[6],priority:r[7],
+    contact:r[8],role:r[9],phone:r[10],email:r[11],status:r[12],notes:r[13],
+    principal:'',pPhone:'',sca:'',scaPhone:'',followUp:'',contacted:'',log:[]};
 });
 </script>
+
+<div id="login-screen" style="display:flex;align-items:center;justify-content:center;height:100vh;background:linear-gradient(135deg,#1e3a5f,#2563eb);font-family:Arial;">
+  <div style="background:#fff;border-radius:16px;padding:48px 40px;width:340px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+    <div style="font-size:26px;font-weight:800;color:#1e3a5f;margin-bottom:4px;">Gabe Murfitt</div>
+    <div style="font-size:13px;color:#6b7280;margin-bottom:32px;">Speaker Outreach CRM</div>
+    <input id="login-email" type="email" placeholder="Email" value="gabemurfittspeaker@gmail.com"
+      style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;margin-bottom:8px;box-sizing:border-box;"/>
+    <input id="login-pass" type="password" placeholder="Password"
+      style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;margin-bottom:16px;box-sizing:border-box;"/>
+    <button id="login-btn"
+      style="width:100%;padding:13px;border:none;border-radius:8px;background:#2563eb;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">
+      Sign In
+    </button>
+    <div id="login-error" style="margin-top:12px;color:#dc2626;font-size:13px;"></div>
+  </div>
+</div>
+
+<script>
+(async function(){
+  // Check for existing session first
+  try {
+    const {data:{session}} = await supabase.auth.getSession();
+    if(session?.user){
+      window.currentUser = session.user;
+      window.currentUserEmail = session.user.email;
+      await mountApp(session.user.id);
+      return;
+    }
+  } catch(e){ console.log('Session check failed:', e); }
+
+  // No session - show login
+  document.getElementById('login-btn').addEventListener('click', async function(){
+    const email = document.getElementById('login-email').value;
+    const pass = document.getElementById('login-pass').value;
+    const errDiv = document.getElementById('login-error');
+    errDiv.textContent = '';
+    document.getElementById('login-btn').textContent = 'Signing in...';
+    try {
+      const {data, error} = await supabase.auth.signInWithPassword({email, password: pass});
+      if(error){ errDiv.textContent = error.message; document.getElementById('login-btn').textContent = 'Sign In'; return; }
+      window.currentUser = data.user;
+      window.currentUserEmail = data.user.email;
+      await mountApp(data.user.id);
+    } catch(e){ errDiv.textContent = 'Login failed: ' + e.message; document.getElementById('login-btn').textContent = 'Sign In'; }
+  });
+})();
+
+async function loadProgressData(uid){
+  try {
+    const {data, error} = await supabase.from('progress').select('*').eq('user_id', uid);
+    if(error || !data) return {};
+    const map = {};
+    data.forEach(r => map[r.school_id] = r);
+    return map;
+  } catch(e){ return {}; }
+}
+
+async function mountApp(uid){
+  const progressMap = await loadProgressData(uid);
+  // Merge progress into SEED
+  window.SEED_WITH_PROGRESS = SEED.map(s => {
+    const p = progressMap[s.id];
+    if(!p) return {...s};
+    return {...s,
+      status: p.status||s.status, notes: p.notes||s.notes,
+      contact: p.contact||s.contact, phone: p.phone||s.phone, email: p.email||s.email,
+      principal: p.principal||s.principal, pPhone: p.p_phone||s.pPhone,
+      sca: p.sca||s.sca, scaPhone: p.sca_phone||s.scaPhone,
+      followUp: p.follow_up||s.followUp, contacted: p.contacted||s.contacted, log: p.log||s.log
+    };
+  });
+
+  window.saveProgress = async function(updated){
+    try {
+      await supabase.from('progress').upsert({
+        school_id: updated.id, user_id: window.currentUser.id,
+        status: updated.status, notes: updated.notes, contact: updated.contact,
+        phone: updated.phone, email: updated.email, principal: updated.principal,
+        p_phone: updated.pPhone, sca: updated.sca, sca_phone: updated.scaPhone,
+        follow_up: updated.followUp, contacted: updated.contacted, log: updated.log,
+      }, {onConflict: 'school_id,user_id'});
+    } catch(e){ console.error('Save error:', e); }
+  };
+
+  window.signOut = async function(){
+    await supabase.auth.signOut();
+    window.location.reload();
+  };
+
+  // Hide login, show app
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('root').style.display = 'block';
+  // Mount React
+  window.__mountReact();
+}
+</script>
+
+<div id="root" style="display:none"></div>
 <script type="text/babel">
+
 
 const {useState,useEffect,useRef,useCallback}=React;
 const STATUS_CFG={
@@ -6935,9 +7022,7 @@ function Dashboard({contacts,onSelectContact,setView}){
 
 function App(){
   console.log("App mounting, SEED length:", typeof SEED !== "undefined" ? SEED.length : "SEED UNDEFINED");
-  const [contacts,setContacts]=useState([]);
-  const [user,setUser]=useState(null);
-  const [authLoading,setAuthLoading]=useState(true);
+  const [contacts,setContacts]=useState(window.SEED_WITH_PROGRESS||SEED.map(s=>({...s})));
   const [saving,setSaving]=useState(false);
   const [view,setView]=useState('dashboard');
   const [selected,setSelected]=useState(null);
@@ -6949,24 +7034,7 @@ function App(){
   const [districtF,setDistrictF]=useState('All');
   const [loaded,setLoaded]=useState(false);
 
-  useEffect(()=>{
-    supabase.auth.getSession().then(({data:{session}})=>{
-      const u=session?.user??null;
-      setUser(u);setAuthLoading(false);
-      if(u) loadProgress(u.id);
-      else setContacts(SEED.map(s=>({...s})));
-    });
-    const {data:{subscription}}=supabase.auth.onAuthStateChange((_,session)=>{
-      const u=session?.user??null;setUser(u);
-      if(u) loadProgress(u.id);
-      else setContacts(SEED.map(s=>({...s})));
-    });
-    return ()=>subscription.unsubscribe();
-  },[]);
 
-  async function loadProgress(uid){
-    const {data,error}=await supabase.from('progress').select('*').eq('user_id',uid);
-    if(error){console.error(error);setContacts(SEED.map(s=>({...s})));return;}
     const map={};
     if(data) data.forEach(r=>map[r.school_id]=r);
     setContacts(SEED.map(s=>{
@@ -6980,33 +7048,11 @@ function App(){
     }));
   }
 
-  async function saveProgress(updated){
-    if(!user) return;
-    setSaving(true);
-    await supabase.from('progress').upsert({
-      school_id:updated.id,user_id:user.id,
-      status:updated.status,notes:updated.notes,contact:updated.contact,
-      phone:updated.phone,email:updated.email,principal:updated.principal,
-      p_phone:updated.pPhone,sca:updated.sca,sca_phone:updated.scaPhone,
-      follow_up:updated.followUp,contacted:updated.contacted,log:updated.log,
-    },{onConflict:'school_id,user_id'});
-    setSaving(false);
-  }
-
-  async function signInWithEmail(){
-    const email=document.getElementById('auth-email').value;
-    const pass=document.getElementById('auth-pass').value;
-    const{error}=await supabase.auth.signInWithPassword({email,password:pass});
-    if(error) alert(error.message);
-  }
-  async function signOut(){
-    await supabase.auth.signOut();
-    setUser(null);setContacts(SEED.map(s=>({...s})));
-  }
 
 
 
-  function updateContact(updated){setContacts(cs=>cs.map(c=>c.id===updated.id?updated:c));setSelected(updated);saveProgress(updated);}
+
+  function updateContact(updated){setContacts(cs=>cs.map(c=>c.id===updated.id?updated:c));setSelected(updated);window.saveProgress&&window.saveProgress(updated);}
   function addContact(c){setContacts(cs=>[...cs,c]);setShowAdd(false);}
 
   const today=new Date().toISOString().slice(0,10);
@@ -7022,8 +7068,6 @@ function App(){
     if(districtF!=='All'&&c.district!==districtF)return false;
     return true;
   }).sort((a,b)=>a.priority-b.priority||(a.school>b.school?1:-1));
-
-  if(authLoading) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',background:'#1e3a5f',color:'#fff',fontFamily:'Arial'}}>Loading…</div>;
 
   if(!user) return (
     <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',background:'linear-gradient(135deg,#1e3a5f,#2563eb)'}}>
@@ -7178,10 +7222,12 @@ function App(){
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+window.__mountReact=function(){ReactDOM.createRoot(document.getElementById('root')).render(<App/>);};
 const fb=document.getElementById('fallback');
 if(fb) fb.style.display='none';
+
 
 </script>
 </body>
 </html>
+  
