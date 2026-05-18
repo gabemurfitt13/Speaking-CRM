@@ -6780,7 +6780,7 @@ function ContactCard({c,isActive,onClick}){
   return (
     <div className={'c-card'+(isActive?' active':'')} onClick={onClick}>
       <div className="c-card-top">
-        <h4>{c.school}</h4>
+        <h4>{c.school}{c.spokenBefore&&<span style={{marginLeft:6,fontSize:9,background:'#fef3c7',color:'#92400e',border:'1px solid #fcd34d',borderRadius:3,padding:'1px 5px',fontWeight:700,verticalAlign:'middle'}}>⭐ SPOKEN</span>}</h4>
         <Pill status={c.status}/>
       </div>
       <div className="c-card-meta">
@@ -6796,6 +6796,7 @@ function ContactCard({c,isActive,onClick}){
 
 function DetailPanel({c,onUpdate,onClose}){
   const [tab,setTab]=useState('track');
+  const [spokenBefore,setSpokenBefore]=useState(c.spokenBefore||false);
   const [status,setStatus]=useState(c.status);
   const [notes,setNotes]=useState(c.notes);
   const [followUp,setFollowUp]=useState(c.followUp||'');
@@ -6811,7 +6812,7 @@ function DetailPanel({c,onUpdate,onClose}){
     setTab('track');setCopied(false);
   },[c.id]);
 
-  function save(){onUpdate({...c,status,notes,followUp,contacted});showToast('Saved');}
+  function save(){onUpdate({...c,status,notes,followUp,contacted,spokenBefore});showToast('Saved');}
   function addLog(){
     if(!logNote.trim())return;
     const entry={date:new Date().toISOString().slice(0,10),type:logType,note:logNote.trim()};
@@ -6838,6 +6839,7 @@ function DetailPanel({c,onUpdate,onClose}){
       <div className="det-head">
         <div className="det-head-top">
           <h3>{c.school}</h3>
+          <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:11,color:'#92400e',fontWeight:600,background:'#fef3c7',padding:'3px 8px',borderRadius:4,border:'1px solid #fcd34d'}}><input type="checkbox" checked={spokenBefore} onChange={e=>{const v=e.target.checked;setSpokenBefore(v);onUpdate({...c,status,notes,followUp,contacted,spokenBefore:v});}}/> ⭐ Spoken Here Before</label>
           <button className="btn sm" onClick={onClose}><i className="ti ti-x"/></button>
         </div>
         <div className="det-head-meta">
@@ -7000,7 +7002,7 @@ function Dashboard({contacts,onSelectContact,setView}){
         <h3><i className="ti ti-bell"/>Follow-ups needed ({fupList.length})</h3>
         {fupList.slice(0,5).map(c=>(
           <div className="fup-row" key={c.id} onClick={()=>{setView('contacts');setTimeout(()=>onSelectContact(c),50)}}>
-            <div className="fup-row-left"><h4>{c.school}</h4><p>{c.contact||'No AD on file'} · {c.city}{c.state?`, ${c.state}`:''} · Due: {c.followUp}</p></div>
+            <div className="fup-row-left"><h4>{c.school}{c.spokenBefore&&<span style={{marginLeft:6,fontSize:9,background:'#fef3c7',color:'#92400e',border:'1px solid #fcd34d',borderRadius:3,padding:'1px 5px',fontWeight:700,verticalAlign:'middle'}}>⭐ SPOKEN</span>}</h4><p>{c.contact||'No AD on file'} · {c.city}{c.state?`, ${c.state}`:''} · Due: {c.followUp}</p></div>
             <Pill status={c.status}/>
           </div>
         ))}
@@ -7093,6 +7095,7 @@ function App(){
   const [typeF,setTypeF]=useState('All');
   const [stateF,setStateF]=useState('All');
   const [districtF,setDistrictF]=useState('All');
+  const [spokenFilter,setSpokenFilter]=useState(false);
   const [loaded,setLoaded]=useState(false);
 
   useEffect(()=>{
@@ -7137,6 +7140,7 @@ function App(){
   function updateContact(updated){setContacts(cs=>cs.map(c=>c.id===updated.id?updated:c));setSelected(updated);}
   function addContact(c){setContacts(cs=>[...cs,c]);setShowAdd(false);}
 
+  const spokenCount=contacts.filter(c=>c.spokenBefore).length;
   const today=new Date().toISOString().slice(0,10);
   const fupCount=contacts.filter(c=>c.followUp&&c.followUp<=today&&!['Booked!','Not Interested'].includes(c.status)).length;
   const fupContacts=contacts.filter(c=>c.followUp&&c.followUp<=today&&!['Booked!','Not Interested'].includes(c.status)).sort((a,b)=>a.followUp>b.followUp?1:-1);
@@ -7148,6 +7152,7 @@ function App(){
     if(typeF!=='All'&&c.type!==typeF)return false;
     if(stateF!=='All'&&c.state!==stateF)return false;
     if(districtF!=='All'&&c.district!==districtF)return false;
+    if(spokenFilter&&!c.spokenBefore)return false;
     return true;
   }).sort((a,b)=>a.priority-b.priority||(a.school>b.school?1:-1));
 
@@ -7178,7 +7183,7 @@ function App(){
         </div>
         <div className="sid-stats">
           <div className="ss-card"><div className="num">{contacts.length}</div><div className="lbl">Schools</div></div>
-          <div className="ss-card"><div className="num">{contacts.filter(c=>c.status==='Booked!').length}</div><div className="lbl">Booked</div></div>
+          <div className="ss-card"><div className="num">{spokenCount}</div><div className="lbl">⭐ Spoken</div></div><div className="ss-card"><div className="num">{contacts.filter(c=>c.status==='Booked!').length}</div><div className="lbl">Booked</div></div>
         </div>
       </div>
 
@@ -7200,6 +7205,7 @@ function App(){
               {['All',...Array.from(new Set(contacts.filter(c=>stateF==='All'||c.state===stateF).map(c=>c.district).filter(Boolean))).sort()].map(d=><option key={d}>{d}</option>)}
             </select>
             <span style={{fontSize:11,color:'var(--text-light)',whiteSpace:'nowrap'}}>{filtered.length} schools</span>
+            <button onClick={()=>setSpokenFilter(f=>!f)} style={{fontSize:11,padding:'3px 8px',borderRadius:4,border:'1px solid '+(spokenFilter?'#f59e0b':'var(--border)'),background:spokenFilter?'#fef3c7':'transparent',color:spokenFilter?'#92400e':'var(--text-muted)',cursor:'pointer',fontWeight:spokenFilter?600:400}}>⭐ Spoken Here</button>
           </div>
           <div className="content">
             <div className="list-area">
