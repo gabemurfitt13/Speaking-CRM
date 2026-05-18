@@ -220,7 +220,7 @@ window.addEventListener('load', function(){
         var p = map[s.id];
         if(!p) return Object.assign({}, s);
         return Object.assign({}, s, {
-          status: p.status||s.status, notes: p.notes||s.notes,
+          status: p.status||s.status, notes: p.notes||s.notes, spokenBefore: p.spoken_before||false, spokenBefore: p.spoken_before||false,
           contact: p.contact||s.contact, phone: p.phone||s.phone,
           email: p.email||s.email, principal: p.principal||s.principal,
           pPhone: p.p_phone||s.pPhone, sca: p.sca||s.sca,
@@ -243,11 +243,11 @@ window.addEventListener('load', function(){
       if(!raw) return;
       var contacts = JSON.parse(raw);
       var dirty = contacts.filter(function(c){
-        return c.status !== 'Not Started' || c.notes || (c.contact && c.contact !== c._origContact) || c.followUp;
+        return c.status !== 'Not Started' || c.notes || (c.contact && c.contact !== c._origContact) || c.followUp || c.spokenBefore;
       });
       if(!dirty.length) return;
       var rows = dirty.map(function(c){ return {
-        school_id:c.id, user_id:uid, status:c.status, notes:c.notes||'',
+        school_id:c.id, user_id:uid, status:c.status, notes:c.notes||'', spoken_before:c.spokenBefore||false, spoken_before:c.spokenBefore||false,
         contact:c.contact||'', phone:c.phone||'', email:c.email||'',
         principal:c.principal||'', p_phone:c.pPhone||'', sca:c.sca||'',
         sca_phone:c.scaPhone||'', follow_up:c.followUp||'',
@@ -6671,7 +6671,7 @@ var SEED_RAW=[];
 var SEED=SEED_RAW.map(function(r){
   return {id:r[0],school:r[1],type:r[2],cls:r[3],district:r[4],city:r[5],state:r[6],priority:r[7],
     contact:r[8],role:r[9],phone:r[10],email:r[11],status:r[12],notes:r[13],
-    principal:'',pPhone:'',sca:'',scaPhone:'',followUp:'',contacted:'',log:[]};
+    principal:'',pPhone:'',sca:'',scaPhone:'',followUp:'',contacted:'',log:[],spokenBefore:false};
 });
 </script>
 <div id="root"></div>
