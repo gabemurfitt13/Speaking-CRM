@@ -159,6 +159,19 @@ input[type=file]{display:none}
 </head>
 <body>
 <div id="root"></div>
+<div id="fallback" style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1e3a5f;color:#fff;font-family:Arial;font-size:14px;flex-direction:column;gap:12px;">
+  <div>Initializing...</div>
+  <div id="fallback-msg" style="font-size:11px;color:#93c5fd;max-width:400px;text-align:center;"></div>
+</div>
+<script>
+window.onerror=function(msg,src,line,col,err){
+  document.getElementById('fallback-msg').innerText='Error: '+msg+' (line '+line+')';
+  return false;
+};
+window.addEventListener('unhandledrejection',function(e){
+  document.getElementById('fallback-msg').innerText='Promise error: '+(e.reason?.message||e.reason);
+});
+</script>
 <script>
 var SUPABASE_URL='https://hoyilsqwbdkbxismiatf.supabase.co';
 var SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhveWlsc3F3YmRrYnhpc21pYXRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMTM4MjcsImV4cCI6MjA5NDY4OTgyN30.GaAjxWcfmdBCRkSkRuw3Ix1tDqoxNMCHOPWaY6VGg1c';
@@ -6921,6 +6934,7 @@ function Dashboard({contacts,onSelectContact,setView}){
 }
 
 function App(){
+  console.log("App mounting, SEED length:", typeof SEED !== "undefined" ? SEED.length : "SEED UNDEFINED");
   const [contacts,setContacts]=useState([]);
   const [user,setUser]=useState(null);
   const [authLoading,setAuthLoading]=useState(true);
@@ -7165,6 +7179,8 @@ function App(){
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+const fb=document.getElementById('fallback');
+if(fb) fb.style.display='none';
 
 </script>
 </body>
