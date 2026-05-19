@@ -158,20 +158,18 @@ input[type=file]{display:none}
 </style>
 </head>
 <body>
+
 <style>
 #login-wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e3a5f,#2563eb);z-index:9999;font-family:Arial,sans-serif;}
 #login-box{background:#fff;border-radius:16px;padding:48px 40px;width:340px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.2);}
-#login-title{font-size:26px;font-weight:800;color:#1e3a5f;margin-bottom:4px;}
-#login-sub{font-size:13px;color:#6b7280;margin-bottom:32px;}
 .login-inp{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;margin-bottom:8px;box-sizing:border-box;}
 #login-btn{width:100%;padding:13px;border:none;border-radius:8px;background:#2563eb;color:#fff;font-size:14px;font-weight:600;cursor:pointer;}
-#login-btn:hover{background:#1d4ed8;}
-#login-err{margin-top:12px;color:#dc2626;font-size:13px;min-height:20px;}
+#login-err{margin-top:12px;color:#dc2626;font-size:13px;min-height:18px;}
 </style>
 <div id="login-wrap">
   <div id="login-box">
-    <div id="login-title">Gabe Murfitt</div>
-    <div id="login-sub">Speaker Outreach CRM</div>
+    <div style="font-size:26px;font-weight:800;color:#1e3a5f;margin-bottom:4px;">Gabe Murfitt</div>
+    <div style="font-size:13px;color:#6b7280;margin-bottom:32px;">Speaker Outreach CRM</div>
     <input id="login-email" class="login-inp" type="email" placeholder="Email" value="gabemurfittspeaker@gmail.com"/>
     <input id="login-pass" class="login-inp" type="password" placeholder="Password"/>
     <button id="login-btn">Sign In</button>
@@ -179,82 +177,67 @@ input[type=file]{display:none}
   </div>
 </div>
 <script>
-window.addEventListener('load', function(){
-  var SKEY = 'gabe-crm-v2';
-
+window.addEventListener('load',function(){
+  var SKEY='gabe-crm-v2';
   supabase.auth.getSession().then(function(res){
-    if(res.data && res.data.session && res.data.session.user){
+    if(res.data&&res.data.session&&res.data.session.user){
       loadAndMount(res.data.session.user);
     }
   }).catch(function(){});
-
-  var btn = document.getElementById('login-btn');
-  if(btn) btn.addEventListener('click', function(){
-    var email = document.getElementById('login-email').value.trim();
-    var pass  = document.getElementById('login-pass').value;
-    var err   = document.getElementById('login-err');
-    err.textContent = '';
-    btn.textContent = 'Signing in...';
-    btn.disabled = true;
-    supabase.auth.signInWithPassword({email:email, password:pass}).then(function(res){
-      if(res.error){
-        err.textContent = res.error.message;
-        btn.textContent = 'Sign In';
-        btn.disabled = false;
-        return;
-      }
+  var btn=document.getElementById('login-btn');
+  if(btn)btn.addEventListener('click',function(){
+    var email=document.getElementById('login-email').value.trim();
+    var pass=document.getElementById('login-pass').value;
+    var err=document.getElementById('login-err');
+    err.textContent='';btn.textContent='Signing in...';btn.disabled=true;
+    supabase.auth.signInWithPassword({email:email,password:pass}).then(function(res){
+      if(res.error){err.textContent=res.error.message;btn.textContent='Sign In';btn.disabled=false;return;}
       loadAndMount(res.data.user);
-    }).catch(function(e){
-      err.textContent = 'Error: ' + (e.message||'Unknown');
-      btn.textContent = 'Sign In';
-      btn.disabled = false;
-    });
+    }).catch(function(e){err.textContent='Error: '+(e.message||'Unknown');btn.textContent='Sign In';btn.disabled=false;});
   });
-
   function loadAndMount(user){
-    window._supabaseUser = user;
-    supabase.from('progress').select('*').eq('user_id', user.id).then(function(res){
-      var map = {};
-      if(res.data) res.data.forEach(function(r){ map[r.school_id] = r; });
-      var merged = SEED.map(function(s){
-        var p = map[s.id];
-        if(!p) return Object.assign({}, s);
-        return Object.assign({}, s, {
-          status: p.status||s.status, notes: p.notes||s.notes, spokenBefore: p.spoken_before||false, spokenBefore: p.spoken_before||false,
-          contact: p.contact||s.contact, phone: p.phone||s.phone,
-          email: p.email||s.email, principal: p.principal||s.principal,
-          pPhone: p.p_phone||s.pPhone, sca: p.sca||s.sca,
-          scaPhone: p.sca_phone||s.scaPhone, followUp: p.follow_up||s.followUp,
-          contacted: p.contacted||s.contacted, log: p.log||s.log
+    window._supabaseUser=user;
+    supabase.from('progress').select('*').eq('user_id',user.id).then(function(res){
+      var map={};
+      if(res.data)res.data.forEach(function(r){map[r.school_id]=r;});
+      var merged=SEED.map(function(s){
+        var p=map[s.id];
+        if(!p)return Object.assign({},s,{spokenBefore:false,fee:'',expenses:'',students:'',payStatus:'Not Invoiced',gigDate:''});
+        return Object.assign({},s,{
+          status:p.status||s.status,notes:p.notes||s.notes,
+          contact:p.contact||s.contact,phone:p.phone||s.phone,email:p.email||s.email,
+          principal:p.principal||s.principal,pPhone:p.p_phone||s.pPhone,
+          sca:p.sca||s.sca,scaPhone:p.sca_phone||s.scaPhone,
+          followUp:p.follow_up||s.followUp,contacted:p.contacted||s.contacted,log:p.log||s.log,
+          spokenBefore:p.spoken_before||false,fee:p.fee||'',expenses:p.expenses||'',
+          students:p.students||'',payStatus:p.pay_status||'Not Invoiced',gigDate:p.gig_date||''
         });
       });
-      try{ localStorage.setItem(SKEY, JSON.stringify(merged)); }catch(e){}
-      document.getElementById('login-wrap').style.display = 'none';
-      window._syncInterval = setInterval(function(){ syncToSupabase(user.id); }, 30000);
-      window.addEventListener('beforeunload', function(){ syncToSupabase(user.id); });
+      try{localStorage.setItem(SKEY,JSON.stringify(merged));}catch(e){}
+      document.getElementById('login-wrap').style.display='none';
+      window._syncInterval=setInterval(function(){syncToSupabase(user.id);},30000);
+      window.addEventListener('beforeunload',function(){syncToSupabase(user.id);});
     }).catch(function(){
-      document.getElementById('login-wrap').style.display = 'none';
+      document.getElementById('login-wrap').style.display='none';
     });
   }
-
   function syncToSupabase(uid){
     try{
-      var raw = localStorage.getItem(SKEY);
-      if(!raw) return;
-      var contacts = JSON.parse(raw);
-      var dirty = contacts.filter(function(c){
-        return c.status !== 'Not Started' || c.notes || (c.contact && c.contact !== c._origContact) || c.followUp || c.spokenBefore;
-      });
-      if(!dirty.length) return;
-      var rows = dirty.map(function(c){ return {
-        school_id:c.id, user_id:uid, status:c.status, notes:c.notes||'', spoken_before:c.spokenBefore||false, spoken_before:c.spokenBefore||false,
-        contact:c.contact||'', phone:c.phone||'', email:c.email||'',
-        principal:c.principal||'', p_phone:c.pPhone||'', sca:c.sca||'',
-        sca_phone:c.scaPhone||'', follow_up:c.followUp||'',
-        contacted:c.contacted||'', log:c.log||[]
+      var raw=localStorage.getItem(SKEY);
+      if(!raw)return;
+      var contacts=JSON.parse(raw);
+      var dirty=contacts.filter(function(c){return c.status!=='Not Started'||c.notes||c.spokenBefore||c.fee||c.followUp;});
+      if(!dirty.length)return;
+      var rows=dirty.map(function(c){return {
+        school_id:c.id,user_id:uid,status:c.status,notes:c.notes||'',
+        contact:c.contact||'',phone:c.phone||'',email:c.email||'',
+        principal:c.principal||'',p_phone:c.pPhone||'',sca:c.sca||'',
+        sca_phone:c.scaPhone||'',follow_up:c.followUp||'',contacted:c.contacted||'',log:c.log||[],
+        spoken_before:c.spokenBefore||false,fee:c.fee||'',expenses:c.expenses||'',
+        students:c.students||'',pay_status:c.payStatus||'Not Invoiced',gig_date:c.gigDate||''
       };});
-      supabase.from('progress').upsert(rows, {onConflict:'school_id,user_id'});
-    }catch(e){ console.error('Sync error:', e); }
+      supabase.from('progress').upsert(rows,{onConflict:'school_id,user_id'});
+    }catch(e){console.error('Sync error:',e);}
   }
 });
 </script>
@@ -6671,7 +6654,8 @@ var SEED_RAW=[];
 var SEED=SEED_RAW.map(function(r){
   return {id:r[0],school:r[1],type:r[2],cls:r[3],district:r[4],city:r[5],state:r[6],priority:r[7],
     contact:r[8],role:r[9],phone:r[10],email:r[11],status:r[12],notes:r[13],
-    principal:'',pPhone:'',sca:'',scaPhone:'',followUp:'',contacted:'',log:[],spokenBefore:false};
+    principal:'',pPhone:'',sca:'',scaPhone:'',followUp:'',contacted:'',log:[],
+    spokenBefore:false,fee:'',expenses:'',students:'',payStatus:'Not Invoiced',gigDate:''};
 });
 </script>
 <div id="root"></div>
@@ -6798,6 +6782,11 @@ function DetailPanel({c,onUpdate,onClose}){
   const [tab,setTab]=useState('track');
   const [spokenBefore,setSpokenBefore]=useState(c.spokenBefore||false);
   const [status,setStatus]=useState(c.status);
+  const [fee,setFee]=useState(c.fee||'');
+  const [expenses,setExpenses]=useState(c.expenses||'');
+  const [students,setStudents]=useState(c.students||'');
+  const [payStatus,setPayStatus]=useState(c.payStatus||'Not Invoiced');
+  const [gigDate,setGigDate]=useState(c.gigDate||'');
   const [notes,setNotes]=useState(c.notes);
   const [followUp,setFollowUp]=useState(c.followUp||'');
   const [contacted,setContacted]=useState(c.contacted||'');
@@ -6812,7 +6801,7 @@ function DetailPanel({c,onUpdate,onClose}){
     setTab('track');setCopied(false);
   },[c.id]);
 
-  function save(){onUpdate({...c,status,notes,followUp,contacted,spokenBefore});showToast('Saved');}
+  function save(){onUpdate({...c,status,notes,followUp,contacted,spokenBefore,fee,expenses,students,payStatus,gigDate});showToast('Saved');}
   function addLog(){
     if(!logNote.trim())return;
     const entry={date:new Date().toISOString().slice(0,10),type:logType,note:logNote.trim()};
@@ -6839,7 +6828,7 @@ function DetailPanel({c,onUpdate,onClose}){
       <div className="det-head">
         <div className="det-head-top">
           <h3>{c.school}</h3>
-          <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:11,color:'#92400e',fontWeight:600,background:'#fef3c7',padding:'3px 8px',borderRadius:4,border:'1px solid #fcd34d'}}><input type="checkbox" checked={spokenBefore} onChange={e=>{const v=e.target.checked;setSpokenBefore(v);onUpdate({...c,status,notes,followUp,contacted,spokenBefore:v});}}/> ⭐ Spoken Here Before</label>
+          <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:11,color:'#92400e',fontWeight:600,background:'#fef3c7',padding:'3px 8px',borderRadius:4,border:'1px solid #fcd34d'}}><input type="checkbox" checked={spokenBefore} onChange={e=>{const v=e.target.checked;setSpokenBefore(v);onUpdate({...c,status,notes,followUp,contacted,spokenBefore:v,fee,expenses,students,payStatus,gigDate});}}/> ⭐ Spoken Here Before</label>
           <button className="btn sm" onClick={onClose}><i className="ti ti-x"/></button>
         </div>
         <div className="det-head-meta">
@@ -6850,7 +6839,7 @@ function DetailPanel({c,onUpdate,onClose}){
         </div>
       </div>
       <div className="det-tabs">
-        {[['track','ti-chart-bar','Track'],['contacts','ti-users','Contacts'],['email','ti-mail','Email']].map(([v,ic,lb])=>(
+        {[['track','ti-chart-bar','Track'],['contacts','ti-users','Contacts'],['finance','ti-currency-dollar','Finance'],['email','ti-mail','Email']].map(([v,ic,lb])=>(
           <button key={v} className={'det-tab'+(tab===v?' active':'')} onClick={()=>setTab(v)}>
             <i className={'ti '+ic} style={{marginRight:4,fontSize:13,verticalAlign:-2}}/>{lb}
           </button>
@@ -6918,6 +6907,7 @@ function DetailPanel({c,onUpdate,onClose}){
           </div>}
         </>}
 
+        {tab==='finance'&&<div className="det-sect"><h5>Booking Financials</h5><div className="field-group"><label>Gig Date</label><input type="date" className="inp" value={gigDate} onChange={e=>setGigDate(e.target.value)}/></div><div className="field-group"><label>Fee Charged ($)</label><input type="number" className="inp" placeholder="0.00" value={fee} onChange={e=>setFee(e.target.value)}/></div><div className="field-group"><label>Expenses ($)</label><input type="number" className="inp" placeholder="Travel, hotel, meals..." value={expenses} onChange={e=>setExpenses(e.target.value)}/></div><div className="field-group"><label>Net Revenue</label><div style={{padding:'8px 12px',background:'var(--bg)',borderRadius:'var(--radius)',fontWeight:700,fontSize:15}}>${(parseFloat(fee||0)-parseFloat(expenses||0)).toFixed(2)}</div></div><div className="field-group"><label>Students in Room</label><input type="number" className="inp" placeholder="Attendance" value={students} onChange={e=>setStudents(e.target.value)}/></div>{fee&&students&&parseFloat(students)>0&&<div className="field-group"><label>Cost Per Student</label><div style={{padding:'8px 12px',background:'#f0fdf4',borderRadius:'var(--radius)',fontWeight:700,color:'#166534',fontSize:15}}>${(parseFloat(fee||0)/parseFloat(students||1)).toFixed(2)} per student</div></div>}<div className="field-group"><label>Payment Status</label><select className="sel" style={{width:'100%'}} value={payStatus} onChange={e=>setPayStatus(e.target.value)}>{['Not Invoiced','Invoiced','Received','Overdue'].map(s=><option key={s}>{s}</option>)}</select></div><button className="btn primary" style={{width:'100%',marginTop:8}} onClick={save}>Save Financials</button></div>}
         {tab==='email'&&<>
           <div className="tpl-picker">
             {[['initial','First Outreach'],['followup','Follow-up'],['booked','Booking Confirm']].map(([v,l])=>(
@@ -7026,62 +7016,78 @@ function Dashboard({contacts,onSelectContact,setView}){
 }
 
 
-function DistrictView({contacts,stateF,setStateF,setDistrictF,setView}){
-  const districtMap={};
-  contacts.filter(c=>stateF==='All'||c.state===stateF).forEach(c=>{
-    const d=c.district||'Unknown District';
-    if(!districtMap[d]) districtMap[d]={schools:[],state:c.state};
-    districtMap[d].schools.push(c);
+function FinanceDashboard({contacts}){
+  var booked=contacts.filter(function(c){return c.fee&&parseFloat(c.fee)>0;});
+  var totalRev=booked.reduce(function(s,c){return s+parseFloat(c.fee||0);},0);
+  var totalExp=booked.reduce(function(s,c){return s+parseFloat(c.expenses||0);},0);
+  var totalNet=totalRev-totalExp;
+  var totalStudents=booked.reduce(function(s,c){return s+parseFloat(c.students||0);},0);
+  var avgFee=booked.length?totalRev/booked.length:0;
+  var byState={};
+  booked.forEach(function(c){
+    if(!byState[c.state]) byState[c.state]={rev:0,count:0};
+    byState[c.state].rev+=parseFloat(c.fee||0);
+    byState[c.state].count+=1;
   });
-  const districtList=Object.entries(districtMap).sort(([a],[b])=>a>b?1:-1);
+  var stateList=Object.entries(byState).sort(function(a,b){return b[1].rev-a[1].rev;});
+  var overdue=contacts.filter(function(c){return c.payStatus==='Overdue';});
+  var invoiced=contacts.filter(function(c){return c.payStatus==='Invoiced';});
+  function fmt(n){return '$'+Math.round(n).toLocaleString();}
+  var stats=[
+    {label:'Total Revenue',val:fmt(totalRev),color:'#166534',bg:'#f0fdf4'},
+    {label:'Total Expenses',val:fmt(totalExp),color:'#92400e',bg:'#fef3c7'},
+    {label:'Net Revenue',val:fmt(totalNet),color:'#1e40af',bg:'#eff6ff'},
+    {label:'Gigs Logged',val:booked.length,color:'#374151',bg:'#f3f4f6'},
+    {label:'Students Reached',val:Math.round(totalStudents).toLocaleString(),color:'#5b21b6',bg:'#f5f3ff'},
+    {label:'Avg Fee',val:fmt(avgFee),color:'#374151',bg:'#f3f4f6'},
+  ];
   return (
-    <>
-      <div className="topbar">
-        <span className="topbar-title">District View</span>
-        <select className="sel" value={stateF} onChange={e=>{setStateF(e.target.value);setDistrictF('All');}}>
-          {['All',...Array.from(new Set(contacts.map(c=>c.state).filter(Boolean))).sort()].map(s=><option key={s}>{s}</option>)}
-        </select>
-        <span style={{fontSize:11,color:'var(--text-light)',whiteSpace:'nowrap'}}>{districtList.length} districts</span>
+    <div style={{padding:16,overflowY:'auto',flex:1}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10,marginBottom:20}}>
+        {stats.map(function(s){return (
+          <div key={s.label} style={{background:s.bg,borderRadius:10,padding:'12px 14px'}}>
+            <div style={{fontSize:11,color:'#6b7280',marginBottom:4}}>{s.label}</div>
+            <div style={{fontSize:20,fontWeight:800,color:s.color}}>{s.val}</div>
+          </div>
+        );})}
       </div>
-      <div className="content">
-        <div className="list-area">
-          {districtList.map(([dist,{schools,state}])=>{
-            const total=schools.length;
-            const contacted=schools.filter(c=>c.status!=='Not Started').length;
-            const booked=schools.filter(c=>c.status==='Booked!').length;
-            const pct=Math.round(contacted/total*100);
+      {overdue.length>0&&(
+        <div style={{background:'#fef2f2',border:'1px solid #fecaca',borderRadius:8,padding:'10px 14px',marginBottom:12}}>
+          <div style={{fontWeight:700,color:'#dc2626',marginBottom:6}}>Overdue: {overdue.length} payment{overdue.length>1?'s':''}</div>
+          {overdue.map(function(c){return <div key={c.id} style={{fontSize:12,color:'#374151',padding:'2px 0'}}>{c.school} -- {fmt(parseFloat(c.fee||0))}</div>;})}
+        </div>
+      )}
+      {invoiced.length>0&&(
+        <div style={{background:'#fffbeb',border:'1px solid #fcd34d',borderRadius:8,padding:'10px 14px',marginBottom:12}}>
+          <div style={{fontWeight:700,color:'#92400e',marginBottom:6}}>Pending: {invoiced.length} invoice{invoiced.length>1?'s':''}</div>
+          {invoiced.map(function(c){return <div key={c.id} style={{fontSize:12,color:'#374151',padding:'2px 0'}}>{c.school} -- {fmt(parseFloat(c.fee||0))}</div>;})}
+        </div>
+      )}
+      {stateList.length>0&&(
+        <div>
+          <div style={{fontWeight:700,fontSize:13,marginBottom:10}}>Revenue by State</div>
+          {stateList.map(function(item){
+            var state=item[0]; var data=item[1];
             return (
-              <div key={dist} className="card" style={{marginBottom:8,cursor:'pointer'}}
-                onClick={()=>{setStateF(state);setDistrictF(dist);setView('contacts');}}>
-                <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8}}>
-                  <div>
-                    <div style={{fontWeight:600,fontSize:13,marginBottom:2}}>{dist}</div>
-                    <div style={{fontSize:11,color:'var(--text-muted)'}}>{state} · {total} school{total!==1?'s':''}</div>
-                  </div>
-                  <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
-                    {booked>0&&<span style={{background:'#d1fae5',color:'#065f46',borderRadius:4,padding:'2px 7px',fontSize:11,fontWeight:600}}>{booked} booked</span>}
-                    <span style={{background:'var(--accent-bg)',color:'var(--accent)',borderRadius:4,padding:'2px 7px',fontSize:11,fontWeight:600}}>{contacted}/{total} contacted</span>
-                  </div>
+              <div key={state} style={{display:'flex',alignItems:'center',gap:10,marginBottom:8,padding:'8px 12px',background:'#f9fafb',borderRadius:8}}>
+                <div style={{width:30,fontWeight:700,fontSize:12}}>{state}</div>
+                <div style={{flex:1,height:6,background:'#e5e7eb',borderRadius:3}}>
+                  <div style={{height:'100%',width:(totalRev>0?data.rev/totalRev*100:0)+'%',background:'#2563eb',borderRadius:3}}/>
                 </div>
-                <div style={{marginTop:8,height:4,background:'var(--border)',borderRadius:2}}>
-                  <div style={{height:'100%',width:pct+'%',background:booked>0?'#10b981':'var(--accent)',borderRadius:2}}/>
-                </div>
-                <div style={{marginTop:6,display:'flex',flexWrap:'wrap',gap:4}}>
-                  {schools.slice(0,6).map(s=>(
-                    <span key={s.id} style={{fontSize:10,padding:'1px 6px',borderRadius:3,
-                      background:s.status==='Booked!'?'#d1fae5':s.status!=='Not Started'?'#dbeafe':'var(--border)',
-                      color:s.status==='Booked!'?'#065f46':s.status!=='Not Started'?'var(--accent)':'var(--text-muted)'}}>
-                      {s.school.replace(/ (High School|Middle School|Jr High|Elementary School|Elementary)$/,'')}
-                    </span>
-                  ))}
-                  {total>6&&<span style={{fontSize:10,color:'var(--text-light)'}}>+{total-6} more</span>}
-                </div>
+                <div style={{fontSize:12,fontWeight:600,color:'#166534',width:65,textAlign:'right'}}>{fmt(data.rev)}</div>
+                <div style={{fontSize:11,color:'#6b7280',width:55,textAlign:'right'}}>{data.count} gig{data.count>1?'s':''}</div>
               </div>
             );
           })}
         </div>
-      </div>
-    </>
+      )}
+      {booked.length===0&&(
+        <div style={{textAlign:'center',padding:40,color:'#6b7280'}}>
+          <div style={{fontWeight:600,marginBottom:4}}>No financial data yet</div>
+          <div style={{fontSize:13}}>Open a booked school, click the Finance tab, and log your fee.</div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -7111,7 +7117,7 @@ function App(){
     setLoaded(true);
 
     // Import file handler
-    var _importEl=document.getElementById('import-file');if(_importEl)_importEl.addEventListener('change',function(e){
+    var _impEl=document.getElementById('import-file');if(_impEl)_impEl.addEventListener('change',function(e){
       const file=e.target.files[0];
       if(!file)return;
       const reader=new FileReader();
@@ -7170,6 +7176,7 @@ function App(){
             {v:'contacts',icon:'ti-building-school',label:'All Schools'},
             {v:'followups',icon:'ti-bell',label:'Follow-ups'+(fupCount>0?` (${fupCount})`:'')},
             {v:'districts',icon:'ti-building-community',label:'District View'},
+            {v:'finance',icon:'ti-chart-bar',label:'Finance'},
           ].map(({v,icon,label})=>(
             <button key={v} className={'nav-btn'+(view===v?' active':'')} onClick={()=>setView(v)}>
               <i className={'ti '+icon}/>{label}
@@ -7235,7 +7242,68 @@ function App(){
           </div>
         </>}
 
-        {view==='districts'&&<DistrictView contacts={contacts} stateF={stateF} setStateF={setStateF} setDistrictF={setDistrictF} setView={setView}/>}
+        {view==='finance'&&(
+          <>
+            <div className="topbar"><span className="topbar-title">Finance</span></div>
+            <div className="content"><FinanceDashboard contacts={contacts}/></div>
+          </>
+        )}
+        {view==='districts'&&(()=>{
+          const districtMap={};
+          contacts.filter(c=>stateF==='All'||c.state===stateF).forEach(c=>{
+            const d=c.district||'Unknown District';
+            if(!districtMap[d]) districtMap[d]={schools:[],state:c.state};
+            districtMap[d].schools.push(c);
+          });
+          const districtList=Object.entries(districtMap).sort(([a],[b])=>a>b?1:-1);
+          return <>
+            <div className="topbar">
+              <span className="topbar-title">District View</span>
+              <select className="sel" value={stateF} onChange={e=>{setStateF(e.target.value);setDistrictF('All');}}>
+                {['All',...Array.from(new Set(contacts.map(c=>c.state).filter(Boolean))).sort()].map(s=><option key={s}>{s}</option>)}
+              </select>
+              <span style={{fontSize:11,color:'var(--text-light)',whiteSpace:'nowrap'}}>{districtList.length} districts</span>
+            </div>
+            <div className="content">
+              <div className="list-area">
+                {districtList.map(([dist,{schools,state}])=>{
+                  const total=schools.length;
+                  const contacted=schools.filter(c=>c.status!=='Not Started').length;
+                  const booked=schools.filter(c=>c.status==='Booked!').length;
+                  const pct=Math.round(contacted/total*100);
+                  return (
+                    <div key={dist} className="card" style={{marginBottom:8,cursor:'pointer'}}
+                      onClick={()=>{setStateF(state);setDistrictF(dist);setView('contacts');}}>
+                      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8}}>
+                        <div>
+                          <div style={{fontWeight:600,fontSize:13,marginBottom:2}}>{dist}</div>
+                          <div style={{fontSize:11,color:'var(--text-muted)'}}>{state} · {total} school{total!==1?'s':''}</div>
+                        </div>
+                        <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
+                          {booked>0&&<span style={{background:'#d1fae5',color:'#065f46',borderRadius:4,padding:'2px 7px',fontSize:11,fontWeight:600}}>{booked} booked</span>}
+                          <span style={{background:'var(--accent-bg)',color:'var(--accent)',borderRadius:4,padding:'2px 7px',fontSize:11,fontWeight:600}}>{contacted}/{total} contacted</span>
+                        </div>
+                      </div>
+                      <div style={{marginTop:8,height:4,background:'var(--border)',borderRadius:2}}>
+                        <div style={{height:'100%',width:pct+'%',background:booked>0?'#10b981':'var(--accent)',borderRadius:2}}/>
+                      </div>
+                      <div style={{marginTop:6,display:'flex',flexWrap:'wrap',gap:4}}>
+                        {schools.slice(0,6).map(s=>(
+                          <span key={s.id} style={{fontSize:10,padding:'1px 6px',borderRadius:3,
+                            background:s.status==='Booked!'?'#d1fae5':s.status!=='Not Started'?'#dbeafe':'var(--border)',
+                            color:s.status==='Booked!'?'#065f46':s.status!=='Not Started'?'var(--accent)':'var(--text-muted)'}}>
+                            {s.school.replace(/ (High School|Middle School|Jr High|Elementary School|Elementary)$/,'')}
+                          </span>
+                        ))}
+                        {total>6&&<span style={{fontSize:10,color:'var(--text-light)'}}>+{total-6} more</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>;
+        })()}
       </div>
     </div>
   );
