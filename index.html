@@ -623,7 +623,7 @@ function Dashboard({contacts,onSelectContact,setView}){
   );
 }
 
-function QueueView({contacts,onSelectContact,setView}) {
+function QueueView({contacts,onSelectContact,setView,resetFilters}) {
   const today = new Date().toISOString().slice(0,10);
 
   const followUps = contacts
@@ -671,7 +671,7 @@ function QueueView({contacts,onSelectContact,setView}) {
             <p>No follow-ups due. Suspiciously peaceful.</p>
           </div>
         ) : followUps.map(c => (
-          <QueueRow key={c.id} c={c} label={`Due: ${c.followUp}`} onSelectContact={onSelectContact} setView={setView}/>
+          <QueueRow key={c.id} c={c} label={`Due: ${c.followUp}`} onSelectContact={onSelectContact} setView={setView} resetFilters={resetFilters}/>
         ))}
       </div>
 
@@ -682,23 +682,31 @@ function QueueView({contacts,onSelectContact,setView}) {
             <p>No hot leads yet.</p>
           </div>
         ) : hotLeads.slice(0,20).map(c => (
-          <QueueRow key={c.id} c={c} label={`Score: ${relationshipScore(c)}`} onSelectContact={onSelectContact} setView={setView}/>
+          <QueueRow key={c.id} c={c} label={`Score: ${relationshipScore(c)}`} onSelectContact={onSelectContact} setView={setView} resetFilters={resetFilters}/>
         ))}
       </div>
 
       <div className="dash-section">
         <h3><i className="ti ti-mail-plus"/> Suggested First Outreach</h3>
         {untouched.map(c => (
-          <QueueRow key={c.id} c={c} label={`Priority ${c.priority || '-'}`} onSelectContact={onSelectContact} setView={setView}/>
+          <QueueRow key={c.id} c={c} label={`Priority ${c.priority || '-'}`} onSelectContact={onSelectContact} setView={setView} resetFilters={resetFilters}/>
         ))}
       </div>
     </div>
   );
 }
 
-function QueueRow({c,label,onSelectContact,setView}) {
+function QueueRow({c,label,onSelectContact,setView,resetFilters}) {
   return (
-    <div className="fup-row" onClick={()=>{setView('contacts');setTimeout(()=>onSelectContact(c),50)}}>
+    <div className="fup-row" onClick={()=>{
+      if(resetFilters) resetFilters();
+      setView('contacts');
+      setTimeout(()=>{
+        onSelectContact(c);
+        var el=document.getElementById('card-'+c.id);
+        if(el) el.scrollIntoView({behavior:'smooth',block:'center'});
+      },120);
+    }}>
       <div className="fup-row-left">
         <h4>
           {c.school}
@@ -1182,11 +1190,23 @@ function App(){
         </>}
 
         {view==='queue'&&<>
-  <div className="topbar"><span className="topbar-title">Outreach Queue</span></div>
-  <div className="content">
-    <QueueView contacts={contacts} onSelectContact={setSelected} setView={setView}/>
-  </div>
-</>}
+          <div className="topbar"><span className="topbar-title">Outreach Queue</span></div>
+          <div className="content" style={{overflowY:'auto'}}>
+            <QueueView
+              contacts={contacts}
+              onSelectContact={setSelected}
+              setView={setView}
+              resetFilters={()=>{
+                setSearch('');
+                setStatusF('All');
+                setTypeF('All');
+                setStateF('All');
+                setDistrictF('All');
+                setSpokenFilter(false);
+              }}
+            />
+          </div>
+        </>}
         {view==='contacts'&&<>
           <div className="topbar">
             <div className="srch-wrap"><i className="ti ti-search srch-icon"/><input className="srch" placeholder="Search schools, contacts, cities..." value={search} onChange={e=>setSearch(e.target.value)}/></div>
