@@ -7133,18 +7133,42 @@ function MapView({contacts, onSelect}){
       return true;
     });
 
+    // Count how many schools are at each coord to offset overlaps
+    var coordCount = {};
+    filtered.forEach(function(c){
+      var coords = getCoords(c.city, c.state);
+      if(!coords) return;
+      var key = coords[0].toFixed(3)+','+coords[1].toFixed(3);
+      coordCount[key] = (coordCount[key]||0) + 1;
+    });
+    var coordIndex = {};
+
     var bounds = [];
     filtered.forEach(function(c){
       var coords = getCoords(c.city, c.state);
       if(!coords) return;
-      bounds.push(coords);
+      var key = coords[0].toFixed(3)+','+coords[1].toFixed(3);
+      var idx = coordIndex[key] = (coordIndex[key]||0);
+      coordIndex[key]++;
+      // Spiral offset for stacked schools
+      var total = coordCount[key];
+      var jLat = 0; var jLng = 0;
+      if(total > 1 && idx > 0){
+        var angle = (idx / total) * 2 * Math.PI;
+        var radius = 0.004 * Math.ceil(idx / 6);
+        jLat = Math.sin(angle) * radius;
+        jLng = Math.cos(angle) * radius * 1.5;
+      }
+      var finalCoords = [coords[0]+jLat, coords[1]+jLng];
+      bounds.push(finalCoords);
       var color = c.status === 'Booked!' ? '#10b981' : c.spokenBefore ? '#f59e0b' : STATUS_COLORS[c.status] || '#9ca3af';
       var size = c.status === 'Booked!' ? 14 : c.spokenBefore ? 12 : 8;
       var icon = window.L.divIcon({
         html: '<div style="width:'+size+'px;height:'+size+'px;background:'+color+';border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);cursor:pointer;'+(c.status==='Booked!'?'box-shadow:0 0 0 3px rgba(16,185,129,0.4);':'')+'"></div>',
         className:'',iconSize:[size,size],iconAnchor:[size/2,size/2]
       });
-      var marker = window.L.marker(coords, {icon:icon}).addTo(leafletMap.current);
+      var marker = window.L.marker(finalCoords, {icon:icon}).addTo(leafletMap.current);
+      marker.bindTooltip(c.school+' ('+c.city+')', {permanent:false,direction:'top',offset:[0,-6]});
       marker.on('click', function(){
         setInfo(c);
       });
