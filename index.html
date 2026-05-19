@@ -6764,7 +6764,7 @@ function ContactCard({c,isActive,onClick}){
   const today=new Date().toISOString().slice(0,10);
   const overdue=c.followUp&&c.followUp<=today&&!['Booked!','Not Interested'].includes(c.status);
   return (
-    <div className={'c-card'+(isActive?' active':'')} onClick={onClick}>
+    <div id={'card-'+c.id} className={'c-card'+(isActive?' active':'')} onClick={onClick}>
       <div className="c-card-top">
         <h4>{c.school}{c.spokenBefore&&<span style={{marginLeft:6,fontSize:9,background:'#fef3c7',color:'#92400e',border:'1px solid #fcd34d',borderRadius:3,padding:'1px 5px',fontWeight:700,verticalAlign:'middle'}}>⭐ SPOKEN</span>}</h4>
         <Pill status={c.status}/>
@@ -7456,7 +7456,7 @@ function App(){
           </div>
         </>}
 
-        {view==='map'&&<MapView contacts={contacts} onSelect={function(c){setSelected(c);setStateF('All');setDistrictF('All');setTypeF('All');setStatusF('All');setSearch('');setView('contacts');}}/> }
+        {view==='map'&&<MapView contacts={contacts} onSelect={function(c){var found=contacts.find(function(x){return x.id===c.id;});if(found){setSelected(found);setStateF('All');setDistrictF('All');setTypeF('All');setStatusF('All');setSpokenFilter(false);setSearch('');setView('contacts');window.setTimeout(function(){var el=document.getElementById('card-'+found.id);if(el){el.scrollIntoView({behavior:'smooth',block:'center'});}},150);}}}/> }
         {view==='finance'&&(
           <>
             <div className="topbar"><span className="topbar-title">Finance</span></div>
