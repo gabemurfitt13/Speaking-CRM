@@ -7058,7 +7058,7 @@ var ID_COORDS={
   'Wallace':[47.473,-115.924],'Weiser':[44.250,-116.968],'Wendell':[42.776,-114.703],
   'Worley':[47.344,-116.915],'Chubbuck':[42.920,-112.460],'Downey':[42.428,-112.107],
   'Inkom':[42.802,-112.244],'Lewisville':[43.682,-111.958],'Shoshone':[42.936,-114.406],
-  'Victor':[43.604,-111.113],'Wilder':[43.677,-116.914]
+  'Victor':[43.604,-111.113],'Wilder':[43.677,-116.914],'Middleton':[43.705,-116.620],'Homedale':[43.619,-116.934],'Kimberly':[42.534,-114.363],'Murtaugh':[42.490,-114.265],'Dietrich':[42.876,-114.359],'Richfield':[43.052,-114.150],'Eden':[42.607,-114.196],'Minidoka':[42.763,-113.489],'Albion':[42.416,-113.580],'Malta':[42.295,-113.369],'Oakley':[42.244,-113.881],'Springfield':[43.038,-112.658],'Moreland':[43.204,-112.440],'Pingree':[43.159,-112.607],'Tetonia':[43.802,-111.140],'Teton':[43.883,-111.669],'Newdale':[43.884,-111.600],'Mud Lake':[43.875,-112.117],'Roberts':[43.718,-112.124],'Iona':[43.527,-111.929],'Ucon':[43.590,-111.958],'Felt':[43.857,-111.149],'Chubbuck':[42.920,-112.460],'Inkom':[42.802,-112.244],'Fort Hall':[43.029,-112.437],'Weippe':[46.374,-115.930],'Pierce':[46.490,-115.797],'Ahsahka':[46.498,-116.320],'Elk River':[46.782,-116.178],'Bovill':[46.861,-116.397],'Tensed':[47.218,-116.908],'Fernwood':[47.106,-116.395],'Calder':[47.248,-116.006],'Smelterville':[47.546,-116.160],'Pinehurst':[47.531,-116.235],'Osburn':[47.508,-116.005],'Wardner':[47.544,-116.148],'Northport':[48.906,-117.777],'Moyie Springs':[48.718,-116.185],'Naples':[48.575,-116.399],'Fruitland':[44.010,-116.917],'Payette':[44.077,-116.931],'New Plymouth':[43.973,-116.818],'Weiser':[44.250,-116.968],'Meadows Valley':[44.978,-116.290],'New Meadows':[44.978,-116.290],'White Bird':[45.758,-116.300],'Garfield':[46.567,-117.140],'Palouse':[46.904,-117.076],'Juliaetta':[46.575,-116.706],'Kendrick':[46.612,-116.656],'Bovill':[46.861,-116.397]
 };
 
 var STATE_CENTERS={
@@ -7456,7 +7456,7 @@ function App(){
           </div>
         </>}
 
-        {view==='map'&&<MapView contacts={contacts} onSelect={c=>{setSelected(c);setView('contacts');}}/> }
+        {view==='map'&&<MapView contacts={contacts} onSelect={function(c){setSelected(c);setStateF('All');setDistrictF('All');setTypeF('All');setStatusF('All');setSearch('');setView('contacts');}}/> }
         {view==='finance'&&(
           <>
             <div className="topbar"><span className="topbar-title">Finance</span></div>
