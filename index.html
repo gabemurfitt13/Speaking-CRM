@@ -6548,7 +6548,7 @@ function ContactCard({c,isActive,onClick}){
         <PriBadge p={c.priority}/>
         {overdue&&<span className="fup-tag"><i className="ti ti-bell" style={{fontSize:10}}/> Follow-up due</span>}
       </div>
-      {c.contact&&<div className="c-card-contact"><i className="ti ti-user" style={{fontSize:13,color:'var(--text-light)'}}/><strong>{c.contact}</strong> Â· {c.role}</div>}
+      {c.contact&&<div className="c-card-contact"><i className="ti ti-user" style={{fontSize:13,color:'var(--text-light)'}}/><strong>{c.contact}</strong> - {c.role}</div>}
     </div>
   );
 }
@@ -6767,7 +6767,7 @@ function Dashboard({contacts,onSelectContact,setView}){
         <h3><i className="ti ti-bell"/>Follow-ups needed ({fupList.length})</h3>
         {fupList.slice(0,5).map(c=>(
           <div className="fup-row" key={c.id} onClick={()=>{setView('contacts');setTimeout(()=>onSelectContact(c),50)}}>
-            <div className="fup-row-left"><h4>{c.school}{c.spokenBefore&&<span style={{marginLeft:6,fontSize:9,background:'#fef3c7',color:'#92400e',border:'1px solid #fcd34d',borderRadius:3,padding:'1px 5px',fontWeight:700,verticalAlign:'middle'}}>⭐ SPOKEN</span>}</h4><p>{c.contact||'No AD on file'} Â· {c.city}{c.state?`, ${c.state}`:''} Â· Due: {c.followUp}</p></div>
+            <div className="fup-row-left"><h4>{c.school}{c.spokenBefore&&<span style={{marginLeft:6,fontSize:9,background:'#fef3c7',color:'#92400e',border:'1px solid #fcd34d',borderRadius:3,padding:'1px 5px',fontWeight:700,verticalAlign:'middle'}}>⭐ SPOKEN</span>}</h4><p>{c.contact||'No AD on file'} - {c.city}{c.state?`, ${c.state}`:''} - Due: {c.followUp}</p></div>
             <Pill status={c.status}/>
           </div>
         ))}
@@ -6976,7 +6976,7 @@ function MapView({contacts, onSelect}){
               <div style={{fontWeight:700,fontSize:13,flex:1,paddingRight:8}}>{info.school}</div>
               <button onClick={function(){setInfo(null);}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--text-muted)',fontSize:18,lineHeight:1}}>x</button>
             </div>
-            <div style={{fontSize:11,color:'var(--text-muted)',marginBottom:8}}>{info.type} Â· {info.city}, {info.state}</div>
+            <div style={{fontSize:11,color:'var(--text-muted)',marginBottom:8}}>{info.type} - {info.city}, {info.state}</div>
             {info.contact&&<div style={{fontSize:12,marginBottom:4}}><strong>{info.contact}</strong></div>}
             {info.phone&&<div style={{fontSize:12,color:'var(--text-muted)',marginBottom:4}}>{info.phone}</div>}
             {info.spokenBefore&&<div style={{fontSize:11,background:'#fef3c7',color:'#92400e',padding:'3px 8px',borderRadius:4,marginBottom:8,display:'inline-block'}}>⭐ SPOKEN Here Before</div>}
@@ -7105,7 +7105,7 @@ function DistrictView({contacts,stateF,setStateF,setDistrictF,setView}){
                 <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8}}>
                   <div>
                     <div style={{fontWeight:600,fontSize:13,marginBottom:2}}>{dist}</div>
-                    <div style={{fontSize:11,color:'var(--text-muted)'}}>{state} Â· {total} school{total!==1?'s':''}</div>
+                    <div style={{fontSize:11,color:'var(--text-muted)'}}>{state} - {total} school{total!==1?'s':''}</div>
                   </div>
                   <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
                     {booked>0&&<span style={{background:'#d1fae5',color:'#065f46',borderRadius:4,padding:'2px 7px',fontSize:11,fontWeight:600}}>{booked} booked</span>}
@@ -7323,7 +7323,7 @@ function App(){
                       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8}}>
                         <div>
                           <div style={{fontWeight:600,fontSize:13,marginBottom:2}}>{dist}</div>
-                          <div style={{fontSize:11,color:'var(--text-muted)'}}>{state} Â· {total} school{total!==1?'s':''}</div>
+                          <div style={{fontSize:11,color:'var(--text-muted)'}}>{state} - {total} school{total!==1?'s':''}</div>
                         </div>
                         <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
                           {booked>0&&<span style={{background:'#d1fae5',color:'#065f46',borderRadius:4,padding:'2px 7px',fontSize:11,fontWeight:600}}>{booked} booked</span>}
