@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Gabe Murfitt â€“ Speaker CRM</title>
+<title>Gabe Murfitt - Speaker CRM</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
 <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -6539,7 +6539,7 @@ function ContactCard({c,isActive,onClick}){
   return (
     <div id={'card-'+c.id} className={'c-card'+(isActive?' active':'')} onClick={onClick}>
       <div className="c-card-top">
-        <h4>{c.school}{c.spokenBefore&&<span style={{marginLeft:6,fontSize:9,background:'#fef3c7',color:'#92400e',border:'1px solid #fcd34d',borderRadius:3,padding:'1px 5px',fontWeight:700,verticalAlign:'middle'}}>â­ SPOKEN</span>}</h4>
+        <h4>{c.school}{c.spokenBefore&&<span style={{marginLeft:6,fontSize:9,background:'#fef3c7',color:'#92400e',border:'1px solid #fcd34d',borderRadius:3,padding:'1px 5px',fontWeight:700,verticalAlign:'middle'}}>⭐ SPOKEN</span>}</h4>
         <Pill status={c.status}/>
       </div>
       <div className="c-card-meta">
@@ -6603,7 +6603,7 @@ function DetailPanel({c,onUpdate,onClose}){
       <div className="det-head">
         <div className="det-head-top">
           <h3>{c.school}</h3>
-          <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:11,color:'#92400e',fontWeight:600,background:'#fef3c7',padding:'3px 8px',borderRadius:4,border:'1px solid #fcd34d'}}><input type="checkbox" checked={spokenBefore} onChange={e=>{const v=e.target.checked;setSpokenBefore(v);onUpdate({...c,status,notes,followUp,contacted,spokenBefore:v,fee,expenses,students,payStatus,gigDate});}}/>Â â­ Spoken Here Before</label>
+          <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:11,color:'#92400e',fontWeight:600,background:'#fef3c7',padding:'3px 8px',borderRadius:4,border:'1px solid #fcd34d'}}><input type="checkbox" checked={spokenBefore} onChange={e=>{const v=e.target.checked;setSpokenBefore(v);onUpdate({...c,status,notes,followUp,contacted,spokenBefore:v,fee,expenses,students,payStatus,gigDate});}}/>Â ⭐ SPOKEN Here Before</label>
           <button className="btn sm" onClick={onClose}><i className="ti ti-x"/></button>
         </div>
         <div className="det-head-meta">
@@ -6767,7 +6767,7 @@ function Dashboard({contacts,onSelectContact,setView}){
         <h3><i className="ti ti-bell"/>Follow-ups needed ({fupList.length})</h3>
         {fupList.slice(0,5).map(c=>(
           <div className="fup-row" key={c.id} onClick={()=>{setView('contacts');setTimeout(()=>onSelectContact(c),50)}}>
-            <div className="fup-row-left"><h4>{c.school}{c.spokenBefore&&<span style={{marginLeft:6,fontSize:9,background:'#fef3c7',color:'#92400e',border:'1px solid #fcd34d',borderRadius:3,padding:'1px 5px',fontWeight:700,verticalAlign:'middle'}}>â­ SPOKEN</span>}</h4><p>{c.contact||'No AD on file'} Â· {c.city}{c.state?`, ${c.state}`:''} Â· Due: {c.followUp}</p></div>
+            <div className="fup-row-left"><h4>{c.school}{c.spokenBefore&&<span style={{marginLeft:6,fontSize:9,background:'#fef3c7',color:'#92400e',border:'1px solid #fcd34d',borderRadius:3,padding:'1px 5px',fontWeight:700,verticalAlign:'middle'}}>⭐ SPOKEN</span>}</h4><p>{c.contact||'No AD on file'} Â· {c.city}{c.state?`, ${c.state}`:''} Â· Due: {c.followUp}</p></div>
             <Pill status={c.status}/>
           </div>
         ))}
@@ -6979,7 +6979,7 @@ function MapView({contacts, onSelect}){
             <div style={{fontSize:11,color:'var(--text-muted)',marginBottom:8}}>{info.type} Â· {info.city}, {info.state}</div>
             {info.contact&&<div style={{fontSize:12,marginBottom:4}}><strong>{info.contact}</strong></div>}
             {info.phone&&<div style={{fontSize:12,color:'var(--text-muted)',marginBottom:4}}>{info.phone}</div>}
-            {info.spokenBefore&&<div style={{fontSize:11,background:'#fef3c7',color:'#92400e',padding:'3px 8px',borderRadius:4,marginBottom:8,display:'inline-block'}}>â­ Spoken Here Before</div>}
+            {info.spokenBefore&&<div style={{fontSize:11,background:'#fef3c7',color:'#92400e',padding:'3px 8px',borderRadius:4,marginBottom:8,display:'inline-block'}}>⭐ SPOKEN Here Before</div>}
             <div style={{marginBottom:12}}>
               <span style={{fontSize:11,padding:'2px 8px',borderRadius:4,background:info.status==='Booked!'?'#f0fdf4':info.status==='Not Started'?'#f3f4f6':'#eff6ff',color:info.status==='Booked!'?'#166534':'#374151',fontWeight:600}}>{info.status}</span>
             </div>
@@ -7234,7 +7234,7 @@ function App(){
         </div>
         <div className="sid-stats">
           <div className="ss-card"><div className="num">{contacts.length}</div><div className="lbl">Schools</div></div>
-          <div className="ss-card"><div className="num">{spokenCount}</div><div className="lbl">â­ Spoken</div></div><div className="ss-card"><div className="num">{contacts.filter(c=>c.status==='Booked!').length}</div><div className="lbl">Booked</div></div>
+          <div className="ss-card"><div className="num">{spokenCount}</div><div className="lbl">⭐ SPOKEN</div></div><div className="ss-card"><div className="num">{contacts.filter(c=>c.status==='Booked!').length}</div><div className="lbl">Booked</div></div>
         </div>
       </div>
 
@@ -7256,7 +7256,7 @@ function App(){
               {['All',...Array.from(new Set(contacts.filter(c=>stateF==='All'||c.state===stateF).map(c=>c.district).filter(Boolean))).sort()].map(d=><option key={d}>{d}</option>)}
             </select>
             <span style={{fontSize:11,color:'var(--text-light)',whiteSpace:'nowrap'}}>{filtered.length} schools</span>
-            <button onClick={()=>setSpokenFilter(f=>!f)} style={{fontSize:11,padding:'3px 8px',borderRadius:4,border:'1px solid '+(spokenFilter?'#f59e0b':'var(--border)'),background:spokenFilter?'#fef3c7':'transparent',color:spokenFilter?'#92400e':'var(--text-muted)',cursor:'pointer',fontWeight:spokenFilter?600:400}}>â­ Spoken Here</button>
+            <button onClick={()=>setSpokenFilter(f=>!f)} style={{fontSize:11,padding:'3px 8px',borderRadius:4,border:'1px solid '+(spokenFilter?'#f59e0b':'var(--border)'),background:spokenFilter?'#fef3c7':'transparent',color:spokenFilter?'#92400e':'var(--text-muted)',cursor:'pointer',fontWeight:spokenFilter?600:400}}>⭐ SPOKEN Here</button>
           </div>
           <div className="content">
             <div className="list-area">
