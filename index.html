@@ -7,6 +7,8 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
 <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -7016,6 +7018,193 @@ function Dashboard({contacts,onSelectContact,setView}){
 }
 
 
+
+var ID_COORDS={
+  'Aberdeen':[42.948,-112.834],'American Falls':[42.783,-112.862],'Ammon':[43.470,-111.967],
+  'Arco':[43.636,-113.301],'Arimo':[42.540,-112.164],'Ashton':[44.073,-111.447],
+  'Bancroft':[42.730,-111.878],'Blackfoot':[43.191,-112.344],'Bliss':[42.919,-114.953],
+  'Boise':[43.615,-116.202],'Bonners Ferry':[48.692,-116.315],'Buhl':[42.599,-114.759],
+  'Burley':[42.536,-113.792],'Caldwell':[43.663,-116.688],'Cambridge':[44.570,-116.678],
+  'Carey':[43.322,-113.945],'Cascade':[44.517,-116.041],'Castleford':[42.521,-114.876],
+  'Challis':[44.506,-114.229],'Clark Fork':[48.153,-116.178],'Coeur d Alene':[47.678,-116.781],
+  'Cottonwood':[46.048,-116.343],'Council':[44.729,-116.437],'Craigmont':[46.244,-116.473],
+  'Culdesac':[46.384,-116.673],'Dayton':[42.116,-111.978],'Deary':[46.799,-116.556],
+  'Declo':[42.536,-113.627],'Dietrich':[42.876,-114.359],'Driggs':[43.722,-111.108],
+  'Dubois':[44.179,-112.228],'Eagle':[43.695,-116.354],'Emmett':[43.872,-116.491],
+  'Fairfield':[43.345,-114.800],'Filer':[42.569,-114.606],'Firth':[43.304,-112.179],
+  'Fruitland':[44.010,-116.917],'Garden City':[43.646,-116.226],'Garden Valley':[44.083,-115.970],
+  'Genesee':[46.551,-116.924],'Glenns Ferry':[42.951,-115.299],'Gooding':[42.942,-114.714],
+  'Grace':[42.584,-111.726],'Grangeville':[45.927,-116.121],'Greenleaf':[43.684,-116.840],
+  'Hagerman':[42.820,-114.895],'Hansen':[42.524,-114.293],'Hayden':[47.766,-116.797],
+  'Hazelton':[42.601,-114.133],'Horseshoe Bend':[43.913,-116.197],'Idaho City':[43.833,-115.834],
+  'Idaho Falls':[43.492,-112.033],'Jerome':[42.724,-114.518],'Kamiah':[46.225,-116.028],
+  'Kellogg':[47.538,-116.119],'Kooskia':[46.140,-115.978],'Kuna':[43.493,-116.421],
+  'Lapwai':[46.404,-116.808],'Lava Hot Springs':[42.617,-112.009],'Lewiston':[46.415,-117.017],
+  'Mackay':[43.917,-113.614],'Malad':[42.192,-112.251],'Marsing':[43.547,-116.805],
+  'McCall':[44.908,-116.099],'Melba':[43.374,-116.531],'Menan':[43.722,-111.987],
+  'Meridian':[43.613,-116.398],'Midvale':[44.468,-116.736],'Montpelier':[42.321,-111.297],
+  'Moscow':[46.732,-117.000],'Mountain Home':[43.132,-115.691],'Mullan':[47.471,-115.924],
+  'Nampa':[43.580,-116.564],'New Meadows':[44.978,-116.290],'New Plymouth':[43.973,-116.818],
+  'Nezperce':[46.245,-116.239],'Notus':[43.729,-116.798],'Orofino':[46.482,-116.254],
+  'Parma':[43.785,-116.943],'Payette':[44.077,-116.931],'Plummer':[47.323,-116.883],
+  'Pocatello':[42.871,-112.440],'Post Falls':[47.718,-116.951],'Potlatch':[46.929,-116.894],
+  'Preston':[42.096,-111.875],'Priest River':[48.179,-116.907],'Rathdrum':[47.810,-116.896],
+  'Rexburg':[43.826,-111.789],'Richfield':[43.052,-114.150],'Rigby':[43.673,-111.913],
+  'Riggins':[45.422,-116.313],'Rockland':[42.576,-112.877],'Rupert':[42.619,-113.676],
+  'Salmon':[45.176,-113.896],'Sandpoint':[48.276,-116.553],'Shelley':[43.380,-112.123],
+  'Soda Springs':[42.654,-111.604],'Spirit Lake':[47.967,-116.865],
+  'St. Anthony':[43.968,-111.681],'St. Maries':[47.316,-116.576],'Star':[43.694,-116.493],
+  'Terreton':[43.875,-112.117],'Troy':[46.742,-116.769],'Twin Falls':[42.563,-114.460],
+  'Wallace':[47.473,-115.924],'Weiser':[44.250,-116.968],'Wendell':[42.776,-114.703],
+  'Worley':[47.344,-116.915],'Chubbuck':[42.920,-112.460],'Downey':[42.428,-112.107],
+  'Inkom':[42.802,-112.244],'Lewisville':[43.682,-111.958],'Shoshone':[42.936,-114.406],
+  'Victor':[43.604,-111.113],'Wilder':[43.677,-116.914]
+};
+
+var STATE_CENTERS={
+  'ID':[44.068,-114.742],'WA':[47.751,-120.740],'OR':[44.572,-122.071],
+  'MT':[46.880,-110.363],'UT':[39.321,-111.094],'WY':[42.756,-107.303],
+  'NV':[38.803,-116.419],'CO':[39.550,-105.782],'NM':[34.520,-105.870],
+  'CA':[36.778,-119.418],'AZ':[34.049,-111.094],'AL':[32.318,-86.902],
+  'GA':[32.166,-82.900],'NC':[35.760,-79.019],'SC':[33.836,-81.164],
+  'TN':[35.518,-86.580],'FL':[27.665,-81.516],'OH':[40.417,-82.907],
+  'MI':[44.315,-85.602],'MN':[46.730,-94.686],'WI':[43.784,-88.788],
+  'IA':[42.005,-93.214],'MO':[38.577,-92.174],'KS':[39.012,-98.484],
+  'NE':[41.493,-99.902],'OK':[35.468,-97.516],'TX':[31.969,-99.902],
+  'VA':[37.432,-78.657],'MD':[39.046,-76.641],'PA':[41.203,-77.195],
+  'NY':[42.166,-74.948],'NJ':[40.058,-74.406],'NH':[43.194,-71.572],
+  'ME':[45.254,-69.446],'VT':[44.559,-72.578],'IL':[40.350,-88.986],
+  'IN':[39.849,-86.258],'KY':[37.839,-84.270],'AR':[34.970,-92.373],
+  'LA':[31.170,-91.868],'MS':[32.742,-89.679]
+};
+
+function getCoords(city, state) {
+  var key = city.replace(/\'/g,'');
+  if(ID_COORDS[key]) return ID_COORDS[key];
+  var sc = STATE_CENTERS[state];
+  if(!sc) return null;
+  // Add small deterministic offset based on city name to spread dots
+  var h = 0;
+  for(var i=0;i<key.length;i++) h = (h*31 + key.charCodeAt(i)) & 0xffff;
+  var lat = sc[0] + ((h % 100) - 50) * 0.04;
+  var lng = sc[1] + (((h >> 4) % 100) - 50) * 0.06;
+  return [lat, lng];
+}
+
+function MapView({contacts, onSelect}){
+  var mapRef = useRef(null);
+  var leafletMap = useRef(null);
+  var markersRef = useRef([]);
+  var [filterState, setFilterState] = useState('ID');
+  var [filterType, setFilterType] = useState('All');
+  var [filterStatus, setFilterStatus] = useState('All');
+  var [info, setInfo] = useState(null);
+
+  var STATUS_COLORS = {
+    'Not Started': '#9ca3af',
+    'Left Voicemail': '#f59e0b',
+    'Emailed': '#3b82f6',
+    'In Discussion': '#8b5cf6',
+    'Booked!': '#10b981',
+    'Not Interested': '#ef4444',
+    'Try Next Year': '#f97316',
+  };
+
+  useEffect(function(){
+    if(!window.L) return;
+    if(leafletMap.current) { leafletMap.current.remove(); leafletMap.current=null; }
+    var map = window.L.map(mapRef.current, {zoomControl:true}).setView([44.0,-114.7], 6);
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      attribution:'&copy; OpenStreetMap contributors', maxZoom:18
+    }).addTo(map);
+    leafletMap.current = map;
+    return function(){ if(leafletMap.current){leafletMap.current.remove();leafletMap.current=null;} };
+  }, []);
+
+  useEffect(function(){
+    if(!leafletMap.current || !window.L) return;
+    markersRef.current.forEach(function(m){m.remove();});
+    markersRef.current = [];
+
+    var filtered = contacts.filter(function(c){
+      if(filterState !== 'All' && c.state !== filterState) return false;
+      if(filterType !== 'All' && c.type !== filterType) return false;
+      if(filterStatus !== 'All' && c.status !== filterStatus) return false;
+      return true;
+    });
+
+    var bounds = [];
+    filtered.forEach(function(c){
+      var coords = getCoords(c.city, c.state);
+      if(!coords) return;
+      bounds.push(coords);
+      var color = c.status === 'Booked!' ? '#10b981' : c.spokenBefore ? '#f59e0b' : STATUS_COLORS[c.status] || '#9ca3af';
+      var size = c.status === 'Booked!' ? 14 : c.spokenBefore ? 12 : 8;
+      var icon = window.L.divIcon({
+        html: '<div style="width:'+size+'px;height:'+size+'px;background:'+color+';border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);cursor:pointer;'+(c.status==='Booked!'?'box-shadow:0 0 0 3px rgba(16,185,129,0.4);':'')+'"></div>',
+        className:'',iconSize:[size,size],iconAnchor:[size/2,size/2]
+      });
+      var marker = window.L.marker(coords, {icon:icon}).addTo(leafletMap.current);
+      marker.on('click', function(){
+        setInfo(c);
+      });
+      markersRef.current.push(marker);
+    });
+
+    if(bounds.length > 0 && filterState !== 'All'){
+      try{ leafletMap.current.fitBounds(bounds, {padding:[30,30], maxZoom:10}); }catch(e){}
+    }
+  }, [contacts, filterState, filterType, filterStatus]);
+
+  var states = ['All',...Array.from(new Set(contacts.map(function(c){return c.state;}).filter(Boolean))).sort()];
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
+      <div className="topbar" style={{flexShrink:0}}>
+        <span className="topbar-title">Map View</span>
+        <select className="sel" value={filterState} onChange={function(e){setFilterState(e.target.value);}}>
+          {states.map(function(s){return <option key={s}>{s}</option>;})}
+        </select>
+        <select className="sel" value={filterType} onChange={function(e){setFilterType(e.target.value);}}>
+          {['All','High School','Middle/Jr High','Elementary'].map(function(t){return <option key={t}>{t}</option>;})}
+        </select>
+        <select className="sel" value={filterStatus} onChange={function(e){setFilterStatus(e.target.value);}}>
+          {['All','Not Started','Left Voicemail','Emailed','In Discussion','Booked!','Not Interested','Try Next Year'].map(function(s){return <option key={s}>{s}</option>;})}
+        </select>
+        <span style={{fontSize:11,color:'var(--text-light)'}}>
+          {contacts.filter(function(c){return (filterState==='All'||c.state===filterState)&&(filterType==='All'||c.type===filterType)&&(filterStatus==='All'||c.status===filterStatus);}).length} schools
+        </span>
+      </div>
+      <div style={{display:'flex',flex:1,overflow:'hidden'}}>
+        <div ref={mapRef} style={{flex:1}}/>
+        {info&&(
+          <div style={{width:260,borderLeft:'1px solid var(--border)',background:'var(--bg-card)',overflowY:'auto',padding:16,flexShrink:0}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
+              <div style={{fontWeight:700,fontSize:13,flex:1,paddingRight:8}}>{info.school}</div>
+              <button onClick={function(){setInfo(null);}} style={{background:'none',border:'none',cursor:'pointer',color:'var(--text-muted)',fontSize:18,lineHeight:1}}>x</button>
+            </div>
+            <div style={{fontSize:11,color:'var(--text-muted)',marginBottom:8}}>{info.type} · {info.city}, {info.state}</div>
+            {info.contact&&<div style={{fontSize:12,marginBottom:4}}><strong>{info.contact}</strong></div>}
+            {info.phone&&<div style={{fontSize:12,color:'var(--text-muted)',marginBottom:4}}>{info.phone}</div>}
+            {info.spokenBefore&&<div style={{fontSize:11,background:'#fef3c7',color:'#92400e',padding:'3px 8px',borderRadius:4,marginBottom:8,display:'inline-block'}}>⭐ Spoken Here Before</div>}
+            <div style={{marginBottom:12}}>
+              <span style={{fontSize:11,padding:'2px 8px',borderRadius:4,background:info.status==='Booked!'?'#f0fdf4':info.status==='Not Started'?'#f3f4f6':'#eff6ff',color:info.status==='Booked!'?'#166534':'#374151',fontWeight:600}}>{info.status}</span>
+            </div>
+            {info.notes&&<div style={{fontSize:11,color:'var(--text-muted)',marginBottom:12,fontStyle:'italic'}}>{info.notes}</div>}
+            <button className="btn primary" style={{width:'100%'}} onClick={function(){onSelect(info);setInfo(null);}}>Open Full Detail</button>
+          </div>
+        )}
+      </div>
+      <div style={{flexShrink:0,padding:'6px 12px',background:'var(--bg-card)',borderTop:'1px solid var(--border)',display:'flex',gap:16,fontSize:11,color:'var(--text-muted)'}}>
+        <span><span style={{display:'inline-block',width:8,height:8,borderRadius:'50%',background:'#9ca3af',marginRight:4}}/>Not Started</span>
+        <span><span style={{display:'inline-block',width:8,height:8,borderRadius:'50%',background:'#3b82f6',marginRight:4}}/>Contacted</span>
+        <span><span style={{display:'inline-block',width:12,height:12,borderRadius:'50%',background:'#10b981',marginRight:4}}/>Booked</span>
+        <span><span style={{display:'inline-block',width:10,height:10,borderRadius:'50%',background:'#f59e0b',marginRight:4}}/>Spoken Before</span>
+      </div>
+    </div>
+  );
+}
+
 function FinanceDashboard({contacts}){
   var booked=contacts.filter(function(c){return c.fee&&parseFloat(c.fee)>0;});
   var totalRev=booked.reduce(function(s,c){return s+parseFloat(c.fee||0);},0);
@@ -7177,6 +7366,7 @@ function App(){
             {v:'followups',icon:'ti-bell',label:'Follow-ups'+(fupCount>0?` (${fupCount})`:'')},
             {v:'districts',icon:'ti-building-community',label:'District View'},
             {v:'finance',icon:'ti-chart-bar',label:'Finance'},
+            {v:'map',icon:'ti-map-pin',label:'Map View'},
           ].map(({v,icon,label})=>(
             <button key={v} className={'nav-btn'+(view===v?' active':'')} onClick={()=>setView(v)}>
               <i className={'ti '+icon}/>{label}
@@ -7242,6 +7432,7 @@ function App(){
           </div>
         </>}
 
+        {view==='map'&&<MapView contacts={contacts} onSelect={c=>{setSelected(c);setView('contacts');}}/> }
         {view==='finance'&&(
           <>
             <div className="topbar"><span className="topbar-title">Finance</span></div>
