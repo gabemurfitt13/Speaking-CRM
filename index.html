@@ -204,7 +204,7 @@ window.addEventListener('load',function(){
       if(res.data)res.data.forEach(function(r){map[r.school_id]=r;});
       var merged=SEED.map(function(s){
         var p=map[s.id];
-        if(!p)return Object.assign({},s,{spokenBefore:false,fee:'',expenses:'',students:'',payStatus:'Not Invoiced',gigDate:'',contactConfidence:'',contactSource:'',lastVerified:'',manualScore:''});
+        if(!p)return Object.assign({},s,{spokenBefore:false,fee:'',expenses:'',students:'',payStatus:'Not Invoiced',gigDate:''});
         return Object.assign({},s,{
           status:p.status||s.status,notes:p.notes||s.notes,
           contact:p.contact||s.contact,phone:p.phone||s.phone,email:p.email||s.email,
@@ -212,7 +212,7 @@ window.addEventListener('load',function(){
           sca:p.sca||s.sca,scaPhone:p.sca_phone||s.scaPhone,
           followUp:p.follow_up||s.followUp,contacted:p.contacted||s.contacted,log:p.log||s.log,
           spokenBefore:p.spoken_before||false,fee:p.fee||'',expenses:p.expenses||'',
-          students:p.students||'',payStatus:p.pay_status||'Not Invoiced',gigDate:p.gig_date||'',contactConfidence:p.contact_confidence||'',contactSource:p.contact_source||'',lastVerified:p.last_verified||'',manualScore:p.manual_score||''
+          students:p.students||'',payStatus:p.pay_status||'Not Invoiced',gigDate:p.gig_date||''
         });
       });
       try{localStorage.setItem(SKEY,JSON.stringify(merged));}catch(e){}
@@ -236,7 +236,7 @@ window.addEventListener('load',function(){
         principal:c.principal||'',p_phone:c.pPhone||'',sca:c.sca||'',
         sca_phone:c.scaPhone||'',follow_up:c.followUp||'',contacted:c.contacted||'',log:c.log||[],
         spoken_before:c.spokenBefore||false,fee:c.fee||'',expenses:c.expenses||'',
-        students:c.students||'',pay_status:c.payStatus||'Not Invoiced',gig_date:c.gigDate||'',contact_confidence:c.contactConfidence||'',contact_source:c.contactSource||'',last_verified:c.lastVerified||'',manual_score:c.manualScore||''
+        students:c.students||'',pay_status:c.payStatus||'Not Invoiced',gig_date:c.gigDate||''
       };});
       supabase.from('progress').upsert(rows,{onConflict:'school_id,user_id'});
     }catch(e){console.error('Sync error:',e);}
@@ -244,6 +244,96 @@ window.addEventListener('load',function(){
 });
 </script>
 <script>
+
+function normalizeSchool(raw){
+  // Already an object
+  if(!Array.isArray(raw)){
+    return {
+      ...raw,
+      id: raw.id || '',
+      school: raw.school || raw.name || raw.schoolName || '',
+      type: raw.type || raw.schoolType || '',
+      cls: raw.cls || raw.classification || raw.class || '',
+      district: raw.district || raw.districtName || '',
+      city: raw.city || '',
+      state: raw.state || '',
+      priority: raw.priority || 5,
+      contact: raw.contact || raw.contactName || raw.ad || raw.activitiesDirector || '',
+      role: raw.role || raw.title || raw.contactTitle || 'Activities Director',
+      phone: raw.phone || raw.contactPhone || '',
+      email: raw.email || raw.contactEmail || '',
+      status: raw.status || 'Not Started',
+      notes: raw.notes || '',
+      lat: raw.lat || raw.latitude || null,
+      lng: raw.lng || raw.longitude || null,
+      spokenBefore: raw.spokenBefore || false,
+      contactConfidence: raw.contactConfidence || '',
+      contactSource: raw.contactSource || '',
+      lastVerified: raw.lastVerified || '',
+      manualScore: raw.manualScore || ''
+    };
+  }
+
+  // Array format:
+  // [id, school, type, cls, district, city, state, priority, contact, role, phone, email, status, notes, lat, lng]
+  return {
+    id: raw[0] || '',
+    school: raw[1] || '',
+    type: raw[2] || '',
+    cls: raw[3] || '',
+    district: raw[4] || '',
+    city: raw[5] || '',
+    state: raw[6] || '',
+    priority: raw[7] || 5,
+    contact: raw[8] || '',
+    role: raw[9] || 'Activities Director',
+    phone: raw[10] || '',
+    email: raw[11] || '',
+    status: raw[12] || 'Not Started',
+    notes: raw[13] || '',
+    lat: raw[14] || null,
+    lng: raw[15] || null,
+    spokenBefore: false,
+    contactConfidence: '',
+    contactSource: '',
+    lastVerified: '',
+    manualScore: ''
+  };
+}
+
+function getOutreachScore(c){
+  let score=0;
+
+  if(c.manualScore && !isNaN(Number(c.manualScore))) score+=Number(c.manualScore)*1000;
+
+  if(c.state==='ID')score+=10000;
+  else if(c.state==='WA')score+=8000;
+  else if(c.state==='OR')score+=6500;
+  else if(c.state==='UT')score+=5000;
+  else if(c.state==='CA')score+=3500;
+  else if(c.state==='AZ')score+=3000;
+  else if(c.state==='NV')score+=2500;
+
+  if(c.cls==='6A')score+=1000;
+  else if(c.cls==='5A')score+=800;
+  else if(c.cls==='4A')score+=600;
+  else if(c.cls==='3A')score+=400;
+
+  if(c.contact && c.contact.trim())score+=700;
+  if(c.email && c.email.trim())score+=900;
+
+  if(c.contactConfidence==='VERIFIED')score+=1500;
+  else if(c.contactConfidence==='LIKELY')score+=700;
+  else if(c.contactConfidence==='FALLBACK')score+=200;
+
+  if(c.spokenBefore)score+=5000;
+
+  // keep ordering stable but break ties
+  score += (String(c.school||'').length % 17);
+
+  return score;
+}
+
 var SUPABASE_URL='https://hoyilsqwbdkbxismiatf.supabase.co';
 var SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhveWlsc3F3YmRrYnhpc21pYXRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMTM4MjcsImV4cCI6MjA5NDY4OTgyN30.GaAjxWcfmdBCRkSkRuw3Ix1tDqoxNMCHOPWaY6VGg1c';
 var supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
@@ -6425,7 +6515,7 @@ var SEED=SEED_RAW.map(function(r){
     contact:r[8],role:r[9],phone:r[10],email:r[11],status:r[12],notes:r[13],
     lat:r[14]||null,lon:r[15]||null,
     principal:'',pPhone:'',sca:'',scaPhone:'',followUp:'',contacted:'',log:[],
-    spokenBefore:false,fee:'',expenses:'',students:'',payStatus:'Not Invoiced',gigDate:'',contactConfidence:'',contactSource:'',lastVerified:'',manualScore:''};
+    spokenBefore:false,fee:'',expenses:'',students:'',payStatus:'Not Invoiced',gigDate:''};
 });
 </script>
 <div id="root"></div>
@@ -6521,61 +6611,22 @@ gabemurfitt.com`
 
 
 function openEditSchoolModal(c,onUpdate){
-  const school=prompt('School Name',c.school||'');
-  if(school===null)return;
+  const school=prompt('School Name',c.school||''); if(school===null)return;
+  const district=prompt('District',c.district||''); if(district===null)return;
+  const city=prompt('City',c.city||''); if(city===null)return;
+  const state=prompt('State',c.state||''); if(state===null)return;
+  const cls=prompt('Classification / Size (6A, 5A, 4A, etc.)',c.cls||''); if(cls===null)return;
+  const contact=prompt('Contact Name',c.contact||''); if(contact===null)return;
+  const role=prompt('Role/Title',c.role||''); if(role===null)return;
+  const phone=prompt('Phone',c.phone||''); if(phone===null)return;
+  const email=prompt('Email',c.email||''); if(email===null)return;
+  const contactConfidence=prompt('Contact Confidence: VERIFIED, LIKELY, FALLBACK, or blank',c.contactConfidence||''); if(contactConfidence===null)return;
+  const contactSource=prompt('Contact Source',c.contactSource||''); if(contactSource===null)return;
+  const lastVerified=prompt('Last Verified Date (YYYY-MM-DD)',c.lastVerified||new Date().toISOString().slice(0,10)); if(lastVerified===null)return;
+  const manualScore=prompt('Manual Priority Score 0-10 (optional)',c.manualScore||''); if(manualScore===null)return;
+  const notes=prompt('Notes',c.notes||''); if(notes===null)return;
 
-  const district=prompt('District',c.district||'');
-  if(district===null)return;
-
-  const city=prompt('City',c.city||'');
-  if(city===null)return;
-
-  const state=prompt('State',c.state||'');
-  if(state===null)return;
-
-  const contact=prompt('Contact Name',c.contact||'');
-  if(contact===null)return;
-
-  const role=prompt('Role/Title',c.role||'');
-  if(role===null)return;
-
-  const phone=prompt('Phone',c.phone||'');
-  if(phone===null)return;
-
-  const email=prompt('Email',c.email||'');
-  if(email===null)return;
-
-  const contactConfidence=prompt('Contact Confidence: VERIFIED, LIKELY, FALLBACK, or blank',c.contactConfidence||'');
-  if(contactConfidence===null)return;
-
-  const contactSource=prompt('Contact Source',c.contactSource||'');
-  if(contactSource===null)return;
-
-  const lastVerified=prompt('Last Verified Date (YYYY-MM-DD)',c.lastVerified||new Date().toISOString().slice(0,10));
-  if(lastVerified===null)return;
-
-  const manualScore=prompt('Manual Priority Score 0-10 (optional)',c.manualScore||'');
-  if(manualScore===null)return;
-
-  const notes=prompt('Notes',c.notes||'');
-  if(notes===null)return;
-
-  onUpdate({
-    ...c,
-    school,
-    district,
-    city,
-    state,
-    contact,
-    role,
-    phone,
-    email,
-    contactConfidence,
-    contactSource,
-    lastVerified,
-    manualScore,
-    notes
-  });
+  onUpdate({...c,school,district,city,state,cls,contact,role,phone,email,contactConfidence,contactSource,lastVerified,manualScore,notes});
 }
 
 function Pill({status}){
