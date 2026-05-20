@@ -204,7 +204,7 @@ window.addEventListener('load',function(){
       if(res.data)res.data.forEach(function(r){map[r.school_id]=r;});
       var merged=SEED.map(function(s){
         var p=map[s.id];
-        if(!p)return Object.assign({},s,{spokenBefore:false,fee:'',expenses:'',students:'',payStatus:'Not Invoiced',gigDate:'',contactConfidence:'',contactSource:'',lastVerified:''});
+        if(!p)return Object.assign({},s,{spokenBefore:false,fee:'',expenses:'',students:'',payStatus:'Not Invoiced',gigDate:''});
         return Object.assign({},s,{
           status:p.status||s.status,notes:p.notes||s.notes,
           contact:p.contact||s.contact,phone:p.phone||s.phone,email:p.email||s.email,
@@ -212,7 +212,7 @@ window.addEventListener('load',function(){
           sca:p.sca||s.sca,scaPhone:p.sca_phone||s.scaPhone,
           followUp:p.follow_up||s.followUp,contacted:p.contacted||s.contacted,log:p.log||s.log,
           spokenBefore:p.spoken_before||false,fee:p.fee||'',expenses:p.expenses||'',
-          students:p.students||'',payStatus:p.pay_status||'Not Invoiced',gigDate:p.gig_date||'',contactConfidence:p.contact_confidence||'',contactSource:p.contact_source||'',lastVerified:p.last_verified||''
+          students:p.students||'',payStatus:p.pay_status||'Not Invoiced',gigDate:p.gig_date||''
         });
       });
       try{localStorage.setItem(SKEY,JSON.stringify(merged));}catch(e){}
@@ -236,7 +236,7 @@ window.addEventListener('load',function(){
         principal:c.principal||'',p_phone:c.pPhone||'',sca:c.sca||'',
         sca_phone:c.scaPhone||'',follow_up:c.followUp||'',contacted:c.contacted||'',log:c.log||[],
         spoken_before:c.spokenBefore||false,fee:c.fee||'',expenses:c.expenses||'',
-        students:c.students||'',pay_status:c.payStatus||'Not Invoiced',gig_date:c.gigDate||'',contact_confidence:c.contactConfidence||'',contact_source:c.contactSource||'',last_verified:c.lastVerified||''
+        students:c.students||'',pay_status:c.payStatus||'Not Invoiced',gig_date:c.gigDate||''
       };});
       supabase.from('progress').upsert(rows,{onConflict:'school_id,user_id'});
     }catch(e){console.error('Sync error:',e);}
@@ -6425,7 +6425,7 @@ var SEED=SEED_RAW.map(function(r){
     contact:r[8],role:r[9],phone:r[10],email:r[11],status:r[12],notes:r[13],
     lat:r[14]||null,lon:r[15]||null,
     principal:'',pPhone:'',sca:'',scaPhone:'',followUp:'',contacted:'',log:[],
-    spokenBefore:false,fee:'',expenses:'',students:'',payStatus:'Not Invoiced',gigDate:'',contactConfidence:'',contactSource:'',lastVerified:''};
+    spokenBefore:false,fee:'',expenses:'',students:'',payStatus:'Not Invoiced',gigDate:''};
 });
 </script>
 <div id="root"></div>
@@ -7124,7 +7124,7 @@ function QueueView({contacts,onOpenContact}) {
             <p>No untouched schools. Disturbingly productive.</p>
           </div>
         ) : untouched.map(c => (
-          <QueueRow key={c.id} c={c} label={`Priority ${c.priority || '-'}`} onOpenContact={onOpenContact}/>
+          <QueueRow key={c.id} c={c} label={`Score: ${c.outreachScore}`} onOpenContact={onOpenContact}/>
         ))}
       </div>
     </div>
