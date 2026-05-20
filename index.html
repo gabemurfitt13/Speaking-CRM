@@ -356,10 +356,9 @@ function getOutreachScore(c){
   else if(c.cls==='4A')score+=550;
   else if(c.cls==='3A')score+=350;
 
-  // Relationship history.
   if(c.spokenBefore)score+=4000;
 
-  // Stable tie-breaker, not random.
+  // Stable tie-breaker favoring closer schools.
   score += Math.max(0,100-Math.min(100,Math.round(miles)));
 
   return Math.round(score);
@@ -7209,7 +7208,8 @@ function QueueView({contacts,onOpenContact}) {
 
   const untouched = contacts
     .filter(c => c.status === 'Not Started')
-    .sort((a,b) => (a.priority || 9) - (b.priority || 9) || (a.school > b.school ? 1 : -1))
+    .map(c => ({...c, outreachScore: getOutreachScore(c)}))
+    .sort((a,b) => b.outreachScore - a.outreachScore)
     .slice(0,50);
 
   return (
