@@ -7279,7 +7279,7 @@ function QueueRow({c,label,onOpenContact}) {
       <div className="fup-row-left">
         <h4>
           {c.school}
-          {c.spokenBefore&&<span style={{marginLeft:6,fontSize:9,background:'#fef3c7',color:'#92400e',border:'1px solid #fcd34d',borderRadius:3,padding:'1px 5px',fontWeight:700,verticalAlign:'middle'}}>⭐ SPOKEN</span>}
+          {c.spokenBefore&&<span style={{marginLeft:6,fontSize:9,background:'#fef3c7',color:'#92400e',border:'1px solid #fcd34d',borderRadius:3,padding:'1px 5px',fontWeight:700,verticalAlign:'middle'}}>[STAR] SPOKEN</span>}
         </h4>
         <p>{c.contact||'No contact on file'} - {c.city}{c.state?`, ${c.state}`:''} - {c.status}</p>
       </div>
@@ -7404,7 +7404,7 @@ function App(){
             {v:'finance',icon:'ti-chart-bar',label:'Finance'},
             {v:'map',icon:'ti-map-pin',label:'Map View'},
           ].map(({v,icon,label})=>(
-            <button key={v} className={'nav-btn'+(view===v?' active':'')} onClick={()=>setView(v)}>
+            <button key={v} className={'nav-btn'+(view===v?' active':'')} onClick={()=>{setView(v);if(v==='contacts'){setSearch('');setSelected(null);setStateF('All');setDistrictF('All');setTypeF('All');setStatusF('All');setSpokenFilter(false);}}}>
               <i className={'ti '+icon}/>{label}
             </button>
           ))}
@@ -7450,8 +7450,9 @@ function App(){
               {filtered.length===0
                 ?<div className="empty-state"><i className="ti ti-search"/><p>No schools match your filters.</p></div>
                 :filtered.map(c=><React.Fragment key={c.id}>
-                    <ContactCard c={c} isActive={selected&&selected.id===c.id} onClick={()=>setSelected(s=>s&&s.id===c.id?null:c)}/>
-                    {selected&&selected.id===c.id&&<DetailPanel c={selected} onUpdate={updateContact} onClose={()=>setSelected(null)}/>}
+                    {selected&&selected.id===c.id
+                      ? <DetailPanel c={selected} onUpdate={updateContact} onClose={()=>setSelected(null)}/>
+                      : <ContactCard c={c} isActive={false} onClick={()=>setSelected(c)}/>}
                   </React.Fragment>)
               }
             </div>
@@ -7465,8 +7466,9 @@ function App(){
               {fupContacts.length===0
                 ?<div className="empty-state"><i className="ti ti-check"/><p>All clear  --  no follow-ups due!</p></div>
                 :fupContacts.map(c=><React.Fragment key={c.id}>
-                    <ContactCard c={c} isActive={selected&&selected.id===c.id} onClick={()=>setSelected(s=>s&&s.id===c.id?null:c)}/>
-                    {selected&&selected.id===c.id&&<DetailPanel c={selected} onUpdate={updateContact} onClose={()=>setSelected(null)}/>}
+                    {selected&&selected.id===c.id
+                      ? <DetailPanel c={selected} onUpdate={updateContact} onClose={()=>setSelected(null)}/>
+                      : <ContactCard c={c} isActive={false} onClick={()=>setSelected(c)}/>}
                   </React.Fragment>)
               }
             </div>
