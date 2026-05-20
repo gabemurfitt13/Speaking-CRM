@@ -6548,6 +6548,26 @@ function ContactCard({c,isActive,onClick}){
   );
 }
 
+
+function openEditModal(c,onUpdate){
+  const school=prompt('School Name',c.school);
+  if(school===null)return;
+  const contact=prompt('Contact Name',c.contact||'');
+  if(contact===null)return;
+  const email=prompt('Email',c.email||'');
+  if(email===null)return;
+  const phone=prompt('Phone',c.phone||'');
+  if(phone===null)return;
+
+  onUpdate({
+    ...c,
+    school,
+    contact,
+    email,
+    phone
+  });
+}
+
 function DetailPanel({c,onUpdate,onClose}){
   const [tab,setTab]=useState('track');
   const [spokenBefore,setSpokenBefore]=useState(c.spokenBefore||false);
@@ -6713,6 +6733,10 @@ function DetailPanel({c,onUpdate,onClose}){
           <div className="email-subject"><i className="ti ti-tag" style={{marginRight:6,fontSize:12,color:'var(--text-muted)'}}/>{tpl.subject}</div>
           <div className="email-tpl">{tpl.body}</div>
           <div className="email-actions">
+<button className="btn" onClick={()=>openEditModal(c,onUpdate)}>
+  <i className="ti ti-edit"></i>Edit School
+</button>
+
             <button className="btn sm" style={{flex:1,justifyContent:'center'}} onClick={copyEmail}>
               <i className={'ti '+(copied?'ti-check':'ti-copy')}/>{copied?'Copied!':'Copy All'}
             </button>
