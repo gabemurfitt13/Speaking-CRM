@@ -7053,6 +7053,115 @@ function DistrictView({contacts,stateF,setStateF,setDistrictF,setView}){
   );
 }
 
+
+function QueueView({contacts,onOpenContact}) {
+  const today = new Date().toISOString().slice(0,10);
+
+  const followUps = contacts
+    .filter(c => c.followUp && c.followUp <= today && !['Booked!','Not Interested'].includes(c.status))
+    .sort((a,b) => a.followUp > b.followUp ? 1 : -1);
+
+  const hotLeads = contacts
+    .filter(c => ['In Discussion','Booked!'].includes(c.status) || c.spokenBefore)
+    .sort((a,b) => relationshipScore(b) - relationshipScore(a));
+
+  const untouched = contacts
+    .filter(c => c.status === 'Not Started')
+    .sort((a,b) => (a.priority || 9) - (b.priority || 9) || (a.school > b.school ? 1 : -1))
+    .slice(0,50);
+
+  return (
+    <div className="dash-wrap">
+      <div className="stat-grid">
+        <div className="stat-card fup">
+          <div className="s-label">Follow-ups Due</div>
+          <div className="s-num">{followUps.length}</div>
+          <div className="s-sub">need action</div>
+        </div>
+        <div className="stat-card booked">
+          <div className="s-label">Hot Leads</div>
+          <div className="s-num">{hotLeads.length}</div>
+          <div className="s-sub">high-value targets</div>
+        </div>
+        <div className="stat-card">
+          <div className="s-label">Untouched</div>
+          <div className="s-num">{contacts.filter(c=>c.status==='Not Started').length}</div>
+          <div className="s-sub">not contacted yet</div>
+        </div>
+        <div className="stat-card">
+          <div className="s-label">Booked</div>
+          <div className="s-num">{contacts.filter(c=>c.status==='Booked!').length}</div>
+          <div className="s-sub">wins</div>
+        </div>
+      </div>
+
+      <div className="dash-section">
+        <h3><i className="ti ti-bell"/> Follow-ups Due</h3>
+        {followUps.length===0 ? (
+          <div className="empty-state" style={{height:100}}>
+            <p>No follow-ups due. Suspiciously peaceful.</p>
+          </div>
+        ) : followUps.map(c => (
+          <QueueRow key={c.id} c={c} label={`Due: ${c.followUp}`} onOpenContact={onOpenContact}/>
+        ))}
+      </div>
+
+      <div className="dash-section">
+        <h3><i className="ti ti-flame"/> Hot Leads</h3>
+        {hotLeads.length===0 ? (
+          <div className="empty-state" style={{height:100}}>
+            <p>No hot leads yet.</p>
+          </div>
+        ) : hotLeads.slice(0,25).map(c => (
+          <QueueRow key={c.id} c={c} label={`Score: ${relationshipScore(c)}`} onOpenContact={onOpenContact}/>
+        ))}
+      </div>
+
+      <div className="dash-section">
+        <h3><i className="ti ti-mail-plus"/> Suggested First Outreach</h3>
+        {untouched.length===0 ? (
+          <div className="empty-state" style={{height:100}}>
+            <p>No untouched schools. Disturbingly productive.</p>
+          </div>
+        ) : untouched.map(c => (
+          <QueueRow key={c.id} c={c} label={`Priority ${c.priority || '-'}`} onOpenContact={onOpenContact}/>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function QueueRow({c,label,onOpenContact}) {
+  return (
+    <div className="fup-row" onClick={()=>onOpenContact(c)}>
+      <div className="fup-row-left">
+        <h4>
+          {c.school}
+          {c.spokenBefore&&<span style={{marginLeft:6,fontSize:9,background:'#fef3c7',color:'#92400e',border:'1px solid #fcd34d',borderRadius:3,padding:'1px 5px',fontWeight:700,verticalAlign:'middle'}}>⭐ SPOKEN</span>}
+        </h4>
+        <p>{c.contact||'No contact on file'} - {c.city}{c.state?`, ${c.state}`:''} - {c.status}</p>
+      </div>
+      <span className="badge">{label}</span>
+    </div>
+  );
+}
+
+function relationshipScore(c) {
+  let score = 0;
+  if (c.spokenBefore) score += 50;
+  if (c.status === 'Booked!') score += 40;
+  if (c.status === 'In Discussion') score += 25;
+  if (c.status === 'Emailed') score += 10;
+  if (c.status === 'Left Voicemail') score += 8;
+  if (c.followUp) score += 10;
+  if (c.notes && c.notes.trim()) score += 5;
+  if (c.email) score += 3;
+  if (c.contact) score += 3;
+  if (c.status === 'Not Interested') score -= 50;
+  return score;
+}
+
+
 function App(){
   const [contacts,setContacts]=useState([]);
   const [view,setView]=useState('dashboard');
@@ -7124,6 +7233,17 @@ function App(){
     return true;
   }).sort((a,b)=>a.priority-b.priority||(a.school>b.school?1:-1));
 
+  function openContactFromQueue(c){
+    setSearch(c.school || '');
+    setStatusF('All');
+    setTypeF('All');
+    setStateF('All');
+    setDistrictF('All');
+    setSpokenFilter(false);
+    setSelected(c);
+    setView('contacts');
+  }
+
   return (
     <div className="crm">
       {showAdd&&<AddModal onSave={addContact} onClose={()=>setShowAdd(false)}/>}
@@ -7135,6 +7255,7 @@ function App(){
         <div className="sid-nav">
           {[
             {v:'dashboard',icon:'ti-layout-dashboard',label:'Dashboard'},
+            {v:'queue',icon:'ti-bolt',label:'Outreach Queue'},
             {v:'contacts',icon:'ti-building-school',label:'All Schools'},
             {v:'followups',icon:'ti-bell',label:'Follow-ups'+(fupCount>0?` (${fupCount})`:'')},
             {v:'districts',icon:'ti-building-community',label:'District View'},
@@ -7161,6 +7282,11 @@ function App(){
         {view==='dashboard'&&<>
           <div className="topbar"><span className="topbar-title">Dashboard</span></div>
           <div className="content"><Dashboard contacts={contacts} onSelectContact={setSelected} setView={setView}/></div>
+        </>}
+
+        {view==='queue'&&<>
+          <div className="topbar"><span className="topbar-title">Outreach Queue</span></div>
+          <div className="content"><QueueView contacts={contacts} onOpenContact={openContactFromQueue}/></div>
         </>}
 
         {view==='contacts'&&<>
