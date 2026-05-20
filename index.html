@@ -204,7 +204,7 @@ window.addEventListener('load',function(){
       if(res.data)res.data.forEach(function(r){map[r.school_id]=r;});
       var merged=SEED.map(function(s){
         var p=map[s.id];
-        if(!p)return Object.assign({},s,{spokenBefore:false,fee:'',expenses:'',students:'',payStatus:'Not Invoiced',gigDate:''});
+        if(!p)return Object.assign({},s,{spokenBefore:false,fee:'',expenses:'',students:'',payStatus:'Not Invoiced',gigDate:'',contactConfidence:'',contactSource:'',lastVerified:'',manualScore:''});
         return Object.assign({},s,{
           status:p.status||s.status,notes:p.notes||s.notes,
           contact:p.contact||s.contact,phone:p.phone||s.phone,email:p.email||s.email,
@@ -212,7 +212,7 @@ window.addEventListener('load',function(){
           sca:p.sca||s.sca,scaPhone:p.sca_phone||s.scaPhone,
           followUp:p.follow_up||s.followUp,contacted:p.contacted||s.contacted,log:p.log||s.log,
           spokenBefore:p.spoken_before||false,fee:p.fee||'',expenses:p.expenses||'',
-          students:p.students||'',payStatus:p.pay_status||'Not Invoiced',gigDate:p.gig_date||''
+          students:p.students||'',payStatus:p.pay_status||'Not Invoiced',gigDate:p.gig_date||'',contactConfidence:p.contact_confidence||'',contactSource:p.contact_source||'',lastVerified:p.last_verified||'',manualScore:p.manual_score||''
         });
       });
       try{localStorage.setItem(SKEY,JSON.stringify(merged));}catch(e){}
@@ -236,7 +236,7 @@ window.addEventListener('load',function(){
         principal:c.principal||'',p_phone:c.pPhone||'',sca:c.sca||'',
         sca_phone:c.scaPhone||'',follow_up:c.followUp||'',contacted:c.contacted||'',log:c.log||[],
         spoken_before:c.spokenBefore||false,fee:c.fee||'',expenses:c.expenses||'',
-        students:c.students||'',pay_status:c.payStatus||'Not Invoiced',gig_date:c.gigDate||''
+        students:c.students||'',pay_status:c.payStatus||'Not Invoiced',gig_date:c.gigDate||'',contact_confidence:c.contactConfidence||'',contact_source:c.contactSource||'',last_verified:c.lastVerified||'',manual_score:c.manualScore||''
       };});
       supabase.from('progress').upsert(rows,{onConflict:'school_id,user_id'});
     }catch(e){console.error('Sync error:',e);}
@@ -6425,7 +6425,7 @@ var SEED=SEED_RAW.map(function(r){
     contact:r[8],role:r[9],phone:r[10],email:r[11],status:r[12],notes:r[13],
     lat:r[14]||null,lon:r[15]||null,
     principal:'',pPhone:'',sca:'',scaPhone:'',followUp:'',contacted:'',log:[],
-    spokenBefore:false,fee:'',expenses:'',students:'',payStatus:'Not Invoiced',gigDate:''};
+    spokenBefore:false,fee:'',expenses:'',students:'',payStatus:'Not Invoiced',gigDate:'',contactConfidence:'',contactSource:'',lastVerified:'',manualScore:''};
 });
 </script>
 <div id="root"></div>
@@ -6519,6 +6519,65 @@ gabemurfitt.com`
   return templates[tplType]||templates.initial;
 }
 
+
+function openEditSchoolModal(c,onUpdate){
+  const school=prompt('School Name',c.school||'');
+  if(school===null)return;
+
+  const district=prompt('District',c.district||'');
+  if(district===null)return;
+
+  const city=prompt('City',c.city||'');
+  if(city===null)return;
+
+  const state=prompt('State',c.state||'');
+  if(state===null)return;
+
+  const contact=prompt('Contact Name',c.contact||'');
+  if(contact===null)return;
+
+  const role=prompt('Role/Title',c.role||'');
+  if(role===null)return;
+
+  const phone=prompt('Phone',c.phone||'');
+  if(phone===null)return;
+
+  const email=prompt('Email',c.email||'');
+  if(email===null)return;
+
+  const contactConfidence=prompt('Contact Confidence: VERIFIED, LIKELY, FALLBACK, or blank',c.contactConfidence||'');
+  if(contactConfidence===null)return;
+
+  const contactSource=prompt('Contact Source',c.contactSource||'');
+  if(contactSource===null)return;
+
+  const lastVerified=prompt('Last Verified Date (YYYY-MM-DD)',c.lastVerified||new Date().toISOString().slice(0,10));
+  if(lastVerified===null)return;
+
+  const manualScore=prompt('Manual Priority Score 0-10 (optional)',c.manualScore||'');
+  if(manualScore===null)return;
+
+  const notes=prompt('Notes',c.notes||'');
+  if(notes===null)return;
+
+  onUpdate({
+    ...c,
+    school,
+    district,
+    city,
+    state,
+    contact,
+    role,
+    phone,
+    email,
+    contactConfidence,
+    contactSource,
+    lastVerified,
+    manualScore,
+    notes
+  });
+}
+
 function Pill({status}){
   const s=STATUS_CFG[status]||STATUS_CFG['Not Started'];
   return <span className="pill" style={{background:s.bg,color:s.color,borderColor:s.border}}>{status}</span>;
@@ -6601,6 +6660,7 @@ function DetailPanel({c,onUpdate,onClose}){
       <div className="det-head">
         <div className="det-head-top">
           <h3>{c.school}</h3>
+            <button className="btn sm" onClick={()=>openEditSchoolModal(c,onUpdate)}><i className="ti ti-edit"/>Edit School</button>
           <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:11,color:'#92400e',fontWeight:600,background:'#fef3c7',padding:'3px 8px',borderRadius:4,border:'1px solid #fcd34d'}}><input type="checkbox" checked={spokenBefore} onChange={e=>{const v=e.target.checked;setSpokenBefore(v);onUpdate({...c,status,notes,followUp,contacted,spokenBefore:v,fee,expenses,students,payStatus,gigDate});}}/> [STAR] Spoken Here Before</label>
           <button className="btn sm" onClick={onClose}><i className="ti ti-x"/></button>
         </div>
