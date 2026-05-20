@@ -301,37 +301,68 @@ function normalizeSchool(raw){
   };
 }
 
+function distanceFromMiddleton(c){
+  const HOME_LAT=43.7068;
+  const HOME_LNG=-116.6201;
+
+  const lat=Number(c.lat);
+  const lng=Number(c.lng);
+
+  if(!lat || !lng || isNaN(lat) || isNaN(lng)) return 9999;
+
+  const R=3958.8;
+  const dLat=(lat-HOME_LAT)*Math.PI/180;
+  const dLng=(lng-HOME_LNG)*Math.PI/180;
+
+  const a=
+    Math.sin(dLat/2)*Math.sin(dLat/2)+
+    Math.cos(HOME_LAT*Math.PI/180)*
+    Math.cos(lat*Math.PI/180)*
+    Math.sin(dLng/2)*Math.sin(dLng/2);
+
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
 function getOutreachScore(c){
   let score=0;
+  const miles=distanceFromMiddleton(c);
 
+  // Distance from Middleton, ID is the main driver.
+  if(miles<=15)score+=20000;
+  else if(miles<=30)score+=18000;
+  else if(miles<=50)score+=16000;
+  else if(miles<=75)score+=14000;
+  else if(miles<=100)score+=12000;
+  else if(miles<=150)score+=10000;
+  else if(miles<=250)score+=7500;
+  else if(miles<=400)score+=5000;
+  else if(miles<=700)score+=2500;
+  else score+=500;
+
+  // Manual priority can override distance when needed.
   if(c.manualScore && !isNaN(Number(c.manualScore))) score+=Number(c.manualScore)*1000;
 
-  if(c.state==='ID')score+=10000;
-  else if(c.state==='WA')score+=8000;
-  else if(c.state==='OR')score+=6500;
-  else if(c.state==='UT')score+=5000;
-  else if(c.state==='CA')score+=3500;
-  else if(c.state==='AZ')score+=3000;
-  else if(c.state==='NV')score+=2500;
+  // Contact quality.
+  if(c.contact && c.contact.trim())score+=1200;
+  if(c.email && c.email.trim())score+=1600;
 
-  if(c.cls==='6A')score+=1000;
-  else if(c.cls==='5A')score+=800;
-  else if(c.cls==='4A')score+=600;
-  else if(c.cls==='3A')score+=400;
+  if(c.contactConfidence==='VERIFIED')score+=2000;
+  else if(c.contactConfidence==='LIKELY')score+=900;
+  else if(c.contactConfidence==='FALLBACK')score+=300;
 
-  if(c.contact && c.contact.trim())score+=700;
-  if(c.email && c.email.trim())score+=900;
+  // Larger schools usually have more budget and assembly infrastructure.
+  if(c.cls==='6A')score+=900;
+  else if(c.cls==='5A')score+=750;
+  else if(c.cls==='4A')score+=550;
+  else if(c.cls==='3A')score+=350;
 
-  if(c.contactConfidence==='VERIFIED')score+=1500;
-  else if(c.contactConfidence==='LIKELY')score+=700;
-  else if(c.contactConfidence==='FALLBACK')score+=200;
+  // Relationship history.
+  if(c.spokenBefore)score+=4000;
 
-  if(c.spokenBefore)score+=5000;
+  // Stable tie-breaker, not random.
+  score += Math.max(0,100-Math.min(100,Math.round(miles)));
 
-  // keep ordering stable but break ties
-  score += (String(c.school||'').length % 17);
-
-  return score;
+  return Math.round(score);
 }
 
 var SUPABASE_URL='https://hoyilsqwbdkbxismiatf.supabase.co';
