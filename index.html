@@ -7124,7 +7124,7 @@ function QueueView({contacts,onOpenContact}) {
             <p>No untouched schools. Disturbingly productive.</p>
           </div>
         ) : untouched.map(c => (
-          <QueueRow key={c.id} c={c} label={`Score: ${c.outreachScore}`} onOpenContact={onOpenContact}/>
+          <QueueRow key={c.id} c={c} label={`Score: ${c.outreachScore || 0}`} onOpenContact={onOpenContact}/>
         ))}
       </div>
     </div>
