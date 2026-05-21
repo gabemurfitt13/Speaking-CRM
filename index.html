@@ -209,13 +209,8 @@ window.addEventListener('load',function(){
           status:p.status||s.status,notes:p.notes||s.notes,
           contact:p.contact||s.contact,phone:p.phone||s.phone,email:p.email||s.email,
           principal:p.principal||s.principal,pPhone:p.p_phone||s.pPhone,
-          sca:p.sca||s.sca,scaEmail:p.sca_email||s.scaEmail||'',scaPhone:p.sca_phone||s.scaPhone,
+          sca:p.sca||s.sca,scaPhone:p.sca_phone||s.scaPhone,
           followUp:p.follow_up||s.followUp,contacted:p.contacted||s.contacted,log:p.log||s.log,
-          extraContacts:p.extra_contacts||s.extraContacts||[],
-          contactConfidence:p.contact_confidence||s.contactConfidence||'',
-          contactSource:p.contact_source||s.contactSource||'',
-          lastVerified:p.last_verified||s.lastVerified||'',
-          manualScore:p.manual_score||s.manualScore||'',
           spokenBefore:p.spoken_before||false,fee:p.fee||'',expenses:p.expenses||'',
           students:p.students||'',payStatus:p.pay_status||'Not Invoiced',gigDate:p.gig_date||''
         });
@@ -238,14 +233,8 @@ window.addEventListener('load',function(){
       var rows=dirty.map(function(c){return {
         school_id:c.id,user_id:uid,status:c.status,notes:c.notes||'',
         contact:c.contact||'',phone:c.phone||'',email:c.email||'',
-        principal:c.principal||'',p_phone:c.pPhone||'',
-        sca:c.sca||'',sca_email:c.scaEmail||'',sca_phone:c.scaPhone||'',
-        follow_up:c.followUp||'',contacted:c.contacted||'',log:c.log||[],
-        extra_contacts:c.extraContacts||[],
-        contact_confidence:c.contactConfidence||'',
-        contact_source:c.contactSource||'',
-        last_verified:c.lastVerified||'',
-        manual_score:c.manualScore||'',
+        principal:c.principal||'',p_phone:c.pPhone||'',sca:c.sca||'',
+        sca_phone:c.scaPhone||'',follow_up:c.followUp||'',contacted:c.contacted||'',log:c.log||[],
         spoken_before:c.spokenBefore||false,fee:c.fee||'',expenses:c.expenses||'',
         students:c.students||'',pay_status:c.payStatus||'Not Invoiced',gig_date:c.gigDate||''
       };});
@@ -6725,7 +6714,7 @@ function DetailPanel({c,onUpdate,onClose}){
     setTab('track');setCopied(false);
   },[c.id]);
 
-  function save(){onUpdate({...c,status,notes,followUp,contacted,spokenBefore,fee,expenses,students,payStatus,gigDate,extraContacts,contactConfidence:c.contactConfidence||'',contactSource:c.contactSource||'',lastVerified:c.lastVerified||'',manualScore:c.manualScore||''});showToast('Saved');}
+  function save(){onUpdate({...c,status,notes,followUp,contacted,spokenBefore,fee,expenses,students,payStatus,gigDate,extraContacts});showToast('Saved');}
   function addLog(){
     if(!logNote.trim())return;
     const entry={date:new Date().toISOString().slice(0,10),type:logType,note:logNote.trim()};
@@ -7215,7 +7204,7 @@ function QueueView({contacts,onOpenContact}) {
 
   const hotLeads = contacts
     .filter(c => ['In Discussion','Booked!'].includes(c.status) || c.spokenBefore)
-    .sort((a,b) => getOutreachScore(b) - getOutreachScore(a));
+    .sort((a,b) => relationshipScore(b) - relationshipScore(a));
 
   const untouched = contacts
     .filter(c => c.status === 'Not Started')
@@ -7266,7 +7255,7 @@ function QueueView({contacts,onOpenContact}) {
             <p>No hot leads yet.</p>
           </div>
         ) : hotLeads.slice(0,25).map(c => (
-          <QueueRow key={c.id} c={c} label={`Score: ${getOutreachScore(c)}`} onOpenContact={onOpenContact}/>
+          <QueueRow key={c.id} c={c} label={`Score: ${relationshipScore(c)}`} onOpenContact={onOpenContact}/>
         ))}
       </div>
 
@@ -7299,29 +7288,18 @@ function QueueRow({c,label,onOpenContact}) {
   );
 }
 
-// -- Single source of truth for school scoring --------------
-function getOutreachScore(c) {
-  var score = 0;
-  // Relationship history
+function relationshipScore(c) {
+  let score = 0;
   if (c.spokenBefore) score += 50;
   if (c.status === 'Booked!') score += 40;
   if (c.status === 'In Discussion') score += 25;
   if (c.status === 'Emailed') score += 10;
   if (c.status === 'Left Voicemail') score += 8;
-  // Engagement signals
   if (c.followUp) score += 10;
   if (c.notes && c.notes.trim()) score += 5;
-  // Contact data quality
-  if (c.email) score += 5;
-  if (c.contact) score += 5;
-  if (c.phone) score += 3;
-  if (c.contactConfidence === 'VERIFIED') score += 10;
-  if (c.contactConfidence === 'LIKELY') score += 5;
-  // Manual override
-  if (c.manualScore) score += parseInt(c.manualScore) * 3;
-  // Negative signals
-  if (c.status === 'Not Interested') score -= 100;
-  if (c.status === 'Try Next Year') score -= 20;
+  if (c.email) score += 3;
+  if (c.contact) score += 3;
+  if (c.status === 'Not Interested') score -= 50;
   return score;
 }
 
@@ -7400,13 +7378,13 @@ function App(){
   function openContactFromQueue(c){
     var found=contacts.find(function(x){return x.id===c.id;});
     if(!found) return;
-    setSelected(found);
-    setSearch('');
     setStatusF('All');
     setTypeF('All');
     setStateF('All');
     setDistrictF('All');
     setSpokenFilter(false);
+    setSearch(c.school||'');
+    setSelected(found);
     setSpokenFilter(false);
     setSelected(c);
     setView('contacts');
