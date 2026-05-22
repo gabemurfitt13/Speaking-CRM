@@ -215,6 +215,7 @@ window.addEventListener('load',function(){
           students:p.students||'',payStatus:p.pay_status||'Not Invoiced',gigDate:p.gig_date||''
         });
       });
+      merged=fixAllSchoolCoords(merged);
       try{localStorage.setItem(SKEY,JSON.stringify(merged));}catch(e){}
       document.getElementById('login-wrap').style.display='none';
       window._syncInterval=setInterval(function(){syncToSupabase(user.id);},30000);
@@ -227,7 +228,7 @@ window.addEventListener('load',function(){
     try{
       var raw=localStorage.getItem(SKEY);
       if(!raw)return;
-      var contacts=JSON.parse(raw);
+      var contacts=fixAllSchoolCoords(JSON.parse(raw));
       var dirty=contacts.filter(function(c){return c.status!=='Not Started'||c.notes||c.spokenBefore||c.fee||c.followUp;});
       if(!dirty.length)return;
       var rows=dirty.map(function(c){return {
@@ -259,10 +260,38 @@ function cleanMapLng(state,v){
   return n;
 }
 
+
+function fixSchoolCoords(c){
+  if(!c) return c;
+  var westernStates=['ID','WA','OR','CA','NV','UT','AZ','WY','MT','CO','NM'];
+  var lat=Number(c.lat);
+  var lng=Number(c.lng || c.lon);
+
+  if(!lat || isNaN(lat)) lat=null;
+  if(!lng || isNaN(lng)) lng=null;
+
+  // Western U.S. longitude must be negative. If positive, flip it.
+  if(lng!==null && westernStates.includes(c.state) && lng>0){
+    lng=-Math.abs(lng);
+  }
+
+  // Drop impossible/outside-mainland-US-ish coordinates so map doesn't fly to Asia.
+  // This is intentionally conservative for your current Western U.S. school dataset.
+  if(lat!==null && (lat<24 || lat>50)) lat=null;
+  if(lng!==null && (lng<-130 || lng>-100)) lng=null;
+
+  return Object.assign({},c,{lat:lat,lng:lng,lon:lng});
+}
+
+function fixAllSchoolCoords(list){
+  return (list||[]).map(fixSchoolCoords);
+}
+
+
 function normalizeSchool(raw){
   // Already an object
   if(!Array.isArray(raw)){
-    return {
+    return fixSchoolCoords({
       ...raw,
       id: raw.id || '',
       school: raw.school || raw.name || raw.schoolName || '',
@@ -286,12 +315,12 @@ function normalizeSchool(raw){
       contactSource: raw.contactSource || '',
       lastVerified: raw.lastVerified || '',
       manualScore: raw.manualScore || ''
-    };
+    });
   }
 
   // Array format:
   // [id, school, type, cls, district, city, state, priority, contact, role, phone, email, status, notes, lat, lng]
-  return {
+  return fixSchoolCoords({
     id: raw[0] || '',
     school: raw[1] || '',
     type: raw[2] || '',
@@ -314,7 +343,7 @@ function normalizeSchool(raw){
     contactSource: '',
     lastVerified: '',
     manualScore: ''
-  };
+  });
 }
 
 function distanceFromMiddleton(c){
@@ -385,6 +414,20 @@ var SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 var supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 var STORAGE_KEY='gabe-crm-v3';
 var SEED_RAW=[];
+
+window.debugMapCoords=function(){
+  try{
+    var raw=localStorage.getItem('gabe-crm-v3');
+    var list=raw?JSON.parse(raw):[];
+    var bad=list.filter(function(c){
+      var lat=Number(c.lat), lng=Number(c.lng||c.lon);
+      return !lat || !lng || lat<24 || lat>50 || lng<-130 || lng>-100;
+    });
+    console.log('Total schools:',list.length,'Bad/missing map coords:',bad.length,bad.slice(0,20));
+    return bad;
+  }catch(e){console.error(e);return [];}
+};
+
 </script>
 <script>SEED_RAW=SEED_RAW.concat([
 ['d1-hs-01','Coeur d\'Alene High School','High School','6A','CDA SD','Coeur d\'Alene','ID',1,'Tony Prka','Activities Director','208-667-4500','','Not Started','',47.721028,-116.777289],
@@ -6986,7 +7029,7 @@ function MapView({contacts, onSelect}){
   useEffect(function(){
     if(!window.L||!mapRef.current) return;
     if(leafletMap.current){leafletMap.current.remove();leafletMap.current=null;}
-    var map=window.L.map(mapRef.current).setView([44.0,-114.7],6);
+    var map=window.L.map(mapRef.current).setView([43.7068,-116.6201],8);
     window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
       attribution:'&copy; OpenStreetMap contributors',maxZoom:18
     }).addTo(map);
@@ -7000,7 +7043,7 @@ function MapView({contacts, onSelect}){
     markersRef.current=[];
 
     var filtered=contacts.filter(function(c){
-      var lng=c.lon||c.lng; if(!c.lat||!lng) return false;
+      var lng=c.lon||c.lng; if(!c.lat||!lng) return false; if(Number(c.lat)<24||Number(c.lat)>50||Number(lng)<-130||Number(lng)>-100)return false;
       if(stateF!=='All'&&c.state!==stateF) return false;
       if(statusF!=='All'&&c.status!==statusF) return false;
       return true;
