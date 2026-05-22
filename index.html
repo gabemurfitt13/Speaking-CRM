@@ -246,20 +246,16 @@ window.addEventListener('load',function(){
 <script>
 
 
-function cleanLongitude(state,lng){
-  var n=Number(lng);
+function cleanMapLat(v){
+  var n=Number(v);
   if(!n || isNaN(n)) return null;
-
-  // Western US longitudes should be negative. Some imported rows lost the minus sign.
-  var westernStates=['ID','WA','OR','CA','NV','UT','AZ','WY','MT','CO','NM'];
-  if(westernStates.includes(state) && n>0) n=-n;
-
   return n;
 }
-
-function cleanLatitude(lat){
-  var n=Number(lat);
+function cleanMapLng(state,v){
+  var n=Number(v);
   if(!n || isNaN(n)) return null;
+  var western=['ID','WA','OR','CA','NV','UT','AZ','WY','MT','CO','NM'];
+  if(western.includes(state) && n>0) n=-n;
   return n;
 }
 
@@ -282,9 +278,9 @@ function normalizeSchool(raw){
       email: raw.email || raw.contactEmail || '',
       status: raw.status || 'Not Started',
       notes: raw.notes || '',
-      lat: cleanLatitude(raw.lat || raw.latitude),
-      lng: cleanLongitude(raw.state, raw.lng || raw.lon || raw.longitude),
-      lon: cleanLongitude(raw.state, raw.lon || raw.lng || raw.longitude),
+      lat: cleanMapLat(raw.lat || raw.latitude),
+      lng: cleanMapLng(raw.state, raw.lng || raw.lon || raw.longitude),
+      lon: cleanMapLng(raw.state, raw.lon || raw.lng || raw.longitude),
       spokenBefore: raw.spokenBefore || false,
       contactConfidence: raw.contactConfidence || '',
       contactSource: raw.contactSource || '',
@@ -310,9 +306,9 @@ function normalizeSchool(raw){
     email: raw[11] || '',
     status: raw[12] || 'Not Started',
     notes: raw[13] || '',
-    lat: cleanLatitude(raw[14]),
-    lng: cleanLongitude(raw[6], raw[15]),
-    lon: cleanLongitude(raw[6], raw[15]),
+    lat: cleanMapLat(raw[14]),
+    lng: cleanMapLng(raw[6], raw[15]),
+    lon: cleanMapLng(raw[6], raw[15]),
     spokenBefore: false,
     contactConfidence: '',
     contactSource: '',
