@@ -245,6 +245,24 @@ window.addEventListener('load',function(){
 </script>
 <script>
 
+
+function cleanLongitude(state,lng){
+  var n=Number(lng);
+  if(!n || isNaN(n)) return null;
+
+  // Western US longitudes should be negative. Some imported rows lost the minus sign.
+  var westernStates=['ID','WA','OR','CA','NV','UT','AZ','WY','MT','CO','NM'];
+  if(westernStates.includes(state) && n>0) n=-n;
+
+  return n;
+}
+
+function cleanLatitude(lat){
+  var n=Number(lat);
+  if(!n || isNaN(n)) return null;
+  return n;
+}
+
 function normalizeSchool(raw){
   // Already an object
   if(!Array.isArray(raw)){
@@ -264,8 +282,9 @@ function normalizeSchool(raw){
       email: raw.email || raw.contactEmail || '',
       status: raw.status || 'Not Started',
       notes: raw.notes || '',
-      lat: raw.lat || raw.latitude || null,
-      lng: raw.lng || raw.longitude || null,
+      lat: cleanLatitude(raw.lat || raw.latitude),
+      lng: cleanLongitude(raw.state, raw.lng || raw.lon || raw.longitude),
+      lon: cleanLongitude(raw.state, raw.lon || raw.lng || raw.longitude),
       spokenBefore: raw.spokenBefore || false,
       contactConfidence: raw.contactConfidence || '',
       contactSource: raw.contactSource || '',
@@ -291,8 +310,9 @@ function normalizeSchool(raw){
     email: raw[11] || '',
     status: raw[12] || 'Not Started',
     notes: raw[13] || '',
-    lat: raw[14] || null,
-    lng: raw[15] || null,
+    lat: cleanLatitude(raw[14]),
+    lng: cleanLongitude(raw[6], raw[15]),
+    lon: cleanLongitude(raw[6], raw[15]),
     spokenBefore: false,
     contactConfidence: '',
     contactSource: '',
@@ -6984,7 +7004,7 @@ function MapView({contacts, onSelect}){
     markersRef.current=[];
 
     var filtered=contacts.filter(function(c){
-      if(!c.lat||!c.lon) return false;
+      var lng=c.lon||c.lng; if(!c.lat||!lng) return false;
       if(stateF!=='All'&&c.state!==stateF) return false;
       if(statusF!=='All'&&c.status!==statusF) return false;
       return true;
@@ -6992,7 +7012,7 @@ function MapView({contacts, onSelect}){
 
     var bounds=[];
     filtered.forEach(function(c){
-      bounds.push([c.lat,c.lon]);
+      var lng=c.lon||c.lng; bounds.push([c.lat,lng]);
       var color=c.spokenBefore?'#f59e0b':STATUS_COLORS[c.status]||'#9ca3af';
       var size=c.status==='Booked!'?14:c.spokenBefore?11:7;
       var border=c.status==='Booked!'?'3px solid #065f46':'2px solid #fff';
@@ -7000,19 +7020,19 @@ function MapView({contacts, onSelect}){
         html:'<div style="width:'+size+'px;height:'+size+'px;background:'+color+';border-radius:50%;border:'+border+';box-shadow:0 1px 4px rgba(0,0,0,0.4);cursor:pointer;"></div>',
         className:'',iconSize:[size,size],iconAnchor:[size/2,size/2]
       });
-      var marker=window.L.marker([c.lat,c.lon],{icon:icon}).addTo(leafletMap.current);
+      var lng=c.lon||c.lng; var marker=window.L.marker([c.lat,lng],{icon:icon}).addTo(leafletMap.current);
       marker.bindTooltip(c.school+'  -  '+c.city,{permanent:false,direction:'top',offset:[0,-6]});
       marker.on('click',function(){setInfo(c);});
       markersRef.current.push(marker);
     });
 
     if(bounds.length>0&&stateF!=='All'){
-      try{leafletMap.current.fitBounds(bounds,{padding:[40,40],maxZoom:11});}catch(e){}
+      try{leafletMap.current.fitBounds(bounds,{padding:[40,40],maxZoom:8});}catch(e){}
     }
   },[contacts,stateF,statusF]);
 
-  var states=['All',...Array.from(new Set(contacts.filter(function(c){return c.lat;}).map(function(c){return c.state;}))).sort()];
-  var mappedCount=contacts.filter(function(c){return c.lat&&(stateF==='All'||c.state===stateF)&&(statusF==='All'||c.status===statusF);}).length;
+  var states=['All',...Array.from(new Set(contacts.filter(function(c){return c.lat&&(c.lon||c.lng);}).map(function(c){return c.state;}))).sort()];
+  var mappedCount=contacts.filter(function(c){return c.lat&&(c.lon||c.lng)&&(stateF==='All'||c.state===stateF)&&(statusF==='All'||c.status===statusF);}).length;
 
   return (
     <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
