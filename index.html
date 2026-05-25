@@ -3,44 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Gabe Murfitt – <div style="position:relative;">
-  <input 
-    id="login-pass" 
-    class="login-inp" 
-    type="password" 
-    placeholder="Password"
-    style="padding-right:42px;"
-  />
-
-  <button
-    type="button"
-    id="toggle-pass"
-    style="
-      position:absolute;
-      right:10px;
-      top:50%;
-      transform:translateY(-50%);
-      border:none;
-      background:none;
-      cursor:pointer;
-      color:#6b7280;
-      font-size:16px;
-    "
-  >
-    👁️
-  </button>
-  <script>
-const passInput = document.getElementById('login-pass');
-const toggleBtn = document.getElementById('toggle-pass');
-
-toggleBtn.addEventListener('click', function () {
-  const isPassword = passInput.type === 'password';
-
-  passInput.type = isPassword ? 'text' : 'password';
-  toggleBtn.textContent = isPassword ? '🙈' : '👁️';
-});
-</script>
-</div>Speaker CRM</title>
+<title>Gabe Murfitt – Speaker CRM</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
 <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -202,37 +165,172 @@ input[type=file]{display:none}
 #login-wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e3a5f,#2563eb);z-index:9999;font-family:Arial,sans-serif;}
 #login-box{background:#fff;border-radius:16px;padding:48px 40px;width:340px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.2);}
 .login-inp{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;margin-bottom:8px;box-sizing:border-box;}
-#login-btn{width:100%;padding:13px;border:none;border-radius:8px;background:#2563eb;color:#fff;font-size:14px;font-weight:600;cursor:pointer;}
-#login-err{margin-top:12px;color:#dc2626;font-size:13px;min-height:18px;}
+.pass-wrap{position:relative;width:100%;}
+.pass-wrap .login-inp{padding-right:44px;}
+.pass-toggle{position:absolute;right:9px;top:16px;transform:translateY(-50%);border:none;background:transparent;color:#6b7280;cursor:pointer;font-size:18px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;padding:0;}
+.pass-toggle:hover{color:#1f2937;}
+#login-btn,#reset-pass-btn{width:100%;padding:13px;border:none;border-radius:8px;background:#2563eb;color:#fff;font-size:14px;font-weight:600;cursor:pointer;}
+#login-btn:disabled,#reset-pass-btn:disabled{opacity:.7;cursor:not-allowed;}
+#forgot-pass-btn{margin-top:10px;border:none;background:transparent;color:#2563eb;font-size:12px;cursor:pointer;text-decoration:underline;}
+#login-err{margin-top:12px;color:#dc2626;font-size:13px;min-height:18px;line-height:1.35;}
 </style>
 <div id="login-wrap">
   <div id="login-box">
     <div style="font-size:26px;font-weight:800;color:#1e3a5f;margin-bottom:4px;">Gabe Murfitt</div>
     <div style="font-size:13px;color:#6b7280;margin-bottom:32px;">Speaker Outreach CRM</div>
     <input id="login-email" class="login-inp" type="email" placeholder="Email" value="gabemurfittspeaker@gmail.com"/>
-    <input id="login-pass" class="login-inp" type="password" placeholder="Password"/>
+    <div class="pass-wrap">
+      <input id="login-pass" class="login-inp" type="password" placeholder="Password"/>
+      <button id="toggle-login-pass" class="pass-toggle" type="button" aria-label="Show password" title="Show password"><i class="ti ti-eye"></i></button>
+    </div>
     <button id="login-btn">Sign In</button>
+    <button id="forgot-pass-btn" type="button">Forgot password?</button>
     <div id="login-err"></div>
   </div>
 </div>
 <script>
 window.addEventListener('load',function(){
   var SKEY='gabe-crm-v3';
+
+  function isRecoveryUrl(){
+    return window.location.hash.indexOf('type=recovery')!==-1 || window.location.search.indexOf('type=recovery')!==-1;
+  }
+
+  function currentPageUrl(){
+    return window.location.origin + window.location.pathname;
+  }
+
+  function setLoginMessage(message,isSuccess){
+    var err=document.getElementById('login-err');
+    if(!err)return;
+    err.style.color=isSuccess?'#16a34a':'#dc2626';
+    err.textContent=message||'';
+  }
+
+  function attachPasswordToggle(inputId,buttonId){
+    var input=document.getElementById(inputId);
+    var button=document.getElementById(buttonId);
+    if(!input||!button)return;
+    button.addEventListener('click',function(){
+      var showing=input.type==='text';
+      input.type=showing?'password':'text';
+      button.setAttribute('aria-label',showing?'Show password':'Hide password');
+      button.setAttribute('title',showing?'Show password':'Hide password');
+      button.innerHTML=showing?'<i class="ti ti-eye"></i>':'<i class="ti ti-eye-off"></i>';
+    });
+  }
+
+  function renderPasswordResetForm(){
+    var wrap=document.getElementById('login-wrap');
+    var box=document.getElementById('login-box');
+    if(!wrap||!box)return;
+    wrap.style.display='flex';
+    box.innerHTML=
+      '<div style="font-size:24px;font-weight:800;color:#1e3a5f;margin-bottom:8px;">Reset Password</div>'+ 
+      '<div style="font-size:13px;color:#6b7280;margin-bottom:24px;">Enter a new password for your CRM.</div>'+ 
+      '<div class="pass-wrap">'+
+        '<input id="new-pass" class="login-inp" type="password" placeholder="New password"/>'+ 
+        '<button id="toggle-new-pass" class="pass-toggle" type="button" aria-label="Show password" title="Show password"><i class="ti ti-eye"></i></button>'+ 
+      '</div>'+ 
+      '<div class="pass-wrap">'+
+        '<input id="confirm-pass" class="login-inp" type="password" placeholder="Confirm password"/>'+ 
+        '<button id="toggle-confirm-pass" class="pass-toggle" type="button" aria-label="Show password" title="Show password"><i class="ti ti-eye"></i></button>'+ 
+      '</div>'+ 
+      '<button id="reset-pass-btn" type="button">Update Password</button>'+ 
+      '<div id="login-err"></div>';
+
+    attachPasswordToggle('new-pass','toggle-new-pass');
+    attachPasswordToggle('confirm-pass','toggle-confirm-pass');
+
+    var resetBtn=document.getElementById('reset-pass-btn');
+    if(resetBtn)resetBtn.addEventListener('click',function(){
+      var newPass=document.getElementById('new-pass').value;
+      var confirmPass=document.getElementById('confirm-pass').value;
+      setLoginMessage('',false);
+
+      if(!newPass || newPass.length<8){
+        setLoginMessage('Password must be at least 8 characters.',false);
+        return;
+      }
+      if(newPass!==confirmPass){
+        setLoginMessage('Passwords do not match.',false);
+        return;
+      }
+
+      resetBtn.textContent='Updating...';
+      resetBtn.disabled=true;
+
+      supabase.auth.updateUser({password:newPass}).then(function(res){
+        if(res.error){
+          setLoginMessage(res.error.message,false);
+          resetBtn.textContent='Update Password';
+          resetBtn.disabled=false;
+          return;
+        }
+        setLoginMessage('Password updated. Redirecting to sign in...',true);
+        setTimeout(function(){
+          supabase.auth.signOut().finally(function(){
+            window.location.href=currentPageUrl();
+          });
+        },900);
+      }).catch(function(e){
+        setLoginMessage('Error: '+(e.message||'Unknown'),false);
+        resetBtn.textContent='Update Password';
+        resetBtn.disabled=false;
+      });
+    });
+  }
+
+  attachPasswordToggle('login-pass','toggle-login-pass');
+
+  supabase.auth.onAuthStateChange(function(event,session){
+    if(event==='PASSWORD_RECOVERY'){
+      renderPasswordResetForm();
+    }
+  });
+
   supabase.auth.getSession().then(function(res){
+    if(isRecoveryUrl()){
+      renderPasswordResetForm();
+      return;
+    }
     if(res.data&&res.data.session&&res.data.session.user){
       loadAndMount(res.data.session.user);
     }
   }).catch(function(){});
+
+  var forgotBtn=document.getElementById('forgot-pass-btn');
+  if(forgotBtn)forgotBtn.addEventListener('click',function(){
+    var email=document.getElementById('login-email').value.trim();
+    if(!email){setLoginMessage('Enter your email first.',false);return;}
+    forgotBtn.textContent='Sending reset link...';
+    forgotBtn.disabled=true;
+    supabase.auth.resetPasswordForEmail(email,{redirectTo:currentPageUrl()}).then(function(res){
+      if(res.error){
+        setLoginMessage(res.error.message,false);
+        forgotBtn.textContent='Forgot password?';
+        forgotBtn.disabled=false;
+        return;
+      }
+      setLoginMessage('Password reset email sent. Use the link in your email.',true);
+      forgotBtn.textContent='Forgot password?';
+      forgotBtn.disabled=false;
+    }).catch(function(e){
+      setLoginMessage('Error: '+(e.message||'Unknown'),false);
+      forgotBtn.textContent='Forgot password?';
+      forgotBtn.disabled=false;
+    });
+  });
+
   var btn=document.getElementById('login-btn');
   if(btn)btn.addEventListener('click',function(){
     var email=document.getElementById('login-email').value.trim();
     var pass=document.getElementById('login-pass').value;
-    var err=document.getElementById('login-err');
-    err.textContent='';btn.textContent='Signing in...';btn.disabled=true;
+    setLoginMessage('',false);btn.textContent='Signing in...';btn.disabled=true;
     supabase.auth.signInWithPassword({email:email,password:pass}).then(function(res){
-      if(res.error){err.textContent=res.error.message;btn.textContent='Sign In';btn.disabled=false;return;}
+      if(res.error){setLoginMessage(res.error.message,false);btn.textContent='Sign In';btn.disabled=false;return;}
       loadAndMount(res.data.user);
-    }).catch(function(e){err.textContent='Error: '+(e.message||'Unknown');btn.textContent='Sign In';btn.disabled=false;});
+    }).catch(function(e){setLoginMessage('Error: '+(e.message||'Unknown'),false);btn.textContent='Sign In';btn.disabled=false;});
   });
   function loadAndMount(user){
     window._supabaseUser=user;
