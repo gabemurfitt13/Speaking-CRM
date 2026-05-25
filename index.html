@@ -3,7 +3,44 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Gabe Murfitt – Speaker CRM</title>
+<title>Gabe Murfitt – <div style="position:relative;">
+  <input 
+    id="login-pass" 
+    class="login-inp" 
+    type="password" 
+    placeholder="Password"
+    style="padding-right:42px;"
+  />
+
+  <button
+    type="button"
+    id="toggle-pass"
+    style="
+      position:absolute;
+      right:10px;
+      top:50%;
+      transform:translateY(-50%);
+      border:none;
+      background:none;
+      cursor:pointer;
+      color:#6b7280;
+      font-size:16px;
+    "
+  >
+    👁️
+  </button>
+  <script>
+const passInput = document.getElementById('login-pass');
+const toggleBtn = document.getElementById('toggle-pass');
+
+toggleBtn.addEventListener('click', function () {
+  const isPassword = passInput.type === 'password';
+
+  passInput.type = isPassword ? 'text' : 'password';
+  toggleBtn.textContent = isPassword ? '🙈' : '👁️';
+});
+</script>
+</div>Speaker CRM</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
 <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
