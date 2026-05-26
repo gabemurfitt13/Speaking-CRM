@@ -6891,6 +6891,7 @@ SEED_RAW=SEED_RAW.concat([
 ['nces-UT-0099','Elevated Charter School','Public','','Elevated Charter School','SARATOGA SPRINGS','UT',3,'','','385-535-1655','','Not Contacted','',40.419478,-111.88100100000001]
 ]);
 
+const SEED = SEED_RAW.map(normalizeSchool);
 var SEED=SEED_RAW.map(function(r){
   return {id:r[0],school:r[1],type:r[2],cls:cleanClassification(r[3],r[6]),district:r[4],city:r[5],state:r[6],priority:r[7],
     contact:r[8],role:r[9],phone:r[10],email:r[11],status:(r[12]==='Not Contacted'?'Not Started':(r[12]||'Not Started')),notes:r[13],
