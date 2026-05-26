@@ -7025,23 +7025,87 @@ gabemurfitt.com`
 }
 
 
-function openEditSchoolModal(c,onUpdate){
-  const school=prompt('School Name',c.school||''); if(school===null)return;
-  const district=prompt('District',c.district||''); if(district===null)return;
-  const city=prompt('City',c.city||''); if(city===null)return;
-  const state=prompt('State',c.state||''); if(state===null)return;
-  const cls=prompt('Classification / Size (6A, 5A, 4A, etc.)',c.cls||''); if(cls===null)return;
-  const contact=prompt('Contact Name',c.contact||''); if(contact===null)return;
-  const role=prompt('Role/Title',c.role||''); if(role===null)return;
-  const phone=prompt('Phone',c.phone||''); if(phone===null)return;
-  const email=prompt('Email',c.email||''); if(email===null)return;
-  const contactConfidence=prompt('Contact Confidence: VERIFIED, LIKELY, FALLBACK, or blank',c.contactConfidence||''); if(contactConfidence===null)return;
-  const contactSource=prompt('Contact Source',c.contactSource||''); if(contactSource===null)return;
-  const lastVerified=prompt('Last Verified Date (YYYY-MM-DD)',c.lastVerified||new Date().toISOString().slice(0,10)); if(lastVerified===null)return;
-  const manualScore=prompt('Manual Priority Score 0-10 (optional)',c.manualScore||''); if(manualScore===null)return;
-  const notes=prompt('Notes',c.notes||''); if(notes===null)return;
+function EditSchoolModal({c,onUpdate,onClose}){
+  const [f,setF]=useState({
+    school:c.school||'',
+    type:c.type||'High School',
+    cls:c.cls||'',
+    district:c.district||'',
+    city:c.city||'',
+    state:c.state||'',
+    priority:c.priority||5,
+    contact:c.contact||'',
+    role:c.role||'Activities Director',
+    phone:c.phone||'',
+    email:c.email||'',
+    principal:c.principal||'',
+    pPhone:c.pPhone||'',
+    sca:c.sca||'',
+    scaPhone:c.scaPhone||'',
+    contactConfidence:c.contactConfidence||'',
+    contactSource:c.contactSource||'',
+    lastVerified:c.lastVerified||'',
+    manualScore:c.manualScore||'',
+    lat:c.lat||'',
+    lng:c.lng||'',
+    notes:c.notes||''
+  });
+  const u=(k,v)=>setF(p=>({...p,[k]:v}));
+  function save(){
+    if(!f.school.trim()){alert('School name is required.');return;}
+    const updated={
+      ...c,
+      ...f,
+      priority:Number(f.priority)||5,
+      lat:f.lat===''?null:f.lat,
+      lng:f.lng===''?null:f.lng
+    };
+    onUpdate(updated);
+    showToast('School updated','ti-edit');
+    onClose();
+  }
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal" style={{width:620}}>
+        <div className="modal-head">
+          <h3>Edit School</h3>
+          <button className="btn sm" onClick={onClose}><i className="ti ti-x"/></button>
+        </div>
+        <div className="form-grid">
+          <div className="form-field full"><label>School Name *</label><input value={f.school} onChange={e=>u('school',e.target.value)} /></div>
+          <div className="form-field"><label>Type</label><select value={f.type} onChange={e=>u('type',e.target.value)}>{['High School','Middle/Jr High','Elementary','K-12','Other'].map(t=><option key={t}>{t}</option>)}</select></div>
+          <div className="form-field"><label>Classification / Size</label><input value={f.cls} onChange={e=>u('cls',e.target.value)} placeholder="6A, 5A, 6-8..."/></div>
+          <div className="form-field"><label>District</label><input value={f.district} onChange={e=>u('district',e.target.value)} /></div>
+          <div className="form-field"><label>City</label><input value={f.city} onChange={e=>u('city',e.target.value)} /></div>
+          <div className="form-field"><label>State</label><input value={f.state} onChange={e=>u('state',e.target.value)} /></div>
+          <div className="form-field"><label>Priority</label><select value={f.priority} onChange={e=>u('priority',e.target.value)}>{[1,2,3,4,5].map(n=><option key={n} value={n}>{n}</option>)}</select></div>
+          <div className="form-field"><label>Manual Score</label><input value={f.manualScore} onChange={e=>u('manualScore',e.target.value)} placeholder="Optional 0-10"/></div>
 
-  onUpdate({...c,school,district,city,state,cls,contact,role,phone,email,contactConfidence,contactSource,lastVerified,manualScore,notes});
+          <div className="form-field full"><label>Primary Contact</label><input value={f.contact} onChange={e=>u('contact',e.target.value)} placeholder="Full name"/></div>
+          <div className="form-field"><label>Role / Title</label><input value={f.role} onChange={e=>u('role',e.target.value)} /></div>
+          <div className="form-field"><label>Phone</label><input value={f.phone} onChange={e=>u('phone',e.target.value)} /></div>
+          <div className="form-field full"><label>Email</label><input value={f.email} onChange={e=>u('email',e.target.value)} /></div>
+
+          <div className="form-field"><label>Principal</label><input value={f.principal} onChange={e=>u('principal',e.target.value)} /></div>
+          <div className="form-field"><label>Principal Phone</label><input value={f.pPhone} onChange={e=>u('pPhone',e.target.value)} /></div>
+          <div className="form-field"><label>SCA / Counselor</label><input value={f.sca} onChange={e=>u('sca',e.target.value)} /></div>
+          <div className="form-field"><label>SCA Phone</label><input value={f.scaPhone} onChange={e=>u('scaPhone',e.target.value)} /></div>
+
+          <div className="form-field"><label>Contact Confidence</label><select value={f.contactConfidence} onChange={e=>u('contactConfidence',e.target.value)}><option value="">Blank</option><option value="VERIFIED">VERIFIED</option><option value="LIKELY">LIKELY</option><option value="FALLBACK">FALLBACK</option></select></div>
+          <div className="form-field"><label>Last Verified</label><input type="date" value={f.lastVerified} onChange={e=>u('lastVerified',e.target.value)} /></div>
+          <div className="form-field full"><label>Contact Source</label><input value={f.contactSource} onChange={e=>u('contactSource',e.target.value)} placeholder="Website, staff directory, IHSAA, etc."/></div>
+
+          <div className="form-field"><label>Latitude</label><input value={f.lat} onChange={e=>u('lat',e.target.value)} placeholder="43.615"/></div>
+          <div className="form-field"><label>Longitude</label><input value={f.lng} onChange={e=>u('lng',e.target.value)} placeholder="-116.202"/></div>
+          <div className="form-field full"><label>Notes</label><textarea value={f.notes} onChange={e=>u('notes',e.target.value)} /></div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn primary" onClick={save}><i className="ti ti-device-floppy"/> Save Changes</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function Pill({status}){
@@ -7079,6 +7143,7 @@ function DetailPanel({c,onUpdate,onClose}){
   const [extraContacts,setExtraContacts]=useState(c.extraContacts||[]);
   const [newContact,setNewContact]=useState({name:'',role:'AD',phone:'',email:''});
   const [showAddContact,setShowAddContact]=useState(false);
+  const [showEditSchool,setShowEditSchool]=useState(false);
   const [status,setStatus]=useState(c.status);
   const [fee,setFee]=useState(c.fee||'');
   const [expenses,setExpenses]=useState(c.expenses||'');
@@ -7096,7 +7161,7 @@ function DetailPanel({c,onUpdate,onClose}){
   useEffect(()=>{
     setStatus(c.status);setNotes(c.notes);
     setFollowUp(c.followUp||'');setContacted(c.contacted||'');
-    setTab('track');setCopied(false);
+    setTab('track');setCopied(false);setShowEditSchool(false);
   },[c.id]);
 
   function save(){onUpdate({...c,status,notes,followUp,contacted,spokenBefore,fee,expenses,students,payStatus,gigDate,extraContacts});showToast('Saved');}
@@ -7126,7 +7191,7 @@ function DetailPanel({c,onUpdate,onClose}){
       <div className="det-head">
         <div className="det-head-top">
           <h3>{c.school}</h3>
-            <button className="btn sm" onClick={()=>openEditSchoolModal(c,onUpdate)}><i className="ti ti-edit"/>Edit School</button>
+            <button className="btn sm" onClick={()=>setShowEditSchool(true)}><i className="ti ti-edit"/>Edit School</button>
           <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:11,color:'#92400e',fontWeight:600,background:'#fef3c7',padding:'3px 8px',borderRadius:4,border:'1px solid #fcd34d'}}><input type="checkbox" checked={spokenBefore} onChange={e=>{const v=e.target.checked;setSpokenBefore(v);onUpdate({...c,status,notes,followUp,contacted,spokenBefore:v,fee,expenses,students,payStatus,gigDate});}}/> [STAR] Spoken Here Before</label>
           <button className="btn sm" onClick={onClose}><i className="ti ti-x"/></button>
         </div>
@@ -7144,6 +7209,7 @@ function DetailPanel({c,onUpdate,onClose}){
           </button>
         ))}
       </div>
+      {showEditSchool&&<EditSchoolModal c={c} onUpdate={onUpdate} onClose={()=>setShowEditSchool(false)}/>}
       <div className="detail-inner">
         {tab==='track'&&<>
           <div className="det-sect">
