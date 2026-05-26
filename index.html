@@ -7357,8 +7357,10 @@ function MapView({contacts, onSelect, onUpdate}){
   var mapRef=useRef(null);
   var leafletMap=useRef(null);
   var markersRef=useRef([]);
+  var markerByIdRef=useRef({});
   var [stateF,setStateF]=useState('ID');
   var [statusF,setStatusF]=useState('All');
+  var [mapSearch,setMapSearch]=useState('');
   var [info,setInfo]=useState(null);
 
   var STATUS_COLORS={
@@ -7385,6 +7387,7 @@ function MapView({contacts, onSelect, onUpdate}){
     }
     markersRef.current.forEach(function(m){m.remove();});
     markersRef.current=[];
+    markerByIdRef.current={};
 
     var filtered=contacts.filter(function(c){
       if(!c.lat||!c.lon) return false;
@@ -7407,6 +7410,7 @@ function MapView({contacts, onSelect, onUpdate}){
       marker.bindTooltip(c.school+'  -  '+c.city,{permanent:false,direction:'top',offset:[0,-6]});
       marker.on('click',function(){setInfo(c);});
       markersRef.current.push(marker);
+      markerByIdRef.current[c.id]=marker;
     });
 
     if(bounds.length>0&&stateF!=='All'){
@@ -7416,11 +7420,57 @@ function MapView({contacts, onSelect, onUpdate}){
 
   var states=['All',...Array.from(new Set(contacts.filter(function(c){return c.lat;}).map(function(c){return c.state;}))).sort()];
   var mappedCount=contacts.filter(function(c){return c.lat&&(stateF==='All'||c.state===stateF)&&(statusF==='All'||c.status===statusF);}).length;
+  var normalizedMapSearch=mapSearch.trim().toLowerCase();
+  var mapSearchMatches=normalizedMapSearch?contacts.filter(function(c){
+    if(!c.lat||!c.lon) return false;
+    var hay=[c.school,c.city,c.district,c.contact,c.email,c.phone,c.state,c.type].join(' ').toLowerCase();
+    return hay.indexOf(normalizedMapSearch)!==-1;
+  }).slice(0,12):[];
+  function focusMapSchool(match){
+    if(!match||!leafletMap.current) return;
+    setStateF(match.state||'All');
+    setStatusF('All');
+    setInfo(match);
+    setMapSearch(match.school);
+    setTimeout(function(){
+      if(!leafletMap.current) return;
+      leafletMap.current.setView([match.lat,match.lon],12);
+      var marker=markerByIdRef.current[match.id];
+      if(marker&&marker.openTooltip) marker.openTooltip();
+    },80);
+  }
+  function runMapSearch(){
+    var q=mapSearch.trim().toLowerCase();
+    if(!q) return;
+    var match=contacts.find(function(c){return c.lat&&c.lon&&c.school.toLowerCase()===q;})||
+      contacts.find(function(c){
+        if(!c.lat||!c.lon) return false;
+        var hay=[c.school,c.city,c.district,c.contact,c.email,c.phone,c.state,c.type].join(' ').toLowerCase();
+        return hay.indexOf(q)!==-1;
+      });
+    if(match) focusMapSchool(match);
+    else showToast('No mapped school found','ti-search');
+  }
 
   return (
     <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
       <div className="topbar" style={{flexShrink:0}}>
         <span className="topbar-title">Map View</span>
+        <div className="srch-wrap" style={{maxWidth:300,position:'relative'}}>
+          <i className="ti ti-search srch-icon"></i>
+          <input className="srch" placeholder="Search map schools..." value={mapSearch} onChange={function(e){setMapSearch(e.target.value);}} onKeyDown={function(e){if(e.key==='Enter') runMapSearch();}} />
+          {mapSearchMatches.length>0&&mapSearch!==mapSearchMatches[0].school&&(
+            <div style={{position:'absolute',top:36,left:0,right:0,zIndex:5000,background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:'var(--radius)',boxShadow:'var(--shadow)',maxHeight:240,overflowY:'auto'}}>
+              {mapSearchMatches.map(function(c){return (
+                <button key={c.id} onMouseDown={function(e){e.preventDefault();focusMapSchool(c);}} style={{display:'block',width:'100%',textAlign:'left',padding:'8px 10px',border:'none',borderBottom:'1px solid var(--border)',background:'transparent',cursor:'pointer',fontFamily:'inherit'}}>
+                  <div style={{fontSize:12,fontWeight:600,color:'var(--text)'}}>{c.school}</div>
+                  <div style={{fontSize:10.5,color:'var(--text-muted)'}}>{c.city}, {c.state} • {c.status}</div>
+                </button>
+              );})}
+            </div>
+          )}
+        </div>
+        <button className="btn sm" onClick={runMapSearch}><i className="ti ti-map-search"/> Find</button>
         <select className="sel" value={stateF} onChange={function(e){setStateF(e.target.value);}}>
           {states.map(function(s){return <option key={s}>{s}</option>;})}
         </select>
