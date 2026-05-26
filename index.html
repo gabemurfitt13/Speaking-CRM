@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link rel="icon" href="data:,">
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Gabe Murfitt – Speaker CRM</title>
+<link rel="icon" href="data:,">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
 <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -7268,14 +7268,16 @@ function EditSchoolModal({c,onUpdate,onClose}){
       cls:cleanClassification(f.cls,f.state),
       priority:Number(f.priority)||5,
       lat:f.lat===''?null:f.lat,
-      lon:f.lon===''?null:f.lon
+      lon:f.lon===''?null:f.lon,
+      lng:f.lon===''?null:f.lon
     };
+
+    // Close the modal immediately so Save behaves like a normal form save.
+    // Then update the record. This avoids React keeping the modal visible
+    // during the parent state refresh.
+    if(typeof onClose==='function') onClose();
     onUpdate(updated);
     showToast('School updated','ti-edit');
-    if(typeof onClose==='function'){
-      onClose();
-      setTimeout(onClose,0);
-    }
   }
   return (
     <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
