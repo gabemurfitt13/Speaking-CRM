@@ -165,172 +165,37 @@ input[type=file]{display:none}
 #login-wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e3a5f,#2563eb);z-index:9999;font-family:Arial,sans-serif;}
 #login-box{background:#fff;border-radius:16px;padding:48px 40px;width:340px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.2);}
 .login-inp{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;margin-bottom:8px;box-sizing:border-box;}
-.pass-wrap{position:relative;width:100%;}
-.pass-wrap .login-inp{padding-right:44px;}
-.pass-toggle{position:absolute;right:9px;top:16px;transform:translateY(-50%);border:none;background:transparent;color:#6b7280;cursor:pointer;font-size:18px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;padding:0;}
-.pass-toggle:hover{color:#1f2937;}
-#login-btn,#reset-pass-btn{width:100%;padding:13px;border:none;border-radius:8px;background:#2563eb;color:#fff;font-size:14px;font-weight:600;cursor:pointer;}
-#login-btn:disabled,#reset-pass-btn:disabled{opacity:.7;cursor:not-allowed;}
-#forgot-pass-btn{margin-top:10px;border:none;background:transparent;color:#2563eb;font-size:12px;cursor:pointer;text-decoration:underline;}
-#login-err{margin-top:12px;color:#dc2626;font-size:13px;min-height:18px;line-height:1.35;}
+#login-btn{width:100%;padding:13px;border:none;border-radius:8px;background:#2563eb;color:#fff;font-size:14px;font-weight:600;cursor:pointer;}
+#login-err{margin-top:12px;color:#dc2626;font-size:13px;min-height:18px;}
 </style>
 <div id="login-wrap">
   <div id="login-box">
     <div style="font-size:26px;font-weight:800;color:#1e3a5f;margin-bottom:4px;">Gabe Murfitt</div>
     <div style="font-size:13px;color:#6b7280;margin-bottom:32px;">Speaker Outreach CRM</div>
     <input id="login-email" class="login-inp" type="email" placeholder="Email" value="gabemurfittspeaker@gmail.com"/>
-    <div class="pass-wrap">
-      <input id="login-pass" class="login-inp" type="password" placeholder="Password"/>
-      <button id="toggle-login-pass" class="pass-toggle" type="button" aria-label="Show password" title="Show password"><i class="ti ti-eye"></i></button>
-    </div>
+    <input id="login-pass" class="login-inp" type="password" placeholder="Password"/>
     <button id="login-btn">Sign In</button>
-    <button id="forgot-pass-btn" type="button">Forgot password?</button>
     <div id="login-err"></div>
   </div>
 </div>
 <script>
 window.addEventListener('load',function(){
   var SKEY='gabe-crm-v3';
-
-  function isRecoveryUrl(){
-    return window.location.hash.indexOf('type=recovery')!==-1 || window.location.search.indexOf('type=recovery')!==-1;
-  }
-
-  function currentPageUrl(){
-    return window.location.origin + window.location.pathname;
-  }
-
-  function setLoginMessage(message,isSuccess){
-    var err=document.getElementById('login-err');
-    if(!err)return;
-    err.style.color=isSuccess?'#16a34a':'#dc2626';
-    err.textContent=message||'';
-  }
-
-  function attachPasswordToggle(inputId,buttonId){
-    var input=document.getElementById(inputId);
-    var button=document.getElementById(buttonId);
-    if(!input||!button)return;
-    button.addEventListener('click',function(){
-      var showing=input.type==='text';
-      input.type=showing?'password':'text';
-      button.setAttribute('aria-label',showing?'Show password':'Hide password');
-      button.setAttribute('title',showing?'Show password':'Hide password');
-      button.innerHTML=showing?'<i class="ti ti-eye"></i>':'<i class="ti ti-eye-off"></i>';
-    });
-  }
-
-  function renderPasswordResetForm(){
-    var wrap=document.getElementById('login-wrap');
-    var box=document.getElementById('login-box');
-    if(!wrap||!box)return;
-    wrap.style.display='flex';
-    box.innerHTML=
-      '<div style="font-size:24px;font-weight:800;color:#1e3a5f;margin-bottom:8px;">Reset Password</div>'+ 
-      '<div style="font-size:13px;color:#6b7280;margin-bottom:24px;">Enter a new password for your CRM.</div>'+ 
-      '<div class="pass-wrap">'+
-        '<input id="new-pass" class="login-inp" type="password" placeholder="New password"/>'+ 
-        '<button id="toggle-new-pass" class="pass-toggle" type="button" aria-label="Show password" title="Show password"><i class="ti ti-eye"></i></button>'+ 
-      '</div>'+ 
-      '<div class="pass-wrap">'+
-        '<input id="confirm-pass" class="login-inp" type="password" placeholder="Confirm password"/>'+ 
-        '<button id="toggle-confirm-pass" class="pass-toggle" type="button" aria-label="Show password" title="Show password"><i class="ti ti-eye"></i></button>'+ 
-      '</div>'+ 
-      '<button id="reset-pass-btn" type="button">Update Password</button>'+ 
-      '<div id="login-err"></div>';
-
-    attachPasswordToggle('new-pass','toggle-new-pass');
-    attachPasswordToggle('confirm-pass','toggle-confirm-pass');
-
-    var resetBtn=document.getElementById('reset-pass-btn');
-    if(resetBtn)resetBtn.addEventListener('click',function(){
-      var newPass=document.getElementById('new-pass').value;
-      var confirmPass=document.getElementById('confirm-pass').value;
-      setLoginMessage('',false);
-
-      if(!newPass || newPass.length<8){
-        setLoginMessage('Password must be at least 8 characters.',false);
-        return;
-      }
-      if(newPass!==confirmPass){
-        setLoginMessage('Passwords do not match.',false);
-        return;
-      }
-
-      resetBtn.textContent='Updating...';
-      resetBtn.disabled=true;
-
-      supabase.auth.updateUser({password:newPass}).then(function(res){
-        if(res.error){
-          setLoginMessage(res.error.message,false);
-          resetBtn.textContent='Update Password';
-          resetBtn.disabled=false;
-          return;
-        }
-        setLoginMessage('Password updated. Redirecting to sign in...',true);
-        setTimeout(function(){
-          supabase.auth.signOut().finally(function(){
-            window.location.href=currentPageUrl();
-          });
-        },900);
-      }).catch(function(e){
-        setLoginMessage('Error: '+(e.message||'Unknown'),false);
-        resetBtn.textContent='Update Password';
-        resetBtn.disabled=false;
-      });
-    });
-  }
-
-  attachPasswordToggle('login-pass','toggle-login-pass');
-
-  supabase.auth.onAuthStateChange(function(event,session){
-    if(event==='PASSWORD_RECOVERY'){
-      renderPasswordResetForm();
-    }
-  });
-
   supabase.auth.getSession().then(function(res){
-    if(isRecoveryUrl()){
-      renderPasswordResetForm();
-      return;
-    }
     if(res.data&&res.data.session&&res.data.session.user){
       loadAndMount(res.data.session.user);
     }
   }).catch(function(){});
-
-  var forgotBtn=document.getElementById('forgot-pass-btn');
-  if(forgotBtn)forgotBtn.addEventListener('click',function(){
-    var email=document.getElementById('login-email').value.trim();
-    if(!email){setLoginMessage('Enter your email first.',false);return;}
-    forgotBtn.textContent='Sending reset link...';
-    forgotBtn.disabled=true;
-    supabase.auth.resetPasswordForEmail(email,{redirectTo:currentPageUrl()}).then(function(res){
-      if(res.error){
-        setLoginMessage(res.error.message,false);
-        forgotBtn.textContent='Forgot password?';
-        forgotBtn.disabled=false;
-        return;
-      }
-      setLoginMessage('Password reset email sent. Use the link in your email.',true);
-      forgotBtn.textContent='Forgot password?';
-      forgotBtn.disabled=false;
-    }).catch(function(e){
-      setLoginMessage('Error: '+(e.message||'Unknown'),false);
-      forgotBtn.textContent='Forgot password?';
-      forgotBtn.disabled=false;
-    });
-  });
-
   var btn=document.getElementById('login-btn');
   if(btn)btn.addEventListener('click',function(){
     var email=document.getElementById('login-email').value.trim();
     var pass=document.getElementById('login-pass').value;
-    setLoginMessage('',false);btn.textContent='Signing in...';btn.disabled=true;
+    var err=document.getElementById('login-err');
+    err.textContent='';btn.textContent='Signing in...';btn.disabled=true;
     supabase.auth.signInWithPassword({email:email,password:pass}).then(function(res){
-      if(res.error){setLoginMessage(res.error.message,false);btn.textContent='Sign In';btn.disabled=false;return;}
+      if(res.error){err.textContent=res.error.message;btn.textContent='Sign In';btn.disabled=false;return;}
       loadAndMount(res.data.user);
-    }).catch(function(e){setLoginMessage('Error: '+(e.message||'Unknown'),false);btn.textContent='Sign In';btn.disabled=false;});
+    }).catch(function(e){err.textContent='Error: '+(e.message||'Unknown');btn.textContent='Sign In';btn.disabled=false;});
   });
   function loadAndMount(user){
     window._supabaseUser=user;
@@ -380,29 +245,6 @@ window.addEventListener('load',function(){
 </script>
 <script>
 
-
-function cleanMapLat(v){
-  var n=Number(v);
-  if(!n || isNaN(n)) return null;
-  return n;
-}
-function cleanMapLng(state,v){
-  var n=Number(v);
-  if(!n || isNaN(n)) return null;
-
-  // U.S. longitudes should be negative. Some imported coordinates were missing the minus sign,
-  // which sends schools to Asia/Europe on the map. Because this CRM is U.S. school outreach,
-  // treat positive longitudes in the normal U.S. range as accidental positives.
-  var st=(state||'').toString().trim().toUpperCase();
-  var usStates={AL:1,AK:1,AZ:1,AR:1,CA:1,CO:1,CT:1,DE:1,FL:1,GA:1,HI:1,ID:1,IL:1,IN:1,IA:1,KS:1,KY:1,LA:1,ME:1,MD:1,MA:1,MI:1,MN:1,MS:1,MO:1,MT:1,NE:1,NV:1,NH:1,NJ:1,NM:1,NY:1,NC:1,ND:1,OH:1,OK:1,OR:1,PA:1,RI:1,SC:1,SD:1,TN:1,TX:1,UT:1,VT:1,VA:1,WA:1,WV:1,WI:1,WY:1,DC:1};
-
-  if(usStates[st] && n>0 && n>=65 && n<=180){
-    n=-Math.abs(n);
-  }
-
-  return n;
-}
-
 function normalizeSchool(raw){
   // Already an object
   if(!Array.isArray(raw)){
@@ -422,9 +264,8 @@ function normalizeSchool(raw){
       email: raw.email || raw.contactEmail || '',
       status: raw.status || 'Not Started',
       notes: raw.notes || '',
-      lat: cleanMapLat(raw.lat || raw.latitude),
-      lng: cleanMapLng(raw.state, raw.lng || raw.lon || raw.longitude),
-      lon: cleanMapLng(raw.state, raw.lon || raw.lng || raw.longitude),
+      lat: raw.lat || raw.latitude || null,
+      lng: raw.lng || raw.longitude || null,
       spokenBefore: raw.spokenBefore || false,
       contactConfidence: raw.contactConfidence || '',
       contactSource: raw.contactSource || '',
@@ -450,9 +291,8 @@ function normalizeSchool(raw){
     email: raw[11] || '',
     status: raw[12] || 'Not Started',
     notes: raw[13] || '',
-    lat: cleanMapLat(raw[14]),
-    lng: cleanMapLng(raw[6], raw[15]),
-    lon: cleanMapLng(raw[6], raw[15]),
+    lat: raw[14] || null,
+    lng: raw[15] || null,
     spokenBefore: false,
     contactConfidence: '',
     contactSource: '',
@@ -466,7 +306,7 @@ function distanceFromMiddleton(c){
   const HOME_LNG=-116.6201;
 
   const lat=Number(c.lat);
-  const lng=cleanMapLng(c.state,c.lon||c.lng);
+  const lng=Number(c.lng);
 
   if(!lat || !lng || isNaN(lat) || isNaN(lng)) return 9999;
 
@@ -836,7 +676,6 @@ var SEED_RAW=[];
 ['lew-el-06','Webster Elementary School','Elementary','K-6','Lewiston SD','Lewiston','ID',3,'','Principal','208-748-3110','','Not Started','Contact: Principal/Counselor | lewistonschools.net',46.406337,-117.020926],
 ['lew-el-07','Whitman Elementary School','Elementary','K-6','Lewiston SD','Lewiston','ID',3,'','Principal','208-748-3120','','Not Started','Contact: Principal/Counselor | lewistonschools.net',46.411052,-117.005034],
 ['cda-el-01','Atlas Elementary School','Elementary','K-6','CDA SD','Coeur d Alene','ID',3,'','Principal','208-664-8246','','Not Started','Contact: Principal/Counselor | cdaschools.org',47.751226,-116.827592],
-['cda-el-02','Borah Elementary School','Elementary','K-6','CDA SD','Coeur d Alene','ID',3,'Vince Mann','Activities Director','208-664-8246','','Not Started','Contact: Principal/Counselor | cdaschools.org',47.698553,116.777090],
 ['cda-el-03','Bryan Elementary School','Elementary','K-6','CDA SD','Coeur d Alene','ID',3,'','Principal','208-664-8246','','Not Started','Contact: Principal/Counselor | cdaschools.org',47.685784,-116.775183],
 ['cda-el-04','Fernan STEM Academy','Elementary','K-6','CDA SD','Coeur d Alene','ID',3,'','Principal','208-664-8246','','Not Started','Contact: Principal/Counselor | cdaschools.org',47.677021,-116.755473],
 ['cda-el-05','Hayden Meadows Elementary','Elementary','K-6','CDA SD','Hayden','ID',3,'','Principal','208-772-3588','','Not Started','Contact: Principal/Counselor | cdaschools.org',47.757993,-116.775110],
@@ -2300,7 +2139,6 @@ var SEED_RAW=[];
 ['al-385','Booker T Washington Magnet High School','High School','AL','Montgomery County School District','Montgomery','AL',3,'Sheila Graves','Activities Director','(334) 269-3618','http://www.btw.mps-al.org/?PageName=TeacherPage&Page=1&StaffID=380632&iSection=Teachers&CorrespondingID=380632#','Not Started','⚠️ Unverified – confirm contact before outreach',32.321898,-86.199309],
 ['al-386','Carver Senior High School','High School','AL','Montgomery County School District','Montgomery','AL',2,'Monisha Couch-Dillard','Activities Director','(334) 269-3636','http://www.carversr.mps-al.org/?PageName=TeacherPage&Page=15&StaffID=116769&iSection=Teachers&CorrespondingID=116769#','Not Started','⚠️ Unverified – confirm contact before outreach',32.349264,-86.325149],
 ['al-387','Jefferson Davis High School','High School','AL','Montgomery County School District','Montgomery','AL',1,'Aliki Brooks','Activities Director','(334) 269-3712','http://www.jd.mps-al.org/?PageName=TeacherPage&Page=13&StaffID=118402&iSection=Teachers&CorrespondingID=118402#','Not Started','⚠️ Unverified – confirm contact before outreach',32.345774,-86.259176],
-['al-389','Lanier Senior High School','High School','AL','Montgomery County School District','Montgomery','AL',2,'Tislam Ellis','Activities Director','(334) 269-3726','http://www.lanier.mps-al.org/?PageName=%27Bio%27&StaffID=%27336135%27','Not Started','⚠️ Unverified – confirm contact before outreach',32.355868,-86.309983],
 ['al-390','Loveless Academic Magnet Prog High School','High School','AL','Montgomery County School District','Montgomery','AL',3,'Andrew Allen','Activities Director','(334) 269-3839','http://www.loveless.mps-al.org/?PageName=TeacherPage&Page=16&StaffID=292531&iSection=Teachers&CorrespondingID=292531#','Not Started','⚠️ Unverified – confirm contact before outreach',32.331029,-86.247158],
 ['al-391','Brewbaker Tech Magnet High School','High School','AL','Montgomery County School District','Montgomery','AL',3,'Patricia McWhorter','Activities Director','(334) 284-7100','http://www.brewtech.mps-al.org/?PageName=TeacherPage&Page=4&StaffID=159341&iSection=Teachers&CorrespondingID=159341#','Not Started','⚠️ Unverified – confirm contact before outreach',32.345774,-86.259176],
 ['al-392','Danville Middle School','Middle/Jr High','AL','Morgan County School District','Danville','AL',3,'Dawn Burgess','Activities Director','(256) 773-7723','http://danvillemiddle.al.mcm.schoolinsites.com/?PageName=TeacherPage&Page=8&StaffID=183093&iSection=Teachers&CorrespondingID=183093#','Not Started','⚠️ Unverified – confirm contact before outreach',34.415762,-87.093926],
@@ -3159,9 +2997,7 @@ var SEED_RAW=[];
 ['az-142','Shadow Mountain High School','High School','AZ','Paradise Valley Unified School District','Phoenix','AZ',1,'Allison Hamila','Activities Director','(602) 449-3000','ahamila@pvlearners.net','Not Started','⚠️ Unverified – confirm contact before outreach',33.584200,-112.019100],
 ['az-143','Shea Middle School','Middle/Jr High','AZ','Paradise Valley Unified School District','Phoenix','AZ',3,'Felicia Favela','Activities Director','(602) 449-3500','ffavela@pvlearners.net','Not Started','⚠️ Unverified – confirm contact before outreach',33.583800,-112.022900],
 ['az-144','Sunrise Middle School','Middle/Jr High','AZ','Paradise Valley Unified School District','Scottsdale','AZ',3,'Rosemary Johnson','Activities Director','(602) 449-6100','rojohnson@pvschools.net','Not Started','⚠️ Unverified – confirm contact before outreach',33.619332,-111.972479],
-['az-145','Vista Verde Middle School','Middle/Jr High','AZ','Paradise Valley Unified School District','Phoenix','AZ',3,'Dawn Flint','Activities Director','(602) 449-5300','dflint@pvschools.net','Not Started','⚠️ Unverified – confirm contact before outreach',33.648800,-112.021700],
 ['az-146','Paradise Honors High School','High School','AZ','Paragon Management Inc. School District','Surprise','AZ',4,'Craig Alessio','Activities Director','(623) 455-7400','calessio@paradiseschools.org','Not Started','⚠️ Unverified – confirm contact before outreach',33.630100,-112.395600],
-['az-147','Park View Middle School','Middle/Jr High','AZ','Park View School Inc. School District','Prescott Valley','AZ',4,'James Herrera','Activities Director','(928) 775-5115','james.Herrera@parkviewschool.org','Not Started','⚠️ Unverified – confirm contact before outreach',34.585600,-112.307766],
 ['az-148','Parker High School','High School','AZ','Parker Unified School District','Parker','AZ',3,'Dan Maya','Activities Director','(928) 669-9244','dmaya@parkerusd.org','Not Started','⚠️ Unverified – confirm contact before outreach',34.142200,-114.288500],
 ['az-149','Payson High School','High School','AZ','Payson Unified School District','Payson','AZ',3,'Linda Griffith','Activities Director','(928) 474-2070','http://pusd10.org/cms/One.aspx?portalId=162558&pageId=1822658','Not Started','⚠️ Unverified – confirm contact before outreach',34.236800,-111.332700],
 ['az-150','Cactus High School','High School','AZ','Peoria Unified School District','Glendale','AZ',2,'Rebecca Jarnagin','Activities Director','(623) 412-5000','RJarnagin@pusd11.net','Not Started','⚠️ Unverified – confirm contact before outreach',33.625700,-112.195200],
@@ -3399,7 +3235,6 @@ var SEED_RAW=[];
 ['co-138','Idalia High School','High School','CO','Colorado SD','Colorado','CO',3,'Kylie Chamberlain','Activities Director','(970)354-7298','kyliechamberlain@gmail.com','Not Started','⚠️ Unverified – confirm contact before outreach',39.705006,102.294420],
 ['co-139','Ignacio High School','High School','CO','Colorado SD','Colorado','CO',3,'Rocky Cundiff','Activities Director','(970)563-0600','rcundiff@ignacioschools.org','Not Started','⚠️ Unverified – confirm contact before outreach',37.116392,107.640146],
 ['co-140','James Irwin Charter High School','High School','CO','Colorado SD','Colorado','CO',3,'Mike Prusinowski','Activities Director','(719)576-8055','mike.prusinowski@jamesirwin.org','Not Started','⚠️ Unverified – confirm contact before outreach',38.797280,104.728431],
-['co-141','Jefferson Academy','High School','CO','Colorado SD','Colorado','CO',3,'Michael Wilson','Activities Director','(303)438-1011','mwilson@jajags.com','Not Started','⚠️ Unverified – confirm contact before outreach',39.877300,105.085900],
 ['co-142','Jefferson High School','High School','CO','Colorado SD','Colorado','CO',3,'Joe Generose','Activities Director','','jgeneros@jeffco.k12.co.us','Not Started','⚠️ Unverified – confirm contact before outreach'],
 ['co-143','Jim Elliot Christian School','High School','CO','Colorado SD','Colorado','CO',3,'Dave Hiltman','Activities Director','','dave.hiltman@jimelliotschool.com','Not Started','⚠️ Unverified – confirm contact before outreach'],
 ['co-144','John F. Kennedy High School','High School','CO','Colorado SD','Colorado','CO',3,'Chris Enzminger','Activities Director','(720)423-4300','Chris_Enzminger@dpsk12.org','Not Started','⚠️ Unverified – confirm contact before outreach',39.662600,105.068300],
@@ -4623,7 +4458,6 @@ var SEED_RAW=[];
 ['nv-080','Coral Academy of Science Reno','High School','','Charter','Reno','NV',3,'','Activities Director','','','Not Started','⚠️ Unverified – confirm contact before outreach',39.516207,-119.811681],
 ['nv-081','Damonte Ranch High School','High School','','Washoe County SD','Reno','NV',3,'','Activities Director','(775)851-5656','','Not Started','⚠️ Unverified – confirm contact before outreach | website: http://www.washoeschools.net/drhs',39.424127,119.713055],
 ['nv-082','Dayton High School','High School','','Lyon County SD','Dayton','NV',3,'','Activities Director','(775)246-6262','','Not Started','⚠️ Unverified – confirm contact before outreach | website: http://www.des.lyoncsd.org',39.238140,119.580060],
-['nv-083','Debbie Smith CTE Academy','High School','','Washoe County SD','Reno','NV',3,'','Activities Director','','','Not Started','⚠️ Unverified – confirm contact before outreach',39.555215,-119.796164],
 ['nv-084','Douglas High School','High School','','Douglas County SD','Minden','NV',3,'','Activities Director','(775)782-5136','','Not Started','⚠️ Unverified – confirm contact before outreach | website: http://dhs.dcsd.net/',38.958440,119.780736],
 ['nv-085','enCompass Academy','High School','','Charter','Reno','NV',3,'','Activities Director','(775)322-5566','','Not Started','⚠️ Unverified – confirm contact before outreach',39.515690,119.833011],
 ['nv-086','Excel Christian Academy','High School','','Private','Sparks','NV',3,'','Activities Director','','','Not Started','⚠️ Unverified – confirm contact before outreach',39.578604,-119.734312],
@@ -4700,7 +4534,6 @@ var SEED_RAW=[];
 ['wy-20','Farson-Eden High School','High School','','Sweetwater County SD 2','Farson','WY',3,'Tabetha Noble','Activities Director','(307)273-9301','noblet@sw1.k12.wy.us','Not Started','⚠️ Unverified – confirm contact before outreach | website: http://fes.sweetwater1.org',42.108714,109.442793],
 ['wy-21','Fort Washakie High School','High School','','Fremont County SD 21','Fort Washakie','WY',3,'','Activities Director','','','Not Started','⚠️ Unverified – confirm contact before outreach'],
 ['wy-22','Gillette Christian School','High School','','Private','Gillette','WY',3,'','Activities Director','','','Not Started','⚠️ Unverified – confirm contact before outreach',44.267950,-105.516310],
-['wy-23','Glendo High School','High School','','Platte County SD 2','Glendo','WY',3,'','Activities Director','(307)735-4471','','Not Started','⚠️ Unverified – confirm contact before outreach | website: http://platte1.org/',42.504919,105.021598],
 ['wy-24','Glenrock High School','High School','','Converse County SD 2','Glenrock','WY',3,'Jim Sarvey','Activities Director','(307) 436-9201','jsarvey@converse2.org','Not Started','⚠️ Unverified – confirm contact before outreach',42.858543,105.859418],
 ['wy-25','Green River High School','High School','','Sweetwater County SD 2','Green River','WY',3,'Mick Garner','Activities Director','(307)872-4747','mgarner@swcsd2.org','Not Started','⚠️ Unverified – confirm contact before outreach | website: http://www.swcsd2.org',41.501919,109.467537],
 ['wy-26','Greybull High School','High School','','Big Horn County SD 3','Greybull','WY',3,'Nolan Tracy','Activities Director','(307)765-2537','ntracy@bgh3.k12.wy.us','Not Started','⚠️ Unverified – confirm contact before outreach | website: http://greybullschools.com',44.496578,108.055902],
@@ -6695,19 +6528,406 @@ var SEED_RAW=[];
 ['nj-047','Wayne Valley HS','High School','','Wayne SD','Wayne','NJ',3,'','Activities Director','(973)317-2200','','Not Started','⚠️ Unverified – confirm contact before outreach | website: http://www.wayneschools.com',40.930700,74.231200],
 ['nj-048','West Morris Mendham HS','High School','','West Morris Regional HS','Mendham','NJ',3,'','Activities Director','(973)543-2501','','Not Started','⚠️ Unverified – confirm contact before outreach | website: http://www.wmmhs.org',40.777600,74.591200],
 ['nj-049','Westfield HS (NJ)','High School','','Westfield SD','Westfield','NJ',3,'','Activities Director','','','Not Started','⚠️ Unverified – confirm contact before outreach',40.645075,-74.339959]
+['nces-MT-0001','North Star High School','Public','','North Star HS','Rudyard','MT',3,'','','406-355-4481','','Not Contacted','website: http://sites.google.com/nsschools.org/home/middl',48.562567,-110.552255],
+['nces-MT-0002','Heart Butte High School','Public','','Heart Butte K-12 Schools','Heart Butte','MT',3,'','','406-338-3344','','Not Contacted','website: http://heartbutte.k12.mt.us',48.274771,-112.83446],
+['nces-MT-0003','Chester-Joplin-Inverness HS','Public','','Chester-Joplin-Inverness HS','Chester','MT',3,'','','406-759-5108','','Not Contacted','website: http://www.cji.k12.mt.us',48.508806,-110.96487],
+['nces-MT-0004','Dutton/Brady High School','Public','','Dutton/Brady K-12 Schools','Dutton','MT',3,'','','406-476-3424','','Not Contacted','website: http://dbps.k12.mt.us/District/Department/9-Dutt',47.851317,-111.71383900000001],
+['nces-MT-0005','Lone Peak High School','Public','','Big Sky School K-12','Gallatin Gateway','MT',3,'','','406-995-4281','','Not Contacted','website: http://www.bssd72.org',45.229036,-111.251902],
+['nces-MT-0006','East Helena High School','Public','','East Helena K-12','East Helena','MT',3,'','','406-227-7700','','Not Contacted','website: http://www.ehps.k12.mt.us/domain/298',46.603668,-111.916008],
+['nces-MT-0007','Lockwood High School','Public','','Lockwood K-12','Lockwood','MT',3,'','','406-252-6022','','Not Contacted','website: http://lockwoodschool.org/apps/pages/index.jsp?u',45.797095,-108.435872],
+['nces-MT-0008','Shields Valley High Schl','Public','','Shields Valley H S','Clyde Park','MT',3,'','','406-686-4621','','Not Contacted','website: http://www.shieldsvalleyschools.com',45.887466,-110.597836],
+['nces-MT-0009','Absarokee High School','Public','','Absarokee H S','Absarokee','MT',3,'','','406-328-4583','','Not Contacted','website: http://hgunderson6.wixsite.com/absarokee-schools',45.513868,-109.447207],
+['nces-MT-0010','Alberton High School','Public','','Alberton K-12 Schools','Alberton','MT',3,'','','406-722-3381','','Not Contacted','website: http://alberton.k12.mt.us',47.004462000000004,-114.48083600000001],
+['nces-MT-0011','Anaconda Sr High School','Public','','Anaconda H S','Anaconda','MT',3,'','','406-563-6361','','Not Contacted','website: http://www.anacondaschools.org',46.125824,-112.95389100000001],
+['nces-MT-0012','Augusta High School','Public','','Augusta H S','Augusta','MT',3,'','','406-562-3384','','Not Contacted','website: http://augustaschool.org',47.491344000000005,-112.398058],
+['nces-MT-0013','Bainville High School','Public','','Bainville K-12 Schools','Bainville','MT',3,'','','406-769-2321','','Not Contacted','website: http://bainvilleschool.k12.mt.us',48.139484,-104.225959],
+['nces-MT-0014','Beaverhead Co High School','Public','','Beaverhead County H S','Dillon','MT',3,'','','406-683-2361','','Not Contacted','website: http://www.bchsmt.com',45.216860000000004,-112.63313000000001],
+['nces-MT-0015','Belfry High School','Public','','Belfry K-12 Schools','Belfry','MT',3,'','','406-664-3319','','Not Contacted','website: http://belfrybats.org',45.142984,-109.00532700000001],
+['nces-MT-0016','Belt High School','Public','','Belt H S','Belt','MT',3,'','','406-277-3351','','Not Contacted','website: http://www.beltschool.com',47.38942,-110.92797900000001],
+['nces-MT-0017','Big Sandy High School','Public','','Big Sandy K-12','Big Sandy','MT',3,'','','406-378-2502','','Not Contacted','website: http://www.bigsandy.k12.mt.us',48.179367,-110.116549],
+['nces-MT-0018','Billings Multilingual Academy','Public','','Billings H S','Billings','MT',3,'','','406-281-5066','','Not Contacted','website: http://www.billingsschools.org/our-schools/high-',45.78412,-108.510827],
+['nces-MT-0019','Billings Early College School','Public','','Billings H S','Billings','MT',3,'','','406-281-5994','','Not Contacted','website: http://www.billingsschools.org/our-schools/high-',45.78412,-108.510827],
+['nces-MT-0020','Billings Opportunity School','Public','','Billings H S','Billings','MT',3,'','','406-281-5120','','Not Contacted','website: http://www.billingsschools.org/our-schools/high-',45.78412,-108.510827],
+['nces-MT-0021','Box Elder High School','Public','','Box Elder H S','Box Elder','MT',3,'','','406-352-4195','','Not Contacted','website: http://www.boxelderbears.org',48.316556,-110.009714],
+['nces-MT-0022','Gallatin High School','Public','','Bozeman H S','Bozeman','MT',3,'','','406-522-4600','','Not Contacted','website: http://ghs.bsd7.org',45.691798,-111.100851],
+['nces-MT-0023','Bridger Charter School','Public','','Bozeman H S','Bozeman','MT',3,'','','406-522-6097','','Not Contacted','website: http://bhs.bsd7.org/bridger-charter-academy',45.680361000000005,-111.05312400000001],
+['nces-MT-0024','Bridger High School','Public','','Bridger K-12 Schools','Bridger','MT',3,'','','406-662-3533','','Not Contacted','website: http://www.bridgerscouts.org',45.297316,-108.919466],
+['nces-MT-0025','Broadview High School','Public','','Broadview H S','Broadview','MT',3,'','','406-667-2337','','Not Contacted','website: http://www.broadviewschools.org',46.103016000000004,-108.877796],
+['nces-MT-0026','Brockton High School','Public','','Brockton H S','Brockton','MT',3,'','','406-786-3311','','Not Contacted','website: http://brockton.k12.mt.us',48.151585000000004,-104.914601],
+['nces-MT-0027','Carter County High School','Public','','Carter County H S','Ekalaka','MT',3,'','','406-775-8767','','Not Contacted','website: http://www.ekalaka.net',45.890644,-104.55180100000001],
+['nces-MT-0028','Charlo High School','Public','','Charlo H S','Charlo','MT',3,'','','406-644-2206','','Not Contacted','website: http://www.charlo.k12.mt.us',47.440414000000004,-114.17439800000001],
+['nces-MT-0029','Circle High School','Public','','Circle H S','Circle','MT',3,'','','406-485-3600','','Not Contacted','website: http://www.circleschools.org/circle-high-school.h',47.416911,-105.591773],
+['nces-MT-0030','Rise Charter & Distance HS','Public','','Corvallis K-12 Schools','Corvallis','MT',3,'','','406-381-5364','','Not Contacted','website: http://www.corvallisschools.org/',46.317902000000004,-114.114159],
+['nces-MT-0031','CSD HS Rise Pathway Academy','Public','','Corvallis K-12 Schools','Corvallis','MT',3,'','','406-381-5364','','Not Contacted','website: http://www.corvallisschools.org/',46.317902000000004,-114.114159],
+['nces-MT-0032','Culbertson High School','Public','','Culbertson H S','Culbertson','MT',3,'','','406-787-6241','','Not Contacted','website: http://culbertsonschool.com',48.147457,-104.520486],
+['nces-MT-0033','Custer Co District High','Public','','Custer County H S','Miles City','MT',3,'','','406-234-4920','','Not Contacted','website: http://www.milescityschools.org/custer-county-di',46.406800000000004,-105.840387],
+['nces-MT-0034','Custer High School','Public','','Custer K-12 Schools','Custer','MT',3,'','','406-856-4117','','Not Contacted','website: http://www.custerschools.org',46.126677,-107.55672000000001],
+['nces-MT-0035','Darby High School','Public','','Darby K-12 Schools','Darby','MT',3,'','','406-821-3252','','Not Contacted','website: http://www.darby.k12.mt.us',46.027125000000005,-114.18070900000001],
+['nces-MT-0036','Denton High School','Public','','Denton H S','Denton','MT',3,'','','406-567-2270','','Not Contacted','website: http://www.denton.k12.mt.us',47.316794,-109.939819],
+['nces-MT-0037','Dodson High School','Public','','Dodson K-12','Dodson','MT',3,'','','406-383-4362','','Not Contacted','website: http://dodson.k12.mt.us',48.396225,-108.249384],
+['nces-MT-0038','Drummond High School','Public','','Drummond H S','Drummond','MT',3,'','','406-288-3281','','Not Contacted','website: http://drummondschool.blackfoot.net/dhs',46.670609,-113.148245],
+['nces-MT-0039','Ennis High School','Public','','Ennis K-12 Schools','Ennis','MT',3,'','','406-682-4258','','Not Contacted','website: http://ennisschools.org',45.346633000000004,-111.733056],
+['nces-MT-0040','Fairview High School','Public','','Fairview H S','Fairview','MT',3,'','','406-742-5265','','Not Contacted','website: http://fschool.org',47.849735,-104.048297],
+['nces-MT-0041','Florence-Carlton HS','Public','','Florence-Carlton K-12 Schls','Florence','MT',3,'','','406-273-6301','','Not Contacted','website: http://www.florencecarlton.org',46.640754,-114.07668600000001],
+['nces-MT-0042','Fort Benton High School','Public','','Fort Benton H S','Fort Benton','MT',3,'','','406-622-3213','','Not Contacted','website: http://www.fortbentonschools.com/hs--ms.html',47.823062,-110.66737900000001],
+['nces-MT-0043','Frazer High School','Public','','Frazer H S','Frazer','MT',3,'','','406-695-2241','','Not Contacted','website: http://www.frazer.k12.mt.us',48.058335,-106.046958],
+['nces-MT-0044','Bronc Fast Track','Public','','Frenchtown K-12 Schools','Frenchtown','MT',3,'','','406-626-2600','','Not Contacted','website: http://www.ftsd.org/page/bronc-fast-track',47.021655,-114.242095],
+['nces-MT-0045','Froid High School','Public','','Froid H S','Froid','MT',3,'','','406-766-2342','','Not Contacted','website: http://www.froidschool.com',48.335885000000005,-104.48815],
+['nces-MT-0046','Fromberg High School','Public','','Fromberg K-12','Fromberg','MT',3,'','','406-668-7315','','Not Contacted','website: http://www.frombergpublicschools.com',45.393190000000004,-108.91226400000001],
+['nces-MT-0047','Gardiner High School','Public','','Gardiner H S','Gardiner','MT',3,'','','406-848-7261','','Not Contacted','website: http://www.gardiner.org',45.031780000000005,-110.7112],
+['nces-MT-0048','Garfield Co Dist HS','Public','','Garfield County H S','Jordan','MT',3,'','','406-557-2259','','Not Contacted','website: http://www.jordanpublicschools.org/page/garfield',47.318563000000005,-106.907222],
+['nces-MT-0049','Geraldine High School','Public','','Geraldine K-12','Geraldine','MT',3,'','','406-737-4371','','Not Contacted','website: http://geraldine.k12.mt.us',47.603175,-110.26962300000001],
+['nces-MT-0050','Geyser High School','Public','','Geyser K-12 Schools','Geyser','MT',3,'','','406-735-4368','','Not Contacted','website: http://geyserschools.com',47.25753,-110.49290500000001],
+['nces-MT-0051','Granite High School','Public','','Philipsburg K-12 Schools','Philipsburg','MT',3,'','','406-859-3232','','Not Contacted','website: http://www.philipsburgschools.org',46.32893,-113.29648200000001],
+['nces-MT-0052','Grass Range High School','Public','','Grass Range H S','Grass Range','MT',3,'','','406-428-2341','','Not Contacted','website: http://www.grps.k12.mt.us',47.024035000000005,-108.800521],
+['nces-MT-0053','Bitterroot Polytech HS','Public','','Hamilton K-12 Schools','Hamilton','MT',3,'','','406-363-2280','','Not Contacted','website: http://www.hsd3.org/',46.239481000000005,-114.150495],
+['nces-MT-0054','Plenty Coups High School','Public','','Plenty Coups H S','Pryor','MT',3,'','','406-259-7329','','Not Contacted','website: http://www.pryor.k12.mt.us',45.426072000000005,-108.536404],
+['nces-MT-0055','Harlowton High School','Public','','Harlowton K-12','Harlowton','MT',3,'','','406-632-4324','','Not Contacted','website: http://www.harlowton.k12.mt.us/harlowton-high-sc',46.436026,-109.82866000000001],
+['nces-MT-0056','Harrison High School','Public','','Harrison K-12 Schools','Harrison','MT',3,'','','406-685-3428','','Not Contacted','website: http://sites.google.com/a/harrison.k12.mt.us/hhs',45.699379,-111.784913],
+['nces-MT-0057','Hays-Lodge Pole High Sch','Public','','Hays-Lodge Pole K-12 Schls','Hays','MT',3,'','','406-673-3120','','Not Contacted','website: http://hlpschools.k12.mt.us',47.997681,-108.688427],
+['nces-MT-0058','Mount Ascension Learning Ac HS','Public','','Helena H S','Helena','MT',3,'','','406-324-2000','','Not Contacted','website: http://helenaschools.org/',46.604319000000004,-112.017812],
+['nces-MT-0059','Helena P.A.L.','Public','','Helena H S','Helena','MT',3,'','','406-324-2000','','Not Contacted','website: http://pal.helenaschools.org/',46.595256,-112.035696],
+['nces-MT-0060','Highwood High School','Public','','Highwood K-12','Highwood','MT',3,'','','406-733-2081','','Not Contacted','website: http://highwood.k12.mt.us',47.5842,-110.7973],
+['nces-MT-0061','Hinsdale High School','Public','','Hinsdale H S','Hinsdale','MT',3,'','','406-364-2314','','Not Contacted','website: http://www.hinsdale.k12.mt.us',48.394822000000005,-107.084446],
+['nces-MT-0062','Hobson High School','Public','','Hobson K-12 Schools','Hobson','MT',3,'','','406-423-5483','','Not Contacted','website: http://www.hobson.k12.mt.us',46.998286,-109.873491],
+['nces-MT-0063','Hot Springs High School','Public','','Hot Springs K-12','Hot Springs','MT',3,'','','406-741-2962','','Not Contacted','website: http://www.hssdmt.org',47.608584,-114.664771],
+['nces-MT-0064','Hysham High School','Public','','Hysham K-12 Schools','Hysham','MT',3,'','','406-342-5237','','Not Contacted','',46.292668,-107.23139800000001],
+['nces-MT-0065','Judith Gap High School','Public','','Judith Gap H S','Judith Gap','MT',3,'','','406-473-2211','','Not Contacted','website: http://judithgap.k12.mt.us',46.679495,-109.75310400000001],
+['nces-MT-0066','Flathead Pace Academy','Public','','Flathead H S','Kalispell','MT',3,'','','406-751-3434','','Not Contacted','website: http://www.sd5.k12.mt.us/',48.191289000000005,-114.317879],
+['nces-MT-0067','Kalispell Rising Wolf Charter','Public','','Flathead H S','Kalispell','MT',3,'','','406-751-3434','','Not Contacted','website: http://www.sd5.k12.mt.us/',48.191289000000005,-114.317879],
+['nces-MT-0068','Lambert High School','Public','','Lambert H S','Lambert','MT',3,'','','406-774-3333','','Not Contacted','website: http://lps.schoolwires.net',47.68527,-104.621835],
+['nces-MT-0069','Lavina High School','Public','','Lavina K-12 Schools','Lavina','MT',3,'','','406-636-2761','','Not Contacted','website: http://www.lavinapublicschools.com',46.292852,-108.93595],
+['nces-MT-0070','Lima High School','Public','','Lima K-12 Schools','Lima','MT',3,'','','406-276-3571','','Not Contacted','website: http://www.limaschoolmt.org',44.634879000000005,-112.592748],
+['nces-MT-0071','Lincoln Co High School','Public','','Lincoln County H S','Eureka','MT',3,'','','406-297-5700','','Not Contacted','website: http://www.lchigh.net',48.886312000000004,-115.051811],
+['nces-MT-0072','Lincoln High School','Public','','Lincoln K-12 Schools','Lincoln','MT',3,'','','406-362-4201','','Not Contacted','website: http://sites.google.com/a/lincoln.k12.mt.us/webp',46.95609,-112.674092],
+['nces-MT-0073','Manhattan H S','Public','','Manhattan High School','Manhattan','MT',3,'','','406-284-3341','','Not Contacted','website: http://mt01000571.schoolwires.net/domain/90',45.86197,-111.33000000000001],
+['nces-MT-0074','Medicine Lake High School','Public','','Medicine Lake K-12 Schools','Medicine Lake','MT',3,'','','406-789-2211','','Not Contacted','website: http://www.medicinelake.k12.mt.us',48.503544000000005,-104.502379],
+['nces-MT-0075','Melstone High School','Public','','Melstone H S','Melstone','MT',3,'','','406-358-2352','','Not Contacted','website: http://www.melstonepublicschools.org',46.600955,-107.86752000000001],
+['nces-MT-0076','Missoula Connect Academy HS','Public','','Missoula H S','Missoula','MT',3,'','','406-728-2400','','Not Contacted','website: http://www.mcpsmt.org/connectacademy',46.847845,-114.01200600000001],
+['nces-MT-0077','Moore High School','Public','','Moore H S','Moore','MT',3,'','','406-374-2231','','Not Contacted','website: http://www.mooreschoolmt.com',46.971735,-109.692903],
+['nces-MT-0078','Nashua High School','Public','','Nashua K-12 Schools','Nashua','MT',3,'','','406-746-3411','','Not Contacted','website: http://www.nashua.k12.mt.us',48.135643,-106.354139],
+['nces-MT-0079','Noxon High School','Public','','Noxon H S','Noxon','MT',3,'','','406-847-2442','','Not Contacted','website: http://www.noxonschools.com',47.993318,-115.776576],
+['nces-MT-0080','Opheim High School','Public','','Opheim K-12 Schools','Opheim','MT',3,'','','406-762-3214','','Not Contacted','website: http://sites.google.com/site/opheimschool',48.858271,-106.411409],
+['nces-MT-0081','Park City High School','Public','','Park City H S','Park City','MT',3,'','','406-633-2350','','Not Contacted','website: http://www.parkcityschools.org',45.63009,-108.91575],
+['nces-MT-0082','Plevna High School','Public','','Plevna K-12 Schools','Plevna','MT',3,'','','406-772-5666','','Not Contacted','website: http://www.plevnacougars.com',46.418939,-104.517954],
+['nces-MT-0083','Power High School','Public','','Power H S','Power','MT',3,'','','406-463-2251','','Not Contacted','website: http://www.power.k12.mt.us',47.716526,-111.68835000000001],
+['nces-MT-0084','Rapelje High School','Public','','Rapelje H S','Rapelje','MT',3,'','','406-663-2215','','Not Contacted','website: http://rapelje.k12.mt.us',45.972794,-109.260947],
+['nces-MT-0085','Reed Point High School','Public','','Reed Point H S','Reed Point','MT',3,'','','406-326-2245','','Not Contacted','website: http://www.reedpoint.k12.mt.us',45.705667,-109.54836800000001],
+['nces-MT-0086','Richey High School','Public','','Richey H S','Richey','MT',3,'','','406-773-5523','','Not Contacted','website: http://www.richey.k12.mt.us',47.642556,-105.06717900000001],
+['nces-MT-0087','Roberts High School','Public','','Roberts K-12 Schools','Roberts','MT',3,'','','406-445-2421','','Not Contacted','website: http://www.robertsrockets.org',45.361235,-109.16529100000001],
+['nces-MT-0088','Rosebud High School','Public','','Rosebud K-12','Rosebud','MT',3,'','','406-347-5353','','Not Contacted','website: http://www.rhs12.com',46.275528,-106.44212200000001],
+['nces-MT-0089','Roundup H S','Public','','Roundup High School','Roundup','MT',3,'','','406-323-2402','','Not Contacted','website: http://www.roundup.k12.mt.us/o/rsd/page/welcome-',46.447349,-108.55000000000001],
+['nces-MT-0090','Roy High School','Public','','Roy K-12 Schools','Roy','MT',3,'','','406-464-2511','','Not Contacted','website: http://roy.k12.mt.us',47.33086,-108.95519700000001],
+['nces-MT-0091','Ryegate High School','Public','','Ryegate K-12 Schools','Ryegate','MT',3,'','','406-568-2211','','Not Contacted','website: http://www.ryegateschool.com',46.298872,-109.258576],
+['nces-MT-0092','Saco High School','Public','','Saco H S','Saco','MT',3,'','','406-527-3531','','Not Contacted','website: http://www.sacoschools.k12.mt.us',48.460524,-107.344656],
+['nces-MT-0093','Savage High School','Public','','Savage H S','Savage','MT',3,'','','406-776-2317','','Not Contacted','website: http://www.savagepublicschool.com',47.450605,-104.342245],
+['nces-MT-0094','Scobey High School','Public','','Scobey K-12 Schools','Scobey','MT',3,'','','406-487-2202','','Not Contacted','website: http://scobeyschools.com',48.791518,-105.41660300000001],
+['nces-MT-0095','Sheridan High School','Public','','Sheridan H S','Sheridan','MT',3,'','','406-842-5401','','Not Contacted','website: http://sheridan.k12.mt.us',45.455436,-112.192401],
+['nces-MT-0096','Simms High School','Public','','Simms H S','Simms','MT',3,'','','406-264-5110','','Not Contacted','website: http://srvs.k12.mt.us',47.491464,-111.928133],
+['nces-MT-0097','St Regis High School','Public','','St Regis K-12 Schools','St Regis','MT',3,'','','406-649-2311','','Not Contacted','website: http://stregisschool.org',47.300097,-115.100864],
+['nces-MT-0098','Stanford High School','Public','','Stanford K-12 Schools','Stanford','MT',3,'','','406-566-2265','','Not Contacted','website: http://www.stanfordmtschool.com',47.148716,-110.21844100000001],
+['nces-MT-0099','Centerville High School','Public','','Centerville H S','Sand Coulee','MT',3,'','','406-736-5167','','Not Contacted','website: http://www.centerville.k12.mt.us',47.388781,-111.14168500000001],
+['nces-MT-0100','Sunburst High School','Public','','Sunburst K-12 Schools','Sunburst','MT',3,'','','406-937-2811','','Not Contacted','website: http://www.sunburstschools.net',48.880079,-111.915113],
+['nces-MT-0101','Terry High School','Public','','Terry K-12 Schools','Terry','MT',3,'','','406-635-5533','','Not Contacted','website: http://terryschools.org',46.791357000000005,-105.30749800000001],
+['nces-MT-0102','Turner High School','Public','','Turner H S','Turner','MT',3,'','','406-379-2219','','Not Contacted','website: http://turner.k12.mt.us',48.846995,-108.40342600000001],
+['nces-MT-0103','Twin Bridges High School','Public','','Twin Bridges K-12 Schools','Twin Bridges','MT',3,'','','406-684-5657','','Not Contacted','website: http://www.twinbridges.k12.mt.us',45.546269,-112.33331100000001],
+['nces-MT-0104','Valier High School','Public','','Valier H S','Valier','MT',3,'','','406-279-3613','','Not Contacted','website: http://www.valier.k12.mt.us',48.30465,-112.25555100000001],
+['nces-MT-0105','Victor High School','Public','','Victor K-12 Schools','Victor','MT',3,'','','406-642-3221','','Not Contacted','website: http://www.victor.k12.mt.us/6-12-students',46.414950000000005,-114.15066700000001],
+['nces-MT-0106','West Yellowstone HS','Public','','West Yellowstone K-12','West Yellowstone','MT',3,'','','406-646-7617','','Not Contacted','website: http://www.westyellowstone.k12.mt.us',44.666195,-111.10820100000001],
+['nces-MT-0107','Westby High School','Public','','Westby K-12 Schools','Westby','MT',3,'','','406-385-2225','','Not Contacted','website: http://www.westbyschool.k12.mt.us',48.866921000000005,-104.05016400000001],
+['nces-MT-0108','Whitewater High School','Public','','Whitewater K-12 Schools','Whitewater','MT',3,'','','406-674-5417','','Not Contacted','website: http://www.whitewater.k12.mt.us',48.761697000000005,-107.63009600000001],
+['nces-MT-0109','Wibaux High School','Public','','Wibaux K-12 Schools','Wibaux','MT',3,'','','406-796-2474','','Not Contacted','website: http://www.wibauxschools.net',46.990405,-104.196048],
+['nces-MT-0110','Willow Creek High School','Public','','Willow Creek H S','Willow Creek','MT',3,'','','406-285-6991','','Not Contacted','website: http://www.willowcreek.k12.mt.us/high-school',45.824504000000005,-111.64547700000001],
+['nces-MT-0111','Winifred High School','Public','','Winifred K-12 Schools','Winifred','MT',3,'','','406-462-5420','','Not Contacted','website: http://www.winifred.k12.mt.us',47.558652,-109.38163700000001],
+['nces-MT-0112','Winnett High School','Public','','Winnett K-12 Schools','Winnett','MT',3,'','','406-429-2251','','Not Contacted','website: http://www.winnettschool.org',47.001812,-108.352708],
+['nces-MT-0113','White Sulphur Springs HS','Public','','White Sulphur Spgs K-12','White Sulphur Springs','MT',3,'','','406-547-3351','','Not Contacted','website: http://www.whitesulphur.k12.mt.us',46.544442000000004,-110.90382000000001],
+['nces-OR-0001','Falls City High School','Public','','Falls City SD 57','Falls City','OR',3,'','','503-787-3521','','Not Contacted','website: http://www.fallscityschools.org',44.865518,-123.429371],
+['nces-OR-0002','Four Rivers Community School','Public','','Oregon Department of Education','Ontario','OR',3,'','','541-889-3715','','Not Contacted','website: http://www.4riverscs.org',44.0244,-116.9959],
+['nces-OR-0003','Frontier Charter Academy','Public','','Gervais SD 1','Gervais','OR',3,'','','541-306-1395','','Not Contacted','website: http://www.frontiercharteracademy.org',45.072941,-122.915485],
+['nces-OR-0004','South Wasco County Middle/High School','Public','','South Wasco County SD 1','Maupin','OR',3,'','','541-395-2225','','Not Contacted','website: http://www.swasco.net',45.1774,-121.0814],
+['nces-OR-0005','Oregon Virtual Education (ORVED)','Public','','Northwest Regional ESD','Hillsboro','OR',3,'','','503-614-1861','','Not Contacted','website: http://www.nwresd.org/',45.532557000000004,-122.92290000000001],
+['nces-OR-0006','Hillsboro Online Academy','Public','','Hillsboro SD 1J','Hillsboro','OR',3,'','','503-844-1050','','Not Contacted','website: http://www.hillonlineacademy.org',45.527349,-122.985453],
+['nces-OR-0007','Horizons - Foster Ed Program','Public','','Douglas ESD','Roseburg','OR',3,'','','541-440-4777','','Not Contacted','website: http://www.douglasesd.k12.or.us',43.201657000000004,-123.348702],
+['nces-OR-0008','Complex Needs Classroom','Public','','Douglas ESD','Roseburg','OR',3,'','','541-440-4777','','Not Contacted','website: http://www.desd.k12.or.us',43.215698,-123.36516200000001],
+['nces-OR-0009','Martin Luther King Jr. Education Center','Public','','Lane ESD','Eugene','OR',3,'','','541-682-4715','','Not Contacted','',44.0612337,-123.067631],
+['nces-OR-0010','LESD Life Skills','Public','','Lane ESD','Eugene','OR',3,'','','541-461-8200','','Not Contacted','website: http://www.laneesd.org',44.075549,-123.14886600000001],
+['nces-OR-0011','Lane School','Public','','Lane ESD','Eugene','OR',3,'','','541-461-8500','','Not Contacted','website: http://lesd.k12.or.us',44.041212,-123.127313],
+['nces-OR-0012','Transitions','Public','','Lane ESD','Eugene','OR',3,'','','541-461-8500','','Not Contacted','website: http://lesd.k12.or.us',44.041212,-123.127313],
+['nces-OR-0013','Willamette Career Academy','Public','','Willamette ESD','Salem','OR',3,'','','503-588-5330','','Not Contacted','website: http://www.wesd.org',44.945145000000004,-122.981576],
+['nces-OR-0014','InterMountain Virtual Learning Academy','Public','','InterMountain ESD','Pendleton','OR',3,'','','541-966-3131','','Not Contacted','',45.65374,-118.80327100000001],
+['nces-OR-0015','Knappa High School','Public','','Knappa SD 4','Astoria','OR',3,'','','503-458-6166','','Not Contacted','website: http://www.knappa.k12.or.us',46.162501,-123.622217],
+['nces-OR-0016','William P Lord High School','Public','','ODE YCEP District','Woodburn','OR',3,'','','503-981-2501','','Not Contacted','website: http://www.wesd.org',45.156513000000004,-122.820598],
+['nces-OR-0017','Monroe School','Public','','ODE YCEP District','Burns','OR',3,'','','541-573-3066','','Not Contacted','',43.588,-119.07090000000001],
+['nces-OR-0018','New Bridge High School','Public','','ODE YCEP District','Grants Pass','OR',3,'','','541-956-2823','','Not Contacted','',42.432585,-123.30227500000001],
+['nces-OR-0019','Ocean Dunes High School','Public','','ODE YCEP District','Florence','OR',3,'','','503-867-0733','','Not Contacted','',43.957,-124.114],
+['nces-OR-0020','Riverside High School','Public','','ODE YCEP District','Albany','OR',3,'','','541-791-5904','','Not Contacted','',44.601426000000004,-123.09476300000001],
+['nces-OR-0021','RiverBend High School','Public','','ODE YCEP District','La Grande','OR',3,'','','541-962-1828','','Not Contacted','',45.337429,-118.24155],
+['nces-OR-0022','Trask River High School','Public','','ODE YCEP District','Tillamook','OR',3,'','','503-373-1959','','Not Contacted','website: http://www.tillamook.k12.or.us',45.425094,-123.79717400000001],
+['nces-OR-0023','Three Lakes High School','Public','','ODE YCEP District','Albany','OR',3,'','','541-791-5904','','Not Contacted','website: http://www.multnomahesd.org/three-lakes.html',44.601388,-123.094801],
+['nces-OR-0024','Ione Community Charter School','Public','','Ione SD R2','Ione','OR',3,'','','541-422-7131','','Not Contacted','website: http://www.ione.k12.or.us',45.4992,-119.8285],
+['nces-OR-0025','The Dalles High School','Public','','North Wasco County SD 21','The Dalles','OR',3,'','','541-506-3400','','Not Contacted','website: http://www.nwasco.k12.or.us/high',45.5964,-121.188],
+['nces-OR-0026','Adrian High School','Public','','Adrian SD 61','Adrian','OR',3,'','','541-372-2335','','Not Contacted','website: http://www.adrian.k12.or.us',43.7423,-117.0686],
+['nces-OR-0027','Alsea Charter School','Public','','Alsea SD 7J','Alsea','OR',3,'','','541-487-4305','','Not Contacted','website: http://alsea.k12.or.us',44.380855000000004,-123.59465800000001],
+['nces-OR-0028','Annex Charter School','Public','','Annex SD 29','Ontario','OR',3,'','','541-262-3280','','Not Contacted','website: http://www.annex.k12.or.us/',44.236580000000004,-116.987503],
+['nces-OR-0029','Arlington Community Charter School','Public','','Arlington SD 3','Arlington','OR',3,'','','541-454-2632','','Not Contacted','website: http://www.honkernet.net',45.7122,-120.19990000000001],
+['nces-OR-0030','Weston-McEwen High School','Public','','Athena-Weston SD 29RJ','Athena','OR',3,'','','541-566-3555','','Not Contacted','website: http://www.wmhs.athwest.k12.or.us',45.810900000000004,-118.486],
+['nces-OR-0031','Baker Web Academy','Public','','Baker SD 5J','Baker City','OR',3,'','','541-524-2300','','Not Contacted','website: http://www.bakercharters.org',44.778483,-117.843485],
+['nces-OR-0032','Baker Early College','Public','','Baker SD 5J','Baker City','OR',3,'','','541-524-2300','','Not Contacted','website: http://www.bakercharters.org',44.778483,-117.843485],
+['nces-OR-0033','Oregon International School','Public','','Baker SD 5J','Baker City','OR',3,'','','541-524-2310','','Not Contacted','website: http://www.oregon-international-school.org',44.787007,-117.83727400000001],
+['nces-OR-0034','Burnt River School','Public','','Burnt River SD 30J','Unity','OR',3,'','','541-446-3336','','Not Contacted','website: http://www.burntriver.k12.or.us',44.4398,-118.1919],
+['nces-OR-0035','Arts and Communication Magnet Academy','Public','','Beaverton SD 48J','Beaverton','OR',3,'','','503-356-3670','','Not Contacted','website: http://acma.beaverton.k12.or.us',45.4946,-122.79390000000001],
+['nces-OR-0036','International School of Beaverton','Public','','Beaverton SD 48J','Beaverton','OR',3,'','','503-356-3690','','Not Contacted','website: http://isb.beaverton.k12.or.us',45.490535,-122.860032],
+['nces-OR-0037','Beaverton Academy of Science and Engineering','Public','','Beaverton SD 48J','Hillsboro','OR',3,'','','503-356-3630','','Not Contacted','website: http://base.beaverton.k12.or.us',45.527196,-122.86961900000001],
+['nces-OR-0038','FLEX Online School','Public','','Beaverton SD 48J','Hillsboro','OR',3,'','','503-356-3720','','Not Contacted','website: http://flex.beaverton.k12.or.us',45.527196,-122.86961900000001],
+['nces-OR-0039','Realms High School','Public','','Bend-LaPine Administrative SD 1','Bend','OR',3,'','','541-355-5502','','Not Contacted','website: http://www.bend.k12.or.us/realmshigh',44.085106,-121.28646],
+['nces-OR-0040','Caldera High School','Public','','Bend-LaPine Administrative SD 1','Bend','OR',3,'','','541-355-5000','','Not Contacted','website: http://www.bend.k12.or.us',44.009732,-121.286285],
+['nces-OR-0041','Triangle Lake Charter School','Public','','Blachly SD 90','Blachly','OR',3,'','','541-925-3262','','Not Contacted','website: http://www.blachly.k12.or.us',44.195198000000005,-123.546086],
+['nces-OR-0042','Butte Falls Charter School','Public','','Butte Falls SD 91','Butte Falls','OR',3,'','','541-865-3563','','Not Contacted','website: http://www.buttefalls.k12.or.us',42.54122,-122.56482100000001],
+['nces-OR-0043','Camas Valley School','Public','','Camas Valley SD 21J','Camas Valley','OR',3,'','','541-445-2131','','Not Contacted','website: http://www.camasvalley.k12.or.us',43.03457,-123.67506800000001],
+['nces-OR-0044','Crater High School','Public','','Central Point SD 6','Central Point','OR',3,'','','541-494-6311','','Not Contacted','website: http://chs.district6.org',42.379922,-122.92196100000001],
+['nces-OR-0045','Colton Virtual Academy','Public','','Colton SD 53','Colton','OR',3,'','','503-824-3535','','Not Contacted','website: http://www.colton.k12.or.us/',45.170503000000004,-122.43820900000001],
+['nces-OR-0046','Condon High School','Public','','Condon SD 25J','Condon','OR',3,'','','541-384-2441','','Not Contacted','website: http://www.condon.k12.or.us',45.23178,-120.182602],
+['nces-OR-0047','Coquille Junior Senior High','Public','','Coquille SD 8','Coquille','OR',3,'','','541-396-2163','','Not Contacted','website: http://www.coquille.k12.or.us',43.185900000000004,-124.19430000000001],
+['nces-OR-0048','Corbett School','Public','','Corbett SD 39','Corbett','OR',3,'','','503-261-4200','','Not Contacted','website: http://corbett.k12.or.us/',45.530096,-122.29517600000001],
+['nces-OR-0049','Cove Charter School','Public','','Cove SD 15','Cove','OR',3,'','','541-568-4424','','Not Contacted','website: http://www.cove.k12.or.us/',45.296512,-117.809132],
+['nces-OR-0050','Oregon Family School','Public','','Harney County SD 4','Crane','OR',3,'','','971-241-8694','','Not Contacted','website: http://www.oregonfamilyschool.com',44.088512,-121.24708500000001],
+['nces-OR-0051','Crane Union High School','Public','','Harney County Union High SD 1J','Crane','OR',3,'','','541-493-2641','','Not Contacted','website: http://cranehighschool.org',43.416789,-118.574915],
+['nces-OR-0052','Silvies River Charter School','Public','','Harney County Union High SD 1J','Crane','OR',3,'','','541-589-2401','','Not Contacted','website: http://www.silviesrcs.org',43.416789,-118.574915],
+['nces-OR-0053','Resource Link Charter School','Public','','Coos Bay SD 9','Coos Bay','OR',3,'','','541-267-1485','','Not Contacted','website: http://www.resoucelinkcharter.org/rlcs/Home/html',43.376474,-124.22572000000001],
+['nces-OR-0054','Crow High School','Public','','Crow-Applegate-Lorane SD 66','Eugene','OR',3,'','','541-935-2227','','Not Contacted','website: http://www.cal.k12.or.us',43.986756,-123.31919],
+['nces-OR-0055','Dallas Community Charter','Public','','Dallas SD 2','Dallas','OR',3,'','','503-420-4360','','Not Contacted','website: http://dallascommunityschool.org',44.91563,-123.32718100000001],
+['nces-OR-0056','Days Creek Charter School','Public','','Douglas County SD 15','Days Creek','OR',3,'','','541-825-3296','','Not Contacted','website: http://www.dayscreekschools.com',42.96997,-123.16616],
+['nces-OR-0057','Dayville School','Public','','Dayville SD 16J','Dayville','OR',3,'','','855-617-2412','','Not Contacted','website: http://www.dayvilleschools.com',44.4675,-119.53810000000001],
+['nces-OR-0058','North Douglas High School','Public','','North Douglas SD 22','Drain','OR',3,'','','541-836-2222','','Not Contacted','website: http://www.northdouglas.k12.or.us',43.660090000000004,-123.312533],
+['nces-OR-0059','Dufur School','Public','','Dufur SD 29','Dufur','OR',3,'','','541-467-2509','','Not Contacted','website: http://www.dufur.k12.or.us',45.455037000000004,-121.12346600000001],
+['nces-OR-0060','Crater Lake Academy','Public','','Eagle Point SD 9','Eagle Point','OR',3,'','','541-879-3622','','Not Contacted','website: http://www.craterlakecharter.org',42.46099,-122.82594100000001],
+['nces-OR-0061','Echo School','Public','','Echo SD 5','Echo','OR',3,'','','541-376-8436','','Not Contacted','website: http://www.echo.k12.or.us/home',45.740058000000005,-119.18971900000001],
+['nces-OR-0062','Elgin High School','Public','','Elgin SD 23','Elgin','OR',3,'','','541-437-2021','','Not Contacted','website: http://www.elgin.k12.or.us',45.5628,-117.9239],
+['nces-OR-0063','Elkton Charter School','Public','','Elkton SD 34','Elkton','OR',3,'','','541-584-2228','','Not Contacted','website: http://www.elkton.k12.or.us',43.638147000000004,-123.57024600000001],
+['nces-OR-0064','Summit Learning Charter','Public','','Estacada SD 108','Eagle Creek','OR',3,'','','503-630-5001','','Not Contacted','website: http://www.summitlearningcharter.org',45.36159,-122.35266100000001],
+['nces-OR-0065','Network Charter School','Public','','Eugene SD 4J','Eugene','OR',3,'','','541-344-1229','','Not Contacted','website: http://www.networkcharterschool.net/',44.030658,-123.09250200000001],
+['nces-OR-0066','Twin Rivers Charter School','Public','','Eugene SD 4J','Eugene','OR',3,'','','541-349-7511','','Not Contacted','website: http://twinriverscharter.org/',44.032000000000004,-123.04960000000001],
+['nces-OR-0067','West Lane Charter School','Public','','Fern Ridge SD 28J','Veneta','OR',3,'','','541-935-2101','','Not Contacted','website: http://www.westlanetech.org',44.055146,-123.354669],
+['nces-OR-0068','Enterprise High School','Public','','Enterprise SD 21','Enterprise','OR',3,'','','541-426-3193','','Not Contacted','website: http://www.enterprise.k12.or.us',45.4249,-117.272],
+['nces-OR-0069','Fossil Charter School','Public','','Fossil SD 21J','Fossil','OR',3,'','','541-763-4384','','Not Contacted','website: http://www.fossilschools.com',45.001485,-120.213335],
+['nces-OR-0070','Glendale Community Charter School Pre-K-12','Public','','Glendale SD 77','Glendale','OR',3,'','','541-832-1701','','Not Contacted','website: http://www.glendale.k12.or.us',42.743993,-123.41470000000001],
+['nces-OR-0071','Gold Beach Jr/Sr High School','Public','','Central Curry SD 1','Gold Beach','OR',3,'','','541-247-6647','','Not Contacted','website: http://www.ccsd.k12.or.us',42.407900000000005,-124.4218],
+['nces-OR-0072','Center for Advanced Learning','Public','','Gresham-Barlow SD 10J','Gresham','OR',3,'','','503-667-4978','','Not Contacted','website: http://www.calcharter.org',45.5081,-122.44050000000001],
+['nces-OR-0073','Metro East Web Academy','Public','','Gresham-Barlow SD 10J','Gresham','OR',3,'','','503-258-4790','','Not Contacted','website: http://www.mewebacademy.org',45.500616,-122.43178800000001],
+['nces-OR-0074','Springwater Trail High School','Public','','Gresham-Barlow SD 10J','Gresham','OR',3,'','','503-261-4600','','Not Contacted','website: http://sths.gresham.k12.or.us/',45.4864,-122.40710000000001],
+['nces-OR-0075','Harper Charter School','Public','','Harper SD 66','Harper','OR',3,'','','541-358-2473','','Not Contacted','website: http://www.harpersd.org',43.865609,-117.608259],
+['nces-OR-0076','Helix Charter School','Public','','Helix SD 1','Helix','OR',3,'','','541-457-2175','','Not Contacted','website: http://www.helix.k12.or.us',45.850595,-118.65389],
+['nces-OR-0077','Huntington School','Public','','Huntington SD 16J','Huntington','OR',3,'','','541-869-2204','','Not Contacted','website: http://www.huntington.k12.or.us',44.3478,-117.26280000000001],
+['nces-OR-0078','Imbler Charter School','Public','','Imbler SD 11','Imbler','OR',3,'','','541-534-5331','','Not Contacted','website: http://www.imbler.k12.or.us',45.462454,-117.96549],
+['nces-OR-0079','Jewell School','Public','','Jewell SD 8','Seaside','OR',3,'','','503-755-2451','','Not Contacted','website: http://www.jewell.k12.or.us',45.92917,-123.49812800000001],
+['nces-OR-0080','Jordan Valley High School','Public','','Jordan Valley SD 3','Jordan Valley','OR',3,'','','541-586-2213','','Not Contacted','website: http://www.jordanvalley.k12.or.us',42.9779,-117.05350000000001],
+['nces-OR-0081','Joseph Charter School','Public','','Joseph SD 6','Joseph','OR',3,'','','541-432-7311','','Not Contacted','website: http://www.staff.josephcharter.org',45.352658,-117.22287700000001],
+['nces-OR-0082','Southern Oregon Success Academy','Public','','Three Rivers/Josephine County SD','Merlin','OR',3,'','','541-476-2524','','Not Contacted','website: http://www.threerivers.k12.or.us',42.515055000000004,-123.41949100000001],
+['nces-OR-0083','Kalmiopsis Community Arts High School','Public','','Three Rivers/Josephine County SD','Cave Junction','OR',3,'','','541-630-4522','','Not Contacted','website: http://www.kcahs.org',42.166093000000004,-123.644614],
+['nces-OR-0084','Chiloquin High School','Public','','Klamath County SD','Chiloquin','OR',3,'','','541-783-2321','','Not Contacted','website: http://www.kcsd.k12.or.us',42.5674,-121.86340000000001],
+['nces-OR-0085','Bonanza Junior/Senior High School','Public','','Klamath County SD','Bonanza','OR',3,'','','541-545-6581','','Not Contacted','website: http://www.kcsd.k12.or.us',42.2003,-121.4063],
+['nces-OR-0086','Gilchrist Junior/Senior High School','Public','','Klamath County SD','Gilchrist','OR',3,'','','541-433-2295','','Not Contacted','website: http://www.kcsd.k12.or.us',43.478100000000005,-121.68480000000001],
+['nces-OR-0087','Eagle Ridge New Tech High School','Public','','Klamath Falls City Schools','Klamath Falls','OR',3,'','','541-884-7627','','Not Contacted','website: http://www.eagleridgehigh.com',42.223216,-121.777292],
+['nces-OR-0088','Lake Oswego High School','Public','','Lake Oswego SD 7J','Lake Oswego','OR',3,'','','503-534-2313','','Not Contacted','website: http://lohs.losdschools.org',45.4272,-122.7022],
+['nces-OR-0089','Harmony Academy','Public','','Lake Oswego SD 7J','Lake Oswego','OR',3,'','','503-496-3929','','Not Contacted','website: http://www.oregonrecoveryschools.org',45.402492,-122.65197900000001],
+['nces-OR-0090','Toledo Senior High School','Public','','Lincoln County SD','Toledo','OR',3,'','','541-336-5104','','Not Contacted','website: http://tohs.lincoln.k12.or.us',44.633638000000005,-123.92165700000001],
+['nces-OR-0091','Eddyville Charter School','Public','','Lincoln County SD','Eddyville','OR',3,'','','541-875-2942','','Not Contacted','website: http://eddyvillecharterschool.org/',44.6343,-123.778],
+['nces-OR-0092','Siletz Valley Schools','Public','','Lincoln County SD','Siletz','OR',3,'','','541-444-1100','','Not Contacted','website: http://www.siletzvalleyschools.org',44.723476000000005,-123.92044200000001],
+['nces-OR-0093','Compass School','Public','','Lincoln County SD','Newport','OR',3,'','','541-336-2072','','Not Contacted','website: http://lincoln.k12.or.us',44.638841,-124.045929],
+['nces-OR-0094','Long Creek School','Public','','Long Creek SD 17','Long Creek','OR',3,'','','541-508-9164','','Not Contacted','website: http://longcreekschool.com/',44.713428,-119.099298],
+['nces-OR-0095','Lowell Junior/Senior High School','Public','','Lowell SD 71','Lowell','OR',3,'','','541-937-2124','','Not Contacted','website: http://www.lowell.k12.or.us',43.9172,-122.781],
+['nces-OR-0096','Bridge Charter Academy','Public','','Lowell SD 71','Lowell','OR',3,'','','541-937-5200','','Not Contacted','website: http://www.bridgecharter.com',43.917213000000004,-122.780163],
+['nces-OR-0097','Mapleton Jr/Sr High School','Public','','Mapleton SD 32','Mapleton','OR',3,'','','541-268-4322','','Not Contacted','website: http://www.mapleton.k12.or.us/high/index.html',44.0364,-123.85340000000001],
+['nces-OR-0098','Mohawk High School','Public','','Marcola SD 79J','Marcola','OR',3,'','','541-933-2512','','Not Contacted','website: http://www.marcola.k12.or.us',44.171,-122.8532],
+['nces-OR-0099','TEACH-NW','Public','','Marcola SD 79J','Eugene','OR',3,'','','541-952-1381','','Not Contacted','website: http://www.teach-nw.com',44.0085335,-123.0327735],
+['nces-OR-0100','McKenzie River Community School','Public','','McKenzie SD 68','Finn Rock','OR',3,'','','541-822-3338','','Not Contacted','website: http://www.mckenziesd.org',44.152514000000004,-122.36279700000001],
+['nces-OR-0101','Logos Charter School','Public','','Medford SD 549C','Medford','OR',3,'','','541-842-3658','','Not Contacted','website: http://www.logoscharter.com',42.337491,-122.90005000000001],
+['nces-OR-0102','Oregon Charter Academy','Public','','Santiam Canyon SD 129J','Mill City','OR',3,'','','503-897-2272','','Not Contacted','website: http://www.oregoncharter.org',44.75759,-122.48716100000001],
+['nces-OR-0103','Mitchell School','Public','','Mitchell SD 55','Mitchell','OR',3,'','','541-462-3311','','Not Contacted','website: http://www.mitchell.k12.or.us',44.56416,-120.14675000000001],
+['nces-OR-0104','Insight School of Oregon Painted Hills','Public','','Mitchell SD 55','Mitchell','OR',3,'','','541-823-5010','','Not Contacted','website: http://or-ph.insightschools.net',44.30323,-120.853255],
+['nces-OR-0105','Destinations Career Academy of Oregon','Public','','Mitchell SD 55','Prineville','OR',3,'','','541-823-5010','','Not Contacted','',44.30323,-120.853255],
+['nces-OR-0106','Cascade Virtual Academy','Public','','Mitchell SD 55','Prineville','OR',3,'','','541-823-5010','','Not Contacted','',44.30323,-120.853255],
+['nces-OR-0107','Monroe High School','Public','','Monroe SD 1J','Monroe','OR',3,'','','541-847-5161','','Not Contacted','website: http://www.monroe.k12.or.us',44.318371,-123.297432],
+['nces-OR-0108','Monument School','Public','','Monument SD 8','Monument','OR',3,'','','541-934-2646','','Not Contacted','website: http://monumentschool.com/',44.8207,-119.41940000000001],
+['nces-OR-0109','Heppner Junior/Senior High School','Public','','Morrow SD 1','Heppner','OR',3,'','','541-676-9138','','Not Contacted','website: http://hhs.morrow.k12.or.us/',45.361629,-119.56505700000001],
+['nces-OR-0110','Neah-Kah-Nie High School','Public','','Neah-Kah-Nie SD 56','Rockaway Beach','OR',3,'','','503-355-2272','','Not Contacted','website: http://www.nknsd.org',45.638436,-123.93964700000001],
+['nces-OR-0111','Catalyst High School','Public','','Newberg SD 29J','Newberg','OR',3,'','','503-554-4492','','Not Contacted','website: http://www.newberg.k12.or.us/',45.309728,-122.95109500000001],
+['nces-OR-0112','Evergreen Virtual Academy','Public','','North Bend SD 13','North Bend','OR',3,'','','541-751-8060','','Not Contacted','website: http://evergreenvirtual.org',43.406869,-124.221451],
+['nces-OR-0113','Clackamas Web Academy','Public','','North Clackamas SD 12','Clackamas','OR',3,'','','503-659-4664','','Not Contacted','website: http://www.clackamaswebacademy.org',45.42957,-122.57293100000001],
+['nces-OR-0114','Clackamas Middle College','Public','','North Clackamas SD 12','Happy Valley','OR',3,'','','503-518-5925','','Not Contacted','website: http://www.clackamasmiddlecollege.org',45.43614,-122.57953800000001],
+['nces-OR-0115','New Urban High School','Public','','North Clackamas SD 12','Milwaukie','OR',3,'','','503-353-5925','','Not Contacted','website: http://www.nclack.k12.or.us/Domain/3009',45.417100000000005,-122.64320000000001],
+['nces-OR-0116','Milwaukie Academy of the Arts','Public','','North Clackamas SD 12','Milwaukie','OR',3,'','','503-353-5834','','Not Contacted','website: http://www.nclack.k12.or.us/Domain/1478',45.441203,-122.638856],
+['nces-OR-0117','Adrienne C. Nelson High School','Public','','North Clackamas SD 12','Happy Valley','OR',3,'','','503-353-5750','','Not Contacted','website: http://www.nclack.k12.or.us/acnhs',45.415554,-122.493919],
+['nces-OR-0118','North Powder Charter School','Public','','North Powder SD 8J','North Powder','OR',3,'','','541-898-2244','','Not Contacted','website: http://www.npowder.k12.or.us',45.027839,-117.92462400000001],
+['nces-OR-0119','Nyssa Virtual School','Public','','Nyssa SD 26','Nyssa','OR',3,'','','541-372-2275','','Not Contacted','website: http://www.nyssa.k12.or.us',43.875331,-117.00350700000001],
+['nces-OR-0120','Oakland High School','Public','','Oakland SD 1','Oakland','OR',3,'','','541-459-2597','','Not Contacted','website: http://www.oakland.k12.or.us/pages/Oakland_School_District',43.4277,-123.298],
+['nces-OR-0121','Oakridge High School','Public','','Oakridge SD 76','Oakridge','OR',3,'','','541-782-2231','','Not Contacted','website: http://www.oakridge.k12.or.us',43.748734,-122.469007],
+['nces-OR-0122','Oregon City Service Learning Academy','Public','','Oregon City SD 62','Oregon City','OR',3,'','','503-785-8445','','Not Contacted','website: http://www.ocsla.org',45.352345,-122.598409],
+['nces-OR-0123','Alliance Charter Academy','Public','','Oregon City SD 62','Oregon City','OR',3,'','','503-785-8556','','Not Contacted','website: http://alliancecharteracademy.com',45.373679,-122.579232],
+['nces-OR-0124','Clackamas Academy of Industrial Sciences','Public','','Oregon City SD 62','Oregon City','OR',3,'','','503-785-7860','','Not Contacted','website: http://www.caisoc.com',45.356162000000005,-122.596816],
+['nces-OR-0125','Paisley School','Public','','Paisley SD 11','Paisley','OR',3,'','','541-943-3111','','Not Contacted','website: http://www.paisleyschooldistrict.com/',42.693346,-120.54268300000001],
+['nces-OR-0126','Nixyaawii Community School','Public','','Pendleton SD 16','Pendleton','OR',3,'','','541-429-7900','','Not Contacted','website: http://www.nixyaawii.k12.or.us/',45.666155,-118.69261100000001],
+['nces-OR-0127','Perrydale School','Public','','Perrydale SD 21','Amity','OR',3,'','','503-835-7575','','Not Contacted','website: http://www.perrydaleschool.com',45.0417,-123.25720000000001],
+['nces-OR-0128','Kings Valley Charter School','Public','','Philomath SD 17J','Philomath','OR',3,'','','541-929-2134','','Not Contacted','website: http://sites.google.com/a/kvschool.org/kvcs/',44.694500000000005,-123.4333],
+['nces-OR-0129','Armadillo Community Charter School','Public','','Phoenix-Talent SD 4','Phoenix','OR',3,'','','541-535-3287','','Not Contacted','website: http://www.armadillocharter.org',42.272682,-122.81790400000001],
+['nces-OR-0130','Pilot Rock High School','Public','','Pilot Rock SD 2','Pilot Rock','OR',3,'','','541-443-2671','','Not Contacted','website: http://www.pilotrock.k12.or.us',45.482825,-118.83089600000001],
+['nces-OR-0131','Pine Eagle Charter School','Public','','Pine Eagle SD 61','Halfway','OR',3,'','','541-742-2811','','Not Contacted','website: http://www.pineeaglesd.org',44.8828,-117.11640000000001],
+['nces-OR-0132','Pacific High School','Public','','Port Orford-Langlois SD 2CJ','Port Orford','OR',3,'','','541-348-2293','','Not Contacted','website: http://www.2cj.com/phs/',42.845709,-124.47203300000001],
+['nces-OR-0133','Leodis V. McDaniel High School','Public','','Portland SD 1J','Portland','OR',3,'','','503-916-5220','','Not Contacted','website: http://www.pps.net/schools/madison/',45.541967,-122.58096200000001],
+['nces-OR-0134','Ida B. Wells-Barnett High School','Public','','Portland SD 1J','Portland','OR',3,'','','503-916-5280','','Not Contacted','website: http://www.pps.net/schools/wilson',45.477443,-122.68984800000001],
+['nces-OR-0135','Powers High School','Public','','Powers SD 31','Powers','OR',3,'','','541-439-2291','','Not Contacted','website: http://www.powersschools.com',42.8812,-124.0664],
+['nces-OR-0136','Prairie City School','Public','','Prairie City SD 4','Prairie City','OR',3,'','','541-820-3314','','Not Contacted','website: http://www.grantesd.k12.or.us/Prairie-City',44.456003,-118.70916100000001],
+['nces-OR-0137','Oregon Connections Academy','Public','','Prairie City SD 4','Prairie City','OR',3,'','','541-820-3314','','Not Contacted','website: http://www.connectionsacademy.com',44.456003,-118.70916100000001],
+['nces-OR-0138','Virtual Preparatory Academy of Oregon','Public','','Prairie City SD 4','Prairie City','OR',3,'','','541-304-2202','','Not Contacted','website: http://oregon.virtualpreparatoryacademy.com/',44.456003,-118.70916100000001],
+['nces-OR-0139','Prospect Charter School','Public','','Prospect SD 59','Prospect','OR',3,'','','541-560-3653','','Not Contacted','website: http://www.prospect.k12.or.us',42.753469,-122.489501],
+['nces-OR-0140','Redmond Proficiency Academy','Public','','Redmond SD 2J','Redmond','OR',3,'','','541-526-0882','','Not Contacted','website: http://www.rpacademy.org',44.270791,-121.175058],
+['nces-OR-0141','Reedsport Community Charter School','Public','','Reedsport SD 105','Reedsport','OR',3,'','','541-271-2141','','Not Contacted','website: http://www.reedsport.k12.or.us',43.694030000000005,-124.12372800000001],
+['nces-OR-0142','Riddle High School','Public','','Riddle SD 70','Riddle','OR',3,'','','541-874-2251','','Not Contacted','website: http://www.riddleschooldistrict.com/riddle-jr-sr-high-school',42.949073,-123.363605],
+['nces-OR-0143','Rivers Edge Academy Charter School','Public','','Rogue River SD 35','Rogue River','OR',3,'','','541-299-0299','','Not Contacted','website: http://www.reach-school.org',42.43886,-123.17334100000001],
+['nces-OR-0144','South Valley Academy','Public','','Rogue River SD 35','Rogue River','OR',3,'','','541-582-3235','','Not Contacted','website: http://sva.rogueriver.k12.or.us/',42.432305,-123.16260700000001],
+['nces-OR-0145','Phoenix School','Public','','Douglas County SD 4','Roseburg','OR',3,'','','541-673-3036','','Not Contacted','website: http://phoenix.roseburg.k12.or.us/',43.212238,-123.310512],
+['nces-OR-0146','Scappoose Online Academy','Public','','Scappoose SD 1J','Scappoose','OR',3,'','','971-200-8000','','Not Contacted','website: http://www.scappoosek12.org/soa',45.750479,-122.87606000000001],
+['nces-OR-0147','Willamette Connections Academy','Public','','Scio SD 95','Scio','OR',3,'','','503-379-9498','','Not Contacted','website: http://www.connectionsacademy.com/',44.705894,-122.85248200000001],
+['nces-OR-0148','Sheridan AllPrep Academy','Public','','Sheridan SD 48J','Sheridan','OR',3,'','','503-843-9330','','Not Contacted','website: http://www.sheridanallprep.org/',45.101437000000004,-123.398661],
+['nces-OR-0149','Sherman County School','Public','','Sherman County SD','Moro','OR',3,'','','541-565-3500','','Not Contacted','website: http://sjshs.weebly.com/index.html',45.4739,-120.7416],
+['nces-OR-0150','North Lake School','Public','','North Lake SD 14','Silver Lake','OR',3,'','','541-576-2121','','Not Contacted','website: http://www.nlake.k12.or.us',43.245033,-120.9026],
+['nces-OR-0151','Childs Way Charter School','Public','','South Lane SD 45J3','Dorena','OR',3,'','','541-946-1821','','Not Contacted','website: http://childswaycharterschool.net/',43.6988,-122.8443],
+['nces-OR-0152','Academy for Character Education','Public','','South Lane SD 45J3','Cottage Grove','OR',3,'','','541-942-9707','','Not Contacted','website: http://www.ACEClassicalEd.org',43.790392426000004,-123.05839282000001],
+['nces-OR-0153','Spray School','Public','','Spray SD 1','Spray','OR',3,'','','541-468-2226','','Not Contacted','website: http://www.spray.k12.or.us',44.834471,-119.79278900000001],
+['nces-OR-0154','Gateways High School','Public','','Springfield SD 19','Springfield','OR',3,'','','541-744-8862','','Not Contacted','website: http://www.springfield.k12.or.us/brattain',44.04929,-123.012027],
+['nces-OR-0155','Willamette Leadership Academy','Public','','Springfield SD 19','Springfield','OR',3,'','','541-246-2840','','Not Contacted','website: http://www.willametteleadershipacademy.net',43.994858,-123.00848],
+['nces-OR-0156','Academy of Arts and Academics','Public','','Springfield SD 19','Springfield','OR',3,'','','541-744-6728','','Not Contacted','website: http://a3.springfield.k12.or.us/',44.046,-123.0181],
+['nces-OR-0157','St. Helens Virtual Academy','Public','','St Helens SD 502','St Helens','OR',3,'','','503-366-7200','','Not Contacted','website: http://shva.sthelens.k12.or.us',45.865601000000005,-122.81506900000001],
+['nces-OR-0158','St Paul High School','Public','','St Paul SD 45','St Paul','OR',3,'','','503-633-2541','','Not Contacted','website: http://www.stpaul.k12.or.us',45.213948,-122.97543300000001],
+['nces-OR-0159','Stanfield Secondary School','Public','','Stanfield SD 61','Stanfield','OR',3,'','','541-449-3851','','Not Contacted','website: http://www.stanfield.k12.or.us',45.79,-119.22420000000001],
+['nces-OR-0160','Sutherlin Valley Online Academy','Public','','Sutherlin SD 130','Sutherlin','OR',3,'','','541-529-2302','','Not Contacted','website: http://www.sutherlin.k12.or.us',43.390332,-123.31086400000001],
+['nces-OR-0161','Tigard-Tualatin Virtual Academy','Public','','Tigard-Tualatin SD 23J','Tigard','OR',3,'','','503-431-3730','','Not Contacted','website: http://TTVA.ttsdschools.org',45.420237,-122.74970400000001],
+['nces-OR-0162','Ukiah Charter School','Public','','Ukiah SD 80R','Ukiah','OR',3,'','','541-427-3731','','Not Contacted','website: http://www.ukiah.k12.or.us',45.135795,-118.933728],
+['nces-OR-0163','Union High School','Public','','Union SD 5','Union','OR',3,'','','541-562-5166','','Not Contacted','website: http://www.union.k12.or.us',45.206,-117.8661],
+['nces-OR-0164','Vernonia High School','Public','','Vernonia SD 47J','Vernonia','OR',3,'','','503-429-1333','','Not Contacted','website: http://www.vernonia.k12.or.us',45.860734,-123.178762],
+['nces-OR-0165','Wallowa High School','Public','','Wallowa SD 12','Wallowa','OR',3,'','','541-886-2951','','Not Contacted','website: http://www.wallowa.k12.or.us',45.570667,-117.532785],
+['nces-OR-0166','Riverside High School','Public','','West Linn-Wilsonville SD 3J','Tualatin','OR',3,'','','503-673-7376','','Not Contacted','website: http://www.wlwv.k12.or.us/rhs',45.378034,-122.70643700000001],
+['nces-OR-0167','Woodburn High School','Public','','Woodburn SD 103','Woodburn','OR',3,'','','503-981-9555','','Not Contacted','website: http://www.woodburnsd.org',45.153400000000005,-122.84790000000001],
+['nces-OR-0168','Woodburn Success','Public','','Woodburn SD 103','Woodburn','OR',3,'','','503-980-6185','','Not Contacted','website: http://www.woodburn.k12.or.us/',45.139119,-122.852303],
+['nces-OR-0169','Yoncalla High School','Public','','Yoncalla SD 32','Yoncalla','OR',3,'','','541-849-2175','','Not Contacted','website: http://www.yoncalla.k12.or.us',43.5952,-123.284],
+['nces-OR-0170','Functional Living Skills Program','Public','','Multnomah ESD','Portland','OR',3,'','','503-257-1581','','Not Contacted','website: http://www.multnomahesd.org',45.566526,-122.54161900000001],
+['nces-OR-0171','Wheatley School','Public','','Multnomah ESD','Portland','OR',3,'','','503-262-4000','','Not Contacted','website: http://www.multnomahesd.org/wheatley.html',45.540085000000005,-122.518669],
+['nces-OR-0172','Multnomah Inverness School','Public','','Multnomah ESD','Portland','OR',3,'','','503-257-1645','','Not Contacted','website: http://www.multnomahesd.org',45.563364,-122.54348700000001],
+['nces-OR-0173','Hassolo School','Public','','Multnomah ESD','Portland','OR',3,'','','503-257-1645','','Not Contacted','website: http://www.multnomahesd.org',45.531333000000004,-122.595156],
+['nces-OR-0174','Walden Crossing School','Public','','Multnomah ESD','Portland','OR',3,'','','503-255-1841','','Not Contacted','website: http://www.multnomahesd.org/',45.529566,-122.493688],
+['nces-OR-0175','LEEP (Life Enrichment Education Program)','Public','','Clackamas ESD','Clackamas','OR',3,'','','503-675-4000','','Not Contacted','website: http://www.clackesd.org',45.426768,-122.56362200000001],
+['nces-OR-0176','Heron Creek Program','Public','','Clackamas ESD','Marylhurst','OR',3,'','','503-675-2370','','Not Contacted','website: http://www.clackesd.org',45.398212,-122.64676600000001],
+['nces-OR-0177','Parrot Creek Program','Public','','Clackamas ESD','Lake Oswego','OR',3,'','','503-675-2370','','Not Contacted','website: http://www.clackesd.org',45.40361,-122.64990200000001],
+['nces-UT-0001','American Preparatory Academy - Accelerated School','Public','','American Preparatory Academy','WEST VALLEY CITY','UT',3,'','','385-351-3090','','Not Contacted','website: http://www.americanprep.org/home/',40.704646000000004,-111.977833],
+['nces-UT-0002','American Preparatory Academy - Draper #3','Public','','American Preparatory Academy','DRAPER','UT',3,'','','801-810-3590','','Not Contacted','website: http://www.americanprep.org',40.534382,-111.903092],
+['nces-UT-0003','Pinnacle Canyon Academy','Public','','Pinnacle Canyon Academy','Price','UT',3,'','','435-613-8102','','Not Contacted','website: http://www.pcaschool.com',39.603225,-110.79945400000001],
+['nces-UT-0004','City Academy','Public','','City Academy','SALT LAKE CITY','UT',3,'','','801-596-8489','','Not Contacted','website: http://www.cityacademyslc.org',40.765327,-111.87487300000001],
+['nces-UT-0005','Utah Arts Academy','Public','','Utah Arts Academy','SAINT GEORGE','UT',3,'','','435-414-4535','','Not Contacted','',37.127141,-113.603976],
+['nces-UT-0006','Academy for Math Engineering & Science','Public','','Academy for Math Engineering & Science','SALT LAKE CITY','UT',3,'','','801-278-9460','','Not Contacted','website: http://www.ames-slc.org/',40.646611,-111.853367],
+['nces-UT-0007','Utah County Academy of Science','Public','','Utah County Academy of Science','OREM','UT',3,'','','801-863-2222','','Not Contacted','website: http://www.ucas-edu.net',40.283221000000005,-111.71757600000001],
+['nces-UT-0008','Beehive Science & Technology Academy','Public','','Beehive Science & Technology Academy','SANDY','UT',3,'','','801-576-0070','','Not Contacted','website: http://www.beehiveacademy.org',40.581881,-111.82966900000001],
+['nces-UT-0009','East Shore Online','Public','','Alpine District','OREM','UT',3,'','','801-227-2440','','Not Contacted','',40.373474,-111.77763800000001],
+['nces-UT-0010','Skyridge High School','Public','','Alpine District','LEHI','UT',3,'','','801-610-8820','','Not Contacted','website: http://shs.alpineschools.org',40.426028,-111.84811300000001],
+['nces-UT-0011','Cedar Valley High','Public','','Alpine District','EAGLE MOUNTAIN','UT',3,'','','801-610-8400','','Not Contacted','',40.321447,-112.01770400000001],
+['nces-UT-0012','American Leadership Academy','Public','','American Leadership Academy','SPANISH FORK','UT',3,'','','801-794-2226','','Not Contacted','website: http://www.americanleadership.net',40.096676,-111.669983],
+['nces-UT-0013','Success SUU','Public','','Success Academy','CEDAR CITY','UT',3,'','','435-865-8790','','Not Contacted','website: http://www.successacademy.org',37.674743,-113.072253],
+['nces-UT-0014','Success DSU','Public','','Success Academy','ST GEORGE','UT',3,'','','435-652-7830','','Not Contacted','website: http://www.successacademy.org',37.103889,-113.56374000000001],
+['nces-UT-0015','InTech Collegiate Academy','Public','','InTech Collegiate Academy','LOGAN','UT',3,'','','435-753-7377','','Not Contacted','website: http://www.intechacademy.org',41.754867600000004,-111.8508778],
+['nces-UT-0016','Spectrum Academy - NSL','Public','','Spectrum Academy','NORTH SALT LAKE','UT',3,'','','801-936-0318','','Not Contacted','website: http://www.spectrumcharter.org',40.852654,-111.93226600000001],
+['nces-UT-0017','Spectrum Academy - Pleasant Grove','Public','','Spectrum Academy','PLEASANT GROVE','UT',3,'','','801-785-9019','','Not Contacted','website: http://www.spectrumcharter.org',40.352723000000005,-111.75202800000001],
+['nces-UT-0018','Karl G. Maeser Preparatory Academy','Public','','Karl G. Maeser Preparatory Academy','LINDON','UT',3,'','','801-235-9000','','Not Contacted','website: http://www.maeserprep.org',40.327438,-111.722903],
+['nces-UT-0019','Milford High','Public','','Beaver District','MILFORD','UT',3,'','','435-387-2751','','Not Contacted','website: http://www.mhs.beaver.k12.ut.us/',38.397854,-113.013531],
+['nces-UT-0020','Walden School of Liberal Arts','Public','','Walden School of Liberal Arts','PROVO','UT',3,'','','801-374-1545','','Not Contacted','website: http://waldenschool.us',40.289558,-111.657441],
+['nces-UT-0021','Freedom Preparatory Academy','Public','','Freedom Preparatory Academy','PROVO','UT',3,'','','801-437-3100','','Not Contacted','website: http://www.freedomprep.net',40.24691,-111.67927300000001],
+['nces-UT-0022','Freedom Preparatory Academy Washington','Public','','Freedom Preparatory Academy','SAINT GEORGE','UT',3,'','','801-437-3100','','Not Contacted','website: http://www.freedomprep.net',37.011109000000005,-113.59755100000001],
+['nces-UT-0023','No. UT. Acad. for Math Engineering & Science','Public','','No. UT. Acad. for Math Engineering & Science','LAYTON','UT',3,'','','801-395-3350','','Not Contacted','website: http://www.nuames.org',41.099045000000004,-111.98226600000001],
+['nces-UT-0024','No. UT. Acad. of Math Engineering & Science Ogden','Public','','No. UT. Acad. for Math Engineering & Science','OGDEN','UT',3,'','','801-513-4084','','Not Contacted','',41.194634,-111.94140300000001],
+['nces-UT-0025','Davinci Academy','Public','','Davinci Academy','OGDEN','UT',3,'','','801-409-0700','','Not Contacted','website: http://www.davinciacademy.org',41.23046,-111.97368100000001],
+['nces-UT-0026','Ridgeline High School','Public','','Cache District','MILLVILLE','UT',3,'','','435-792-7780','','Not Contacted','website: http://www.ccsdut.org/RidgelineHighSchool.cfm',41.68554,-111.829841],
+['nces-UT-0027','Green Canyon High School','Public','','Cache District','NORTH LOGAN','UT',3,'','','435-792-9300','','Not Contacted','',41.785799000000004,-111.82877500000001],
+['nces-UT-0028','Salt Lake Center for Science Education','Public','','Salt Lake Center for Science Education','SALT LAKE CITY','UT',3,'','','801-578-8226','','Not Contacted','website: http://slcse.slcschools.org',40.794465,-111.931302],
+['nces-UT-0029','Providence Hall','Public','','Providence Hall','HERRIMAN','UT',3,'','','801-727-8260','','Not Contacted','website: http://www.providencehall.com',40.485051,-112.004349],
+['nces-UT-0030','Utah Virtual Academy','Public','','Utah Virtual Academy','MURRAY','UT',3,'','','801-262-4922','','Not Contacted','website: http://www.k12.com/utva',40.67404,-111.88199100000001],
+['nces-UT-0031','Merit College Preparatory Academy','Public','','Merit College Preparatory Academy','SPRINGVILLE','UT',3,'','','801-491-7600','','Not Contacted','website: http://www.meritacademy.org',40.167476,-111.635907],
+['nces-UT-0032','Venture Academy','Public','','Venture Academy','MARRIOTT-SLATERVILLE CITY','UT',3,'','','801-393-3900','','Not Contacted','website: http://www.venturelearning.org',41.269041,-112.01703300000001],
+['nces-UT-0033','Mountain Heights Academy','Public','','Mountain Heights Academy','WEST JORDAN','UT',3,'','','801-721-6329','','Not Contacted','website: http://www.mountainheightsacademy.org/',40.58685,-111.92681],
+['nces-UT-0034','Entrada','Public','','Canyons District','SANDY','UT',3,'','','801-826-6670','','Not Contacted','website: http://entrada.canyonsdistrict.org/',40.587373,-111.86844400000001],
+['nces-UT-0035','Corner Canyon High','Public','','Canyons District','DRAPER','UT',3,'','','801-826-6401','','Not Contacted','',40.517041,-111.87023500000001],
+['nces-UT-0036','Canyons Virtual Academy','Public','','Canyons District','SANDY','UT',3,'','','801-826-5220','','Not Contacted','website: http://cvhs.canyonsdistrict.org',40.573985,-111.868644],
+['nces-UT-0037','Salt Lake School for the Performing Arts','Public','','Canyon Grove Academy','SALT LAKE CITY','UT',3,'','','801-466-6700','','Not Contacted','',40.761531,-111.88031000000001],
+['nces-UT-0038','Canyon Grove Academy','Public','','Canyon Grove Academy','PLEASANT GROVE','UT',3,'','','801-785-9300','','Not Contacted','website: http://www.canyongrove.com',40.401520000000005,-111.750341],
+['nces-UT-0039','Utah Connections Academy','Public','','Utah Connections Academy','SALT LAKE CITY','UT',3,'','','801-298-6660','','Not Contacted','website: http://www.connectionsacademy.com/utah-school',40.726113,-111.87264],
+['nces-UT-0040','Mana Academy Charter School','Public','','Mana Academy Charter School','WEST VALLEY CITY','UT',3,'','','801-972-6262','','Not Contacted','website: http://www.themanaacademy.org/',40.720040000000004,-111.97313100000001],
+['nces-UT-0041','Utah International Charter School','Public','','Utah International Charter School','SALT LAKE CITY','UT',3,'','','385-290-1306','','Not Contacted','website: http://utahinternational.org',40.689337,-111.85865000000001],
+['nces-UT-0042','Winter Sports School','Public','','Winter Sports School','PARK CITY','UT',3,'','','435-649-8760','','Not Contacted','website: http://www.wintersportsschool.org',40.691797,-111.54320600000001],
+['nces-UT-0043','Utah Career Path High School','Public','','Utah Career Path High School','KAYSVILLE','UT',3,'','','801-593-2440','','Not Contacted','website: http://www.careerpathhigh.org',41.0291,-111.925111],
+['nces-UT-0044','Utah Military Academy','Public','','Utah Military Academy','RIVERDALE','UT',3,'','','801-689-3013','','Not Contacted','website: http://www.utahmilitaryacademy.org',41.169227,-112.005605],
+['nces-UT-0045','Utah Military Academy - Camp Williams','Public','','Utah Military Academy','LEHI','UT',3,'','','385-498-6167','','Not Contacted','website: http://www.umavp.org',40.414523,-111.911174],
+['nces-UT-0046','Roots Charter High School','Public','','Roots Charter High School','WEST VALLEY CITY','UT',3,'','','801-573-8719','','Not Contacted','website: http://www.rootshigh.org',40.72227,-111.92961100000001],
+['nces-UT-0047','Terra Academy','Public','','Terra Academy','VERNAL','UT',3,'','','844-322-6562','','Not Contacted','website: http://www.theterraacademy.org',40.452218,-109.5652],
+['nces-UT-0048','Manila High','Public','','Daggett District','MANILA','UT',3,'','','435-784-3174','','Not Contacted','website: http://www.dsdf.org/mhs.htm',40.992380000000004,-109.7258],
+['nces-UT-0049','Athenian eAcademy','Public','','Athenian eAcademy','AMERICAN FORK','UT',3,'','','385-715-5400','','Not Contacted','website: http://www.aea.rocks',40.37025,-111.777421],
+['nces-UT-0050','Lumen Scholar Institute','Public','','Lumen Scholar Institute','OREM','UT',3,'','','801-987-9497','','Not Contacted','website: http://www.lumenscholar.org',40.31075,-111.728751],
+['nces-UT-0051','Vanguard Academy','Public','','Vanguard Academy','WEST VALLEY CITY','UT',3,'','','801-327-8724','','Not Contacted','website: http://www.vanguardcharter.org',40.712239000000004,-111.944175],
+['nces-UT-0052','Wallace Stegner Academy Kearns K-12','Public','','Wallace Stegner Academy','WEST VALLEY CITY','UT',3,'','','801-456-9570','','Not Contacted','',40.670619,-112.02585],
+['nces-UT-0053','American Academy of Innovation','Public','','American Academy of Innovation','SOUTH JORDAN','UT',3,'','','801-810-4786','','Not Contacted','website: http://www.aaiutah.org',40.556975,-112.020216],
+['nces-UT-0054','St. George Academy','Public','','St. George Academy','WASHINGTON','UT',3,'','','435-319-0105','','Not Contacted','website: http://www.stgacademy.org',37.08807,-113.50279],
+['nces-UT-0055','Leadership Academy of Utah','Public','','Leadership Academy of Utah','CLEARFIELD','UT',3,'','','800-200-6869','','Not Contacted','website: http://www.lautah.org',41.095638,-111.99405100000001],
+['nces-UT-0056','Salt Lake Academy High School','Public','','Salt Lake Academy High School','HERRIMAN','UT',3,'','','801-597-3096','','Not Contacted','website: http://rslacademy.org',40.483171,-111.9779],
+['nces-UT-0057','Farmington High','Public','','Davis District','FARMINGTON','UT',3,'','','801-402-9050','','Not Contacted','website: http://www.davis.k12.ut.us/Domain/14533',40.966098,-111.899585],
+['nces-UT-0058','Davis Connect 7-12','Public','','Davis District','LAYTON','UT',3,'','','801-402-5266','','Not Contacted','',41.092052,-111.98881300000001],
+['nces-UT-0059','Catalyst Center','Public','','Davis District','KAYSVILLE','UT',3,'','','801-402-5336','','Not Contacted','website: http://catalyst.davis.k12.ut.us/',41.042298,-111.962647],
+['nces-UT-0060','Tabiona High','Public','','Duchesne District','TABIONA','UT',3,'','','435-738-1320','','Not Contacted','',40.353598,-110.70817600000001],
+['nces-UT-0061','Basin Online School','Public','','Duchesne District','ROOSEVELT','UT',3,'','','435-725-4491','','Not Contacted','',40.300077,-109.97635500000001],
+['nces-UT-0062','Green River High','Public','','Emery District','GREEN RIVER','UT',3,'','','435-564-3461','','Not Contacted','website: http://emerycsd.org/GreenRiver.cfm?subpage=431643',39.000091000000005,-110.17258500000001],
+['nces-UT-0063','Bryce Valley High','Public','','Garfield District','TROPIC','UT',3,'','','435-679-8835','','Not Contacted','website: http://www.bvhs.garfield.k12.ut.us/',37.62466,-112.094333],
+['nces-UT-0064','Escalante High','Public','','Garfield District','ESCALANTE','UT',3,'','','435-826-4205','','Not Contacted','website: http://www.ehs.garfield.k12.ut.us/',37.766011,-111.58664800000001],
+['nces-UT-0065','Panguitch High','Public','','Garfield District','PANGUITCH','UT',3,'','','435-676-8805','','Not Contacted','website: http://www.phs.garfield.k12.ut.us/',37.821690000000004,-112.428713],
+['nces-UT-0066','Launch High','Public','','Iron District','CEDAR CITY','UT',3,'','','435-865-3160','','Not Contacted','website: http://launch.ironk12.org',37.658773000000004,-113.08702000000001],
+['nces-UT-0067','Mountain Ridge High','Public','','Jordan District','HERRIMAN','UT',3,'','','801-412-1700','','Not Contacted','',40.494958000000004,-111.99778500000001],
+['nces-UT-0068','Kings Peak High','Public','','Jordan District','WEST JORDAN','UT',3,'','','801-567-8020','','Not Contacted','',40.607557,-111.936688],
+['nces-UT-0069','Arizona State University Prep Digital Powered by Juab','Public','','Juab District','NEPHI','UT',3,'','','435-623-1940','','Not Contacted','website: http://www.juabsd.org',39.716964000000004,-111.82963500000001],
+['nces-UT-0070','Valley High','Public','','Kane District','ORDERVILLE','UT',3,'','','435-648-2278','','Not Contacted','website: http://vhs.kanek12.org/',37.278539,-112.63792400000001],
+['nces-UT-0071','Big Water High','Public','','Kane District','BIG WATER','UT',3,'','','435-675-5821','','Not Contacted','website: http://www.bws.kane.k12.ut.us/',37.085523,-111.66418700000001],
+['nces-UT-0072','Lake Powell High School','Public','','Kane District','LAKE POWELL','UT',3,'','','435-684-2268','','Not Contacted','website: http://lps.kanek12.org/',37.525437000000004,-110.708083],
+['nces-UT-0073','Eskdale High','Public','','Millard District','Eskdale','UT',3,'','','435-855-2148','','Not Contacted','website: http://millardk12.org/index.php/msd-schools/secondary-school/ehs',39.108850000000004,-113.95254000000001],
+['nces-UT-0074','Morgan Online','Public','','Morgan District','MORGAN','UT',3,'','','801-829-3411','','Not Contacted','',41.038172,-111.67519300000001],
+['nces-UT-0075','Nebo Online School','Public','','Nebo District','SALEM','UT',3,'','','801-423-7029','','Not Contacted','',40.061652,-111.67012700000001],
+['nces-UT-0076','Ogden Online Secondary','Public','','Ogden City District','OGDEN','UT',3,'','','801-737-7300','','Not Contacted','',41.231983,-111.957818],
+['nces-UT-0077','Piute High','Public','','Piute District','JUNCTION','UT',3,'','','855-577-2912','','Not Contacted','website: http://www.piutek12.org/schools/2014-09-18-17-50-23.html',38.245583,-112.22177300000001],
+['nces-UT-0078','Provo eSchool','Public','','Provo District','PROVO','UT',3,'','','801-374-4814','','Not Contacted','website: http://eschool.provo.edu/',40.246888,-111.663666],
+['nces-UT-0079','Rich High','Public','','Rich District','RANDOLPH','UT',3,'','','435-793-2365','','Not Contacted','website: http://www.rich.k12.ut.us/rhs_index.html',41.664958,-111.18948],
+['nces-UT-0080','Innovations Early College High School','Public','','Salt Lake District','SALT LAKE CITY','UT',3,'','','801-481-4946','','Not Contacted','website: http://www.innovationshigh.org',40.734374,-111.88669100000001],
+['nces-UT-0081','Navajo Mountain High','Public','','San Juan District','NAVAJO MT','UT',3,'','','435-678-1287','','Not Contacted','website: http://www.sjsd.org/o/nmhs',37.05971,-110.77991700000001],
+['nces-UT-0082','San Juan High','Public','','San Juan District','BLANDING','UT',3,'','','435-678-1301','','Not Contacted','website: http://www.sjsd.org/o/sjhs',37.629587,-109.47712000000001],
+['nces-UT-0083','South Sanpete Education Support Center','Public','','South Sanpete District','MANTI','UT',3,'','','435-835-2261','','Not Contacted','',39.26476,-111.63672700000001],
+['nces-UT-0084','Silver Summit Academy','Public','','South Summit District','PARK CITY','UT',3,'','','435-783-4010','','Not Contacted','website: http://www.ssummit.org/o/silver-summit',40.722323,-111.48627400000001],
+['nces-UT-0085','Tintic High','Public','','Tintic District','EUREKA','UT',3,'','','435-433-6939','','Not Contacted','website: http://www.tintic.k12.ut.us/ths/ths/index.htm',39.959223,-112.104821],
+['nces-UT-0086','West Desert High School','Public','','Tintic District','TROUT CREEK','UT',3,'','','435-693-3112','','Not Contacted','website: http://www.tintic.k12.ut.us/wdhs/wdhs.htm',39.644185,-113.888793],
+['nces-UT-0087','Wendover High','Public','','Tooele District','WENDOVER','UT',3,'','','435-665-2343','','Not Contacted','website: http://wendoverhigh.tooeleschools.org/',40.736701000000004,-114.03715100000001],
+['nces-UT-0088','Dugway','Public','','Tooele District','DUGWAY','UT',3,'','','435-831-4090','','Not Contacted','',40.226595,-112.747532],
+['nces-UT-0089','Digital Education Center','Public','','Tooele District','TOOELE','UT',3,'','','435-833-8710','','Not Contacted','',40.526216,-112.32426600000001],
+['nces-UT-0090','Out of State School','Public','','Washington District','ST GEORGE','UT',3,'','','435-673-3553','','Not Contacted','',37.107909,-113.586031],
+['nces-UT-0091','Utah Online 7-12','Public','','Washington District','SAINT GEORGE','UT',3,'','','435-673-3553','','Not Contacted','website: http://www.utahonline.org',37.107909,-113.586031],
+['nces-UT-0092','Water Canyon High','Public','','Washington District','HILDALE','UT',3,'','','435-847-1407','','Not Contacted','',37.004992,-112.96820000000001],
+['nces-UT-0093','Crimson Cliffs High','Public','','Washington District','WASHINGTON','UT',3,'','','435-634-7015','','Not Contacted','',37.071378,-113.51020600000001],
+['nces-UT-0094','Wayne High','Public','','Wayne District','BICKNELL','UT',3,'','','435-425-3411','','Not Contacted','website: http://www.waynesd.org/whs-home.html',38.343718,-111.551983],
+['nces-UT-0095','Weber Innovation High School','Public','','Weber District','OGDEN','UT',3,'','','801-476-6500','','Not Contacted','website: http://innovation.wsd.net',41.243718,-112.004101],
+['nces-UT-0096','West Field High School','Public','','Weber District','OGDEN','UT',3,'','','801-476-7800','','Not Contacted','',41.230051,-112.08469000000001],
+['nces-UT-0097','Weber Online 9-12','Public','','Weber District','Pleasant View','UT',3,'','','801-622-3580','','Not Contacted','website: http://weberonline.wsd.net',41.243718,-112.004101],
+['nces-UT-0098','Bonneville Preschool','Public','','Weber District','OGDEN','UT',3,'','','801-452-4935','','Not Contacted','',41.175457,-111.97729500000001],
+['nces-UT-0099','Elevated Charter School','Public','','Elevated Charter School','SARATOGA SPRINGS','UT',3,'','','385-535-1655','','Not Contacted','website: http://elevatedcharterschool.org/',40.419478,-111.88100100000001]
 ]);</script>
 
 
 
 <script>
 var SEED=SEED_RAW.map(function(r){
-  var c=normalizeSchool(r);
-  return Object.assign(c,{
-    principal:c.principal||'',pPhone:c.pPhone||'',sca:c.sca||'',scaPhone:c.scaPhone||'',
-    followUp:c.followUp||'',contacted:c.contacted||'',log:c.log||[],
-    spokenBefore:c.spokenBefore||false,fee:c.fee||'',expenses:c.expenses||'',
-    students:c.students||'',payStatus:c.payStatus||'Not Invoiced',gigDate:c.gigDate||''
-  });
+  return {id:r[0],school:r[1],type:r[2],cls:r[3],district:r[4],city:r[5],state:r[6],priority:r[7],
+    contact:r[8],role:r[9],phone:r[10],email:r[11],status:r[12],notes:r[13],
+    lat:r[14]||null,lon:r[15]||null,
+    principal:'',pPhone:'',sca:'',scaPhone:'',followUp:'',contacted:'',log:[],
+    spokenBefore:false,fee:'',expenses:'',students:'',payStatus:'Not Invoiced',gigDate:''};
 });
 </script>
 <div id="root"></div>
@@ -7132,7 +7352,7 @@ function MapView({contacts, onSelect}){
   useEffect(function(){
     if(!window.L||!mapRef.current) return;
     if(leafletMap.current){leafletMap.current.remove();leafletMap.current=null;}
-    var map=window.L.map(mapRef.current).setView([43.7068,-116.6201],8);
+    var map=window.L.map(mapRef.current).setView([44.0,-114.7],6);
     window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
       attribution:'&copy; OpenStreetMap contributors',maxZoom:18
     }).addTo(map);
@@ -7146,7 +7366,7 @@ function MapView({contacts, onSelect}){
     markersRef.current=[];
 
     var filtered=contacts.filter(function(c){
-      var lng=cleanMapLng(c.state,c.lon||c.lng); if(!c.lat||!lng) return false;
+      if(!c.lat||!c.lon) return false;
       if(stateF!=='All'&&c.state!==stateF) return false;
       if(statusF!=='All'&&c.status!==statusF) return false;
       return true;
@@ -7154,7 +7374,7 @@ function MapView({contacts, onSelect}){
 
     var bounds=[];
     filtered.forEach(function(c){
-      var lng=cleanMapLng(c.state,c.lon||c.lng); bounds.push([c.lat,lng]);
+      bounds.push([c.lat,c.lon]);
       var color=c.spokenBefore?'#f59e0b':STATUS_COLORS[c.status]||'#9ca3af';
       var size=c.status==='Booked!'?14:c.spokenBefore?11:7;
       var border=c.status==='Booked!'?'3px solid #065f46':'2px solid #fff';
@@ -7162,19 +7382,19 @@ function MapView({contacts, onSelect}){
         html:'<div style="width:'+size+'px;height:'+size+'px;background:'+color+';border-radius:50%;border:'+border+';box-shadow:0 1px 4px rgba(0,0,0,0.4);cursor:pointer;"></div>',
         className:'',iconSize:[size,size],iconAnchor:[size/2,size/2]
       });
-      var lng=cleanMapLng(c.state,c.lon||c.lng); var marker=window.L.marker([c.lat,lng],{icon:icon}).addTo(leafletMap.current);
+      var marker=window.L.marker([c.lat,c.lon],{icon:icon}).addTo(leafletMap.current);
       marker.bindTooltip(c.school+'  -  '+c.city,{permanent:false,direction:'top',offset:[0,-6]});
       marker.on('click',function(){setInfo(c);});
       markersRef.current.push(marker);
     });
 
     if(bounds.length>0&&stateF!=='All'){
-      try{leafletMap.current.fitBounds(bounds,{padding:[40,40],maxZoom:8});}catch(e){}
+      try{leafletMap.current.fitBounds(bounds,{padding:[40,40],maxZoom:11});}catch(e){}
     }
   },[contacts,stateF,statusF]);
 
-  var states=['All',...Array.from(new Set(contacts.filter(function(c){return c.lat&&(c.lon||c.lng);}).map(function(c){return c.state;}))).sort()];
-  var mappedCount=contacts.filter(function(c){return c.lat&&(c.lon||c.lng)&&(stateF==='All'||c.state===stateF)&&(statusF==='All'||c.status===statusF);}).length;
+  var states=['All',...Array.from(new Set(contacts.filter(function(c){return c.lat;}).map(function(c){return c.state;}))).sort()];
+  var mappedCount=contacts.filter(function(c){return c.lat&&(stateF==='All'||c.state===stateF)&&(statusF==='All'||c.status===statusF);}).length;
 
   return (
     <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
@@ -7484,7 +7704,7 @@ function App(){
       const raw=localStorage.getItem(STORAGE_KEY);
       if(raw){
         const p=JSON.parse(raw);
-        const migrated=p.length?p.map(c=>normalizeSchool({...c,state:c.state||'ID'})):SEED;
+        const migrated=p.length?p.map(c=>({...c,state:c.state||'ID'})):SEED;
         setContacts(migrated);
         localStorage.setItem(STORAGE_KEY,JSON.stringify(migrated));
       } else{setContacts(SEED);localStorage.setItem(STORAGE_KEY,JSON.stringify(SEED));}
