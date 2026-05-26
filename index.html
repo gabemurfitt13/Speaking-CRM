@@ -7392,7 +7392,7 @@ function MapView({contacts, onSelect}){
       });
       var marker=window.L.marker([c.lat,c.lon],{icon:icon}).addTo(leafletMap.current);
       marker.bindTooltip(c.school+'  -  '+c.city,{permanent:false,direction:'top',offset:[0,-6]});
-      marker.on('click',function(){setInfo(c);onSelect(c);});
+      marker.on('click',function(){setInfo(c);});
       markersRef.current.push(marker);
     });
 
@@ -7434,7 +7434,7 @@ function MapView({contacts, onSelect}){
                 color:info.status==='Booked!'?'#166534':'#374151'}}>{info.status}</span>
             </div>
             {info.notes&&<div style={{fontSize:11,color:'var(--text-muted)',marginBottom:10,fontStyle:'italic'}}>{info.notes.slice(0,80)}</div>}
-            <button className="btn primary" style={{width:'100%'}} onClick={function(){onSelect(info);setInfo(null);}}>Open Full Detail</button>
+            <button className="btn primary" style={{width:'100%'}} onClick={function(){var s=info;setInfo(null);onSelect(s);}}>Open Full Detail</button>
           </div>
         )}
       </div>
@@ -7875,7 +7875,7 @@ function App(){
 
         
         {view==='districts'&&<DistrictView contacts={contacts} stateF={stateF} setStateF={setStateF} setDistrictF={setDistrictF} setView={setView}/>}
-        {view==='map'&&<MapView contacts={contacts} onSelect={function(school){setSelected(school);setStateF('All');setDistrictF('All');setTypeF('All');setStatusF('All');setSpokenFilter(false);setSearch('');setView('contacts');window.setTimeout(function(){var el=document.getElementById('card-'+school.id);if(el)el.scrollIntoView({behavior:'smooth',block:'center'});},200);}}/> }
+        {view==='map'&&<MapView contacts={contacts} onSelect={function(school){setSelected(school);setStateF(school.state||'All');setDistrictF('All');setTypeF('All');setStatusF('All');setSpokenFilter(false);setSearch(school.school||'');setView('contacts');window.setTimeout(function(){var el=document.getElementById('card-'+school.id);if(el)el.scrollIntoView({behavior:'smooth',block:'center'});},300);}}/> }
         {view==='finance'&&(
           <>
             <div className="topbar"><span className="topbar-title">Finance</span></div>
