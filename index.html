@@ -206,7 +206,7 @@ window.addEventListener('load',function(){
         var p=map[s.id];
         if(!p)return Object.assign({},s,{spokenBefore:false,fee:'',expenses:'',students:'',payStatus:'Not Invoiced',gigDate:''});
         return Object.assign({},s,{
-          status:p.status||s.status,notes:p.notes||s.notes,
+          status:(p.status==='Not Contacted'?'Not Started':(p.status||s.status)),notes:p.notes||s.notes,
           contact:p.contact||s.contact,phone:p.phone||s.phone,email:p.email||s.email,
           principal:p.principal||s.principal,pPhone:p.p_phone||s.pPhone,
           sca:p.sca||s.sca,scaPhone:p.sca_phone||s.scaPhone,
@@ -6932,7 +6932,7 @@ SEED_RAW=SEED_RAW.concat([
 
 var SEED=SEED_RAW.map(function(r){
   return {id:r[0],school:r[1],type:r[2],cls:r[3],district:r[4],city:r[5],state:r[6],priority:r[7],
-    contact:r[8],role:r[9],phone:r[10],email:r[11],status:r[12],notes:r[13],
+    contact:r[8],role:r[9],phone:r[10],email:r[11],status:(r[12]==='Not Contacted'?'Not Started':(r[12]||'Not Started')),notes:r[13],
     lat:r[14]||null,lon:r[15]||null,
     principal:'',pPhone:'',sca:'',scaPhone:'',followUp:'',contacted:'',log:[],
     spokenBefore:false,fee:'',expenses:'',students:'',payStatus:'Not Invoiced',gigDate:''};
@@ -6952,6 +6952,15 @@ const STATUS_CFG={
   'Try Next Year':{bg:'#fff7ed',color:'#9a3412',border:'#fdba74',bar:'#f97316'},
 };
 const STATUSES=Object.keys(STATUS_CFG);
+
+function normalizeStatus(status){
+  if(!status || status==='Not Contacted') return 'Not Started';
+  return STATUS_CFG[status] ? status : 'Not Started';
+}
+
+function isReachedOut(c){
+  return normalizeStatus(c.status) !== 'Not Started';
+}
 
 function showToast(msg,icon='ti-check'){
   const t=document.getElementById('toast');
@@ -7298,11 +7307,11 @@ function AddModal({onSave,onClose}){
   );
 }
 
-function Dashboard({contacts,onSelectContact,setView}){
+function Dashboard({contacts,onSelectContact,setView,setStatusF,setTypeF,setStateF,setDistrictF,setSpokenFilter,setSearch}){
   const today=new Date().toISOString().slice(0,10);
   const stats={
     total:contacts.length,
-    contacted:contacts.filter(c=>c.status!=='Not Started').length,
+    contacted:contacts.filter(isReachedOut).length,
     booked:contacts.filter(c=>c.status==='Booked!').length,
     fups:contacts.filter(c=>c.followUp&&c.followUp<=today&&!['Booked!','Not Interested'].includes(c.status)).length,
   };
@@ -7311,7 +7320,7 @@ function Dashboard({contacts,onSelectContact,setView}){
     <div className="dash-wrap">
       <div className="stat-grid">
         <div className="stat-card"><div className="s-label">Total Schools</div><div className="s-num">{stats.total}</div><div className="s-sub">in pipeline</div></div>
-        <div className="stat-card"><div className="s-label">Reached Out</div><div className="s-num">{stats.contacted}</div><div className="s-sub">contacted</div></div>
+        <div className="stat-card" style={{cursor:'pointer'}} onClick={()=>{setSearch('');setTypeF('All');setStateF('All');setDistrictF('All');setSpokenFilter(false);setStatusF('Reached Out');setView('contacts');}} title="Click to filter reached-out schools"><div className="s-label">Reached Out</div><div className="s-num">{stats.contacted}</div><div className="s-sub">click to filter</div></div>
         <div className="stat-card booked"><div className="s-label">Booked</div><div className="s-num">{stats.booked}</div><div className="s-sub">speaking gigs</div></div>
         <div className="stat-card fup"><div className="s-label">Follow-ups Due</div><div className="s-num">{stats.fups}</div><div className="s-sub">need attention</div></div>
       </div>
@@ -7344,7 +7353,7 @@ function Dashboard({contacts,onSelectContact,setView}){
 
 
 
-function MapView({contacts, onSelect}){
+function MapView({contacts, onSelect, onUpdate}){
   var mapRef=useRef(null);
   var leafletMap=useRef(null);
   var markersRef=useRef([]);
@@ -7370,6 +7379,10 @@ function MapView({contacts, onSelect}){
 
   useEffect(function(){
     if(!leafletMap.current||!window.L) return;
+    if(info){
+      var freshInfo=contacts.find(function(c){return c.id===info.id;});
+      if(freshInfo&&freshInfo!==info) setInfo(freshInfo);
+    }
     markersRef.current.forEach(function(m){m.remove();});
     markersRef.current=[];
 
@@ -7434,6 +7447,25 @@ function MapView({contacts, onSelect}){
                 color:info.status==='Booked!'?'#166534':'#374151'}}>{info.status}</span>
             </div>
             {info.notes&&<div style={{fontSize:11,color:'var(--text-muted)',marginBottom:10,fontStyle:'italic'}}>{info.notes.slice(0,80)}</div>}
+            <div style={{borderTop:'1px solid var(--border)',paddingTop:10,marginTop:8,marginBottom:10}}>
+              <label style={{display:'block',fontSize:10.5,color:'var(--text-muted)',fontWeight:600,textTransform:'uppercase',letterSpacing:0.4,marginBottom:4}}>Quick Status</label>
+              <select className="status-sel" value={info.status} onChange={function(e){
+                var updated={...info,status:e.target.value};
+                setInfo(updated);
+                onUpdate(updated);
+                showToast('Status updated','ti-check');
+              }}>
+                {STATUSES.map(function(s){return <option key={s} value={s}>{s}</option>;})}
+              </select>
+              <button className="btn" style={{width:'100%',marginTop:8,justifyContent:'center',background:info.spokenBefore?'#fef3c7':'var(--bg-card)',borderColor:info.spokenBefore?'#fcd34d':'var(--border)',color:info.spokenBefore?'#92400e':'var(--text)'}} onClick={function(){
+                var updated={...info,spokenBefore:!info.spokenBefore};
+                setInfo(updated);
+                onUpdate(updated);
+                showToast(updated.spokenBefore?'Marked as spoken here':'Removed spoken marker','ti-star');
+              }}>
+                <i className="ti ti-star"/> {info.spokenBefore?'Spoken Here: Yes':'Mark Spoken Here'}
+              </button>
+            </div>
             <button className="btn primary" style={{width:'100%'}} onClick={function(){var s=info;setInfo(null);onSelect(s);}}>Open Full Detail</button>
           </div>
         )}
@@ -7546,7 +7578,7 @@ function DistrictView({contacts,stateF,setStateF,setDistrictF,setView}){
           {districtList.map(function(item){
             var dist=item[0];var schools=item[1].schools;var state=item[1].state;
             var total=schools.length;
-            var contacted=schools.filter(function(c){return c.status!=='Not Started';}).length;
+            var contacted=schools.filter(isReachedOut).length;
             var booked=schools.filter(function(c){return c.status==='Booked!';}).length;
             var pct=Math.round(contacted/total*100);
             return (
@@ -7712,7 +7744,7 @@ function App(){
       const raw=localStorage.getItem(STORAGE_KEY);
       if(raw){
         const p=JSON.parse(raw);
-        const migrated=p.length?p.map(c=>({...c,state:c.state||'ID'})):SEED;
+        const migrated=p.length?p.map(c=>({...c,state:c.state||'ID',status:normalizeStatus(c.status)})):SEED;
         setContacts(migrated);
         localStorage.setItem(STORAGE_KEY,JSON.stringify(migrated));
       } else{setContacts(SEED);localStorage.setItem(STORAGE_KEY,JSON.stringify(SEED));}
@@ -7757,7 +7789,8 @@ function App(){
   const filtered=contacts.filter(c=>{
     const q=search.toLowerCase();
     if(q&&![c.school,c.contact,c.city,c.state,c.district].some(v=>(v||'').toLowerCase().includes(q)))return false;
-    if(statusF!=='All'&&c.status!==statusF)return false;
+    if(statusF==='Reached Out'&&!isReachedOut(c))return false;
+    if(statusF!=='All'&&statusF!=='Reached Out'&&c.status!==statusF)return false;
     if(typeF!=='All'&&c.type!==typeF)return false;
     if(stateF!=='All'&&c.state!==stateF)return false;
     if(districtF!=='All'&&c.district!==districtF)return false;
@@ -7821,7 +7854,7 @@ function App(){
       <div className="main">
         {view==='dashboard'&&<>
           <div className="topbar"><span className="topbar-title">Dashboard</span></div>
-          <div className="content"><Dashboard contacts={contacts} onSelectContact={setSelected} setView={setView}/></div>
+          <div className="content"><Dashboard contacts={contacts} onSelectContact={setSelected} setView={setView} setStatusF={setStatusF} setTypeF={setTypeF} setStateF={setStateF} setDistrictF={setDistrictF} setSpokenFilter={setSpokenFilter} setSearch={setSearch}/></div>
         </>}
 
         {view==='queue'&&<>
@@ -7832,7 +7865,7 @@ function App(){
         {view==='contacts'&&<>
           <div className="topbar">
             <div className="srch-wrap"><i className="ti ti-search srch-icon"/><input className="srch" placeholder="Search schools, contacts, cities..." value={search} onChange={e=>setSearch(e.target.value)}/></div>
-            <select className="sel" value={statusF} onChange={e=>setStatusF(e.target.value)}>{['All',...STATUSES].map(s=><option key={s}>{s}</option>)}</select>
+            <select className="sel" value={statusF} onChange={e=>setStatusF(e.target.value)}>{['All','Reached Out',...STATUSES].map(s=><option key={s}>{s}</option>)}</select>
             <select className="sel" value={typeF} onChange={e=>setTypeF(e.target.value)}>{['All','High School','Middle/Jr High','Elementary'].map(t=><option key={t}>{t}</option>)}</select>
             <select className="sel" value={stateF} onChange={e=>{setStateF(e.target.value);setDistrictF('All');}}>
               {['All',...Array.from(new Set(contacts.map(c=>c.state).filter(Boolean))).sort()].map(s=><option key={s}>{s}</option>)}
@@ -7875,7 +7908,7 @@ function App(){
 
         
         {view==='districts'&&<DistrictView contacts={contacts} stateF={stateF} setStateF={setStateF} setDistrictF={setDistrictF} setView={setView}/>}
-        {view==='map'&&<MapView contacts={contacts} onSelect={function(school){setSelected(school);setStateF(school.state||'All');setDistrictF('All');setTypeF('All');setStatusF('All');setSpokenFilter(false);setSearch(school.school||'');setView('contacts');window.setTimeout(function(){var el=document.getElementById('card-'+school.id);if(el)el.scrollIntoView({behavior:'smooth',block:'center'});},300);}}/> }
+        {view==='map'&&<MapView contacts={contacts} onUpdate={updateContact} onSelect={function(school){setSelected(school);setStateF(school.state||'All');setDistrictF('All');setTypeF('All');setStatusF('All');setSpokenFilter(false);setSearch(school.school||'');setView('contacts');window.setTimeout(function(){var el=document.getElementById('card-'+school.id);if(el)el.scrollIntoView({behavior:'smooth',block:'center'});},300);}}/> }
         {view==='finance'&&(
           <>
             <div className="topbar"><span className="topbar-title">Finance</span></div>
