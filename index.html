@@ -306,7 +306,7 @@ function distanceFromMiddleton(c){
   const HOME_LNG=-116.6201;
 
   const lat=Number(c.lat);
-  const lng=Number(c.lng||c.lon);
+  const lng=Number(c.lng);
 
   if(!lat || !lng || isNaN(lat) || isNaN(lng)) return 9999;
 
@@ -6891,18 +6891,10 @@ SEED_RAW=SEED_RAW.concat([
 ['nces-UT-0099','Elevated Charter School','Public','','Elevated Charter School','SARATOGA SPRINGS','UT',3,'','','385-535-1655','','Not Contacted','',40.419478,-111.88100100000001]
 ]);
 
-
-function cleanClassification(cls,state){
-  var v=(cls||'').toString().trim();
-  var st=(state||'').toString().trim().toUpperCase();
-  var stateCodes={AL:1,AK:1,AZ:1,AR:1,CA:1,CO:1,CT:1,DE:1,FL:1,GA:1,HI:1,ID:1,IL:1,IN:1,IA:1,KS:1,KY:1,LA:1,ME:1,MD:1,MA:1,MI:1,MN:1,MS:1,MO:1,MT:1,NE:1,NV:1,NH:1,NJ:1,NM:1,NY:1,NC:1,ND:1,OH:1,OK:1,OR:1,PA:1,RI:1,SC:1,SD:1,TN:1,TX:1,UT:1,VT:1,VA:1,WA:1,WV:1,WI:1,WY:1,DC:1};
-  if(stateCodes[v.toUpperCase()] || (st && v.toUpperCase()===st)) return '';
-  return v;
-}
 var SEED=SEED_RAW.map(function(r){
   return {id:r[0],school:r[1],type:r[2],cls:cleanClassification(r[3],r[6]),district:r[4],city:r[5],state:r[6],priority:r[7],
     contact:r[8],role:r[9],phone:r[10],email:r[11],status:(r[12]==='Not Contacted'?'Not Started':(r[12]||'Not Started')),notes:r[13],
-    lat:r[14]||null,lon:r[15]||null,lng:r[15]||null,
+    lat:r[14]||null,lng:r[15]||null,lon:r[15]||null,
     principal:'',pPhone:'',sca:'',scaPhone:'',followUp:'',contacted:'',log:[],
     spokenBefore:false,fee:'',expenses:'',students:'',payStatus:'Not Invoiced',gigDate:''};
 });
@@ -7116,8 +7108,7 @@ SEED = SEED.map(function(s){
     const mergedNames = MERGED_DUPLICATE_CONTACTS[s.id].map(function(x){return x.role&&x.role.indexOf(' - ')>-1?x.role.split(' - ').slice(1).join(' - '):'';}).filter(Boolean);
     if(mergedNames.length){
       const mergeNote = 'Merged duplicate record(s): '+mergedNames.join('; ')+'.';
-      s.notes = s.notes ? s.notes+'
-'+mergeNote : mergeNote;
+      s.notes = s.notes ? s.notes+'\n'+mergeNote : mergeNote;
     }
   }
   return s;
@@ -7266,8 +7257,7 @@ function EditSchoolModal({c,onUpdate,onClose}){
       cls:cleanClassification(f.cls,f.state),
       priority:Number(f.priority)||5,
       lat:f.lat===''?null:f.lat,
-      lon:f.lon===''?null:f.lon,
-      lng:f.lon===''?null:f.lon
+      lon:f.lon===''?null:f.lon
     };
     onUpdate(updated);
     showToast('School updated','ti-edit');
