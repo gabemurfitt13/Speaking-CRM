@@ -7537,8 +7537,13 @@ function DetailPanel({c,onUpdate,onClose}){
     setSendErr('');setSending(true);
     sendGmailMessage(c.email,tpl.subject,tpl.body).then(()=>{
       setSending(false);setSent(true);
-      const entry={date:new Date().toISOString().slice(0,10),type:'Email',note:`Sent "${tpl.subject}" via Gmail`};
-      onUpdate({...c,status,notes,followUp,contacted,log:[entry,...(c.log||[])]});
+      const today=new Date().toISOString().slice(0,10);
+      const entry={date:today,type:'Email',note:`Sent "${tpl.subject}" via Gmail`};
+      const advanceStatus=['Not Started','Left Voicemail'].includes(status);
+      const newStatus=advanceStatus?'Emailed':status;
+      if(advanceStatus)setStatus(newStatus);
+      setContacted(today);
+      onUpdate({...c,status:newStatus,notes,followUp,contacted:today,log:[entry,...(c.log||[])]});
       showToast('Email sent via Gmail','ti-send');
       setTimeout(()=>setSent(false),2000);
     }).catch(err=>{
