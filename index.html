@@ -7245,24 +7245,21 @@ function exportData(contacts){
 }
 
 function buildEmailTemplate(c,tplType){
-  const firstName=c.contact?c.contact.split(' ')[0]:'there';
+  const nameParts=(c.contact||'').split(' ').filter(Boolean);
+  const firstName=(nameParts.length&&!/^(mr|mrs|ms|dr|miss|mx)\.?$/i.test(nameParts[0]))?nameParts[0]:(nameParts[1]||'there');
   const school=c.school;
   const templates={
     initial:{
       subject:`Guest Speaker Inquiry  -  ${school}`,
       body:`Hi ${firstName},
 
-Could you point me in the right direction of who handles booking guest speakers or student assemblies at ${school} for the remainder of this school year?
+Quick one — are you the right person for booking student assemblies at ${school}, or could you point me to who is?
 
-I am an Idaho-based motivational speaker, and I share my story of being born without arms and legs to help students build resilience and coping skills.
+I'm a speaker based in Idaho — I share my story of being born without arms and legs to help students build resilience. More here: gabemurfitt.com
 
-You can see a quick overview of my work at gabemurfitt.com.
+Would you have 5 minutes this week for a quick call to see how it'd work for your students?
 
-If you are the right contact, do you have 5 minutes for a brief phone call next week to see if this would be a good fit for your students before the term ends? If not, I would greatly appreciate it if you could forward this to the correct person.
-
-Thanks so much for your help,
-Gabe Murfitt
-gabemurfitt.com`
+Thanks!`
     },
     followup:{
       subject:`Following Up  -  ${school}`,
