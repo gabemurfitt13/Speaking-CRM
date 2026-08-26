@@ -8229,6 +8229,8 @@ function App(){
           <div className="nav-divider"/>
           <button className="nav-btn" onClick={()=>exportData(contacts)}><i className="ti ti-download"/>Export Backup</button>
           <button className="nav-btn" onClick={()=>document.getElementById('import-file').click()}><i className="ti ti-upload"/>Import Backup</button>
+          <div className="nav-divider"/>
+          <button className="nav-btn" onClick={()=>{if(window._syncInterval){clearInterval(window._syncInterval);window._syncInterval=null;}supabase.auth.signOut().then(()=>window.location.reload());}}><i className="ti ti-logout"/>Sign Out</button>
         </div>
         <div className="sid-stats">
           <div className="ss-card"><div className="num">{contacts.length}</div><div className="lbl">Schools</div></div>
