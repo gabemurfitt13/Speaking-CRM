@@ -168,6 +168,8 @@ input[type=file]{display:none}
 .login-inp{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;margin-bottom:8px;box-sizing:border-box;}
 #login-btn{width:100%;padding:13px;border:none;border-radius:8px;background:#2563eb;color:#fff;font-size:14px;font-weight:600;cursor:pointer;}
 #login-err{margin-top:12px;color:#dc2626;font-size:13px;min-height:18px;}
+#login-msg{margin-top:8px;color:#059669;font-size:13px;min-height:16px;}
+#login-forgot{background:none;border:none;color:#2563eb;font-size:13px;cursor:pointer;margin-top:10px;padding:4px;text-decoration:underline;}
 </style>
 <div id="login-wrap">
   <div id="login-box">
@@ -176,7 +178,9 @@ input[type=file]{display:none}
     <input id="login-email" class="login-inp" type="email" placeholder="Email" value="gabemurfittspeaker@gmail.com"/>
     <input id="login-pass" class="login-inp" type="password" placeholder="Password"/>
     <button id="login-btn">Sign In</button>
+    <button id="login-forgot" type="button">Forgot password?</button>
     <div id="login-err"></div>
+    <div id="login-msg"></div>
   </div>
 </div>
 <script>
@@ -197,6 +201,23 @@ window.addEventListener('load',function(){
       if(res.error){err.textContent=res.error.message;btn.textContent='Sign In';btn.disabled=false;return;}
       loadAndMount(res.data.user);
     }).catch(function(e){err.textContent='Error: '+(e.message||'Unknown');btn.textContent='Sign In';btn.disabled=false;});
+  });
+  var forgotBtn=document.getElementById('login-forgot');
+  if(forgotBtn)forgotBtn.addEventListener('click',function(){
+    var email=document.getElementById('login-email').value.trim();
+    var err=document.getElementById('login-err');
+    var msg=document.getElementById('login-msg');
+    err.textContent='';msg.textContent='';
+    if(!email){err.textContent='Enter your email above first.';return;}
+    forgotBtn.disabled=true;forgotBtn.textContent='Sending...';
+    supabase.auth.resetPasswordForEmail(email,{redirectTo:window.location.href}).then(function(res){
+      forgotBtn.disabled=false;forgotBtn.textContent='Forgot password?';
+      if(res.error){err.textContent=res.error.message;return;}
+      msg.textContent='Password reset email sent to '+email;
+    }).catch(function(e){
+      forgotBtn.disabled=false;forgotBtn.textContent='Forgot password?';
+      err.textContent='Error: '+(e.message||'Unknown');
+    });
   });
   function loadAndMount(user){
     window._supabaseUser=user;
