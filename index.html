@@ -7197,6 +7197,7 @@ SEED = SEED.map(function(s){
 });
 </script>
 <div id="root"></div>
+<div id="toast" class="toast"></div>
 <script type="text/babel">
 
 const {useState,useEffect,useRef,useCallback}=React;
@@ -7536,9 +7537,9 @@ function DetailPanel({c,onUpdate,onClose}){
     setSendErr('');setSending(true);
     sendGmailMessage(c.email,tpl.subject,tpl.body).then(()=>{
       setSending(false);setSent(true);
-      showToast('Email sent via Gmail','ti-send');
       const entry={date:new Date().toISOString().slice(0,10),type:'Email',note:`Sent "${tpl.subject}" via Gmail`};
       onUpdate({...c,status,notes,followUp,contacted,log:[entry,...(c.log||[])]});
+      showToast('Email sent via Gmail','ti-send');
       setTimeout(()=>setSent(false),2000);
     }).catch(err=>{
       setSending(false);setSendErr(err.message||'Failed to send.');
