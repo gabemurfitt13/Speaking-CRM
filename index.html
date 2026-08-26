@@ -194,15 +194,22 @@ input[type=file]{display:none}
   </div>
 </div>
 <script>
+var IS_RECOVERY_URL=/type=recovery/.test(window.location.href);
 function showResetPasswordUI(){
+  window.__isPasswordRecovery=true;
+  var wrap=document.getElementById('login-wrap');
   var loginFormBox=document.getElementById('login-form-box');
   var resetBox=document.getElementById('reset-pw-box');
+  if(wrap)wrap.style.display='flex';
   if(loginFormBox)loginFormBox.style.display='none';
   if(resetBox)resetBox.style.display='block';
+  if(window._syncInterval){clearInterval(window._syncInterval);window._syncInterval=null;}
 }
+if(IS_RECOVERY_URL)showResetPasswordUI();
 window.addEventListener('load',function(){
   var SKEY='gabe-crm-v3';
   supabase.auth.getSession().then(function(res){
+    if(window.__isPasswordRecovery)return;
     if(res.data&&res.data.session&&res.data.session.user){
       loadAndMount(res.data.session.user);
     }
