@@ -170,20 +170,36 @@ input[type=file]{display:none}
 #login-err{margin-top:12px;color:#dc2626;font-size:13px;min-height:18px;}
 #login-msg{margin-top:8px;color:#059669;font-size:13px;min-height:16px;}
 #login-forgot{background:none;border:none;color:#2563eb;font-size:13px;cursor:pointer;margin-top:10px;padding:4px;text-decoration:underline;}
+#reset-pw-box{display:none;}
 </style>
 <div id="login-wrap">
   <div id="login-box">
     <div style="font-size:26px;font-weight:800;color:#1e3a5f;margin-bottom:4px;">Gabe Murfitt</div>
     <div style="font-size:13px;color:#6b7280;margin-bottom:32px;">Speaker Outreach CRM</div>
-    <input id="login-email" class="login-inp" type="email" placeholder="Email" value="gabemurfittspeaker@gmail.com"/>
-    <input id="login-pass" class="login-inp" type="password" placeholder="Password"/>
-    <button id="login-btn">Sign In</button>
-    <button id="login-forgot" type="button">Forgot password?</button>
-    <div id="login-err"></div>
-    <div id="login-msg"></div>
+    <div id="login-form-box">
+      <input id="login-email" class="login-inp" type="email" placeholder="Email" value="gabemurfittspeaker@gmail.com"/>
+      <input id="login-pass" class="login-inp" type="password" placeholder="Password"/>
+      <button id="login-btn">Sign In</button>
+      <button id="login-forgot" type="button">Forgot password?</button>
+      <div id="login-err"></div>
+      <div id="login-msg"></div>
+    </div>
+    <div id="reset-pw-box">
+      <div style="font-size:13px;color:#6b7280;margin-bottom:16px;">Choose a new password</div>
+      <input id="reset-pass1" class="login-inp" type="password" placeholder="New password"/>
+      <input id="reset-pass2" class="login-inp" type="password" placeholder="Confirm new password"/>
+      <button id="reset-pass-btn">Update Password</button>
+      <div id="reset-pass-err" style="margin-top:12px;color:#dc2626;font-size:13px;min-height:18px;"></div>
+    </div>
   </div>
 </div>
 <script>
+function showResetPasswordUI(){
+  var loginFormBox=document.getElementById('login-form-box');
+  var resetBox=document.getElementById('reset-pw-box');
+  if(loginFormBox)loginFormBox.style.display='none';
+  if(resetBox)resetBox.style.display='block';
+}
 window.addEventListener('load',function(){
   var SKEY='gabe-crm-v3';
   supabase.auth.getSession().then(function(res){
@@ -217,6 +233,27 @@ window.addEventListener('load',function(){
     }).catch(function(e){
       forgotBtn.disabled=false;forgotBtn.textContent='Forgot password?';
       err.textContent='Error: '+(e.message||'Unknown');
+    });
+  });
+  var resetPassBtn=document.getElementById('reset-pass-btn');
+  if(resetPassBtn)resetPassBtn.addEventListener('click',function(){
+    var p1=document.getElementById('reset-pass1').value;
+    var p2=document.getElementById('reset-pass2').value;
+    var err=document.getElementById('reset-pass-err');
+    err.textContent='';
+    if(!p1||p1.length<6){err.textContent='Password must be at least 6 characters.';return;}
+    if(p1!==p2){err.textContent='Passwords do not match.';return;}
+    resetPassBtn.disabled=true;resetPassBtn.textContent='Updating...';
+    supabase.auth.updateUser({password:p1}).then(function(res){
+      if(res.error){err.textContent=res.error.message;resetPassBtn.disabled=false;resetPassBtn.textContent='Update Password';return;}
+      supabase.auth.getSession().then(function(sres){
+        if(sres.data&&sres.data.session&&sres.data.session.user){
+          loadAndMount(sres.data.session.user);
+        }
+      });
+    }).catch(function(e){
+      err.textContent='Error: '+(e.message||'Unknown');
+      resetPassBtn.disabled=false;resetPassBtn.textContent='Update Password';
     });
   });
   function loadAndMount(user){
@@ -389,6 +426,11 @@ function getOutreachScore(c){
 var SUPABASE_URL='https://hoyilsqwbdkbxismiatf.supabase.co';
 var SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhveWlsc3F3YmRrYnhpc21pYXRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMTM4MjcsImV4cCI6MjA5NDY4OTgyN30.GaAjxWcfmdBCRkSkRuw3Ix1tDqoxNMCHOPWaY6VGg1c';
 var supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+supabase.auth.onAuthStateChange(function(event){
+  if(event==='PASSWORD_RECOVERY'&&typeof showResetPasswordUI==='function'){
+    showResetPasswordUI();
+  }
+});
 var STORAGE_KEY='gabe-crm-v3';
 var SEED_RAW=[];
 SEED_RAW=SEED_RAW.concat([
