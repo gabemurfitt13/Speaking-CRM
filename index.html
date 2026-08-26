@@ -10,6 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -433,6 +434,8 @@ function getOutreachScore(c){
 var SUPABASE_URL='https://hoyilsqwbdkbxismiatf.supabase.co';
 var SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhveWlsc3F3YmRrYnhpc21pYXRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMTM4MjcsImV4cCI6MjA5NDY4OTgyN30.GaAjxWcfmdBCRkSkRuw3Ix1tDqoxNMCHOPWaY6VGg1c';
 var supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+var GOOGLE_CLIENT_ID='1049700318653-1obue381a9u2itjggddkhq6qq4g7ag9b.apps.googleusercontent.com';
+var GMAIL_SEND_SCOPE='https://www.googleapis.com/auth/gmail.send';
 supabase.auth.onAuthStateChange(function(event){
   if(event==='PASSWORD_RECOVERY'&&typeof showResetPasswordUI==='function'){
     showResetPasswordUI();
@@ -7298,6 +7301,67 @@ gabemurfitt.com`
   return templates[tplType]||templates.initial;
 }
 
+var _gmailTokenClient=null;
+var _gmailAccessToken=null;
+var _gmailOnConnectChange=null;
+
+function getGmailTokenClient(){
+  if(_gmailTokenClient)return _gmailTokenClient;
+  _gmailTokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:GOOGLE_CLIENT_ID,
+    scope:GMAIL_SEND_SCOPE,
+    callback:function(resp){
+      if(resp&&resp.access_token){
+        _gmailAccessToken=resp.access_token;
+        if(_gmailOnConnectChange)_gmailOnConnectChange(true);
+      }
+    },
+    error_callback:function(){
+      if(_gmailOnConnectChange)_gmailOnConnectChange(false);
+    }
+  });
+  return _gmailTokenClient;
+}
+
+function connectGmail(){
+  getGmailTokenClient().requestAccessToken({prompt:_gmailAccessToken?'':'consent'});
+}
+
+function isGmailConnected(){return !!_gmailAccessToken;}
+
+function base64UrlEncode(str){
+  var bytes=new TextEncoder().encode(str);
+  var bin='';
+  bytes.forEach(function(b){bin+=String.fromCharCode(b);});
+  return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+
+function sendGmailMessage(to,subject,body){
+  return new Promise(function(resolve,reject){
+    function doSend(){
+      var mime='To: '+to+'\r\nSubject: '+subject+'\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n'+body;
+      fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{
+        method:'POST',
+        headers:{'Authorization':'Bearer '+_gmailAccessToken,'Content-Type':'application/json'},
+        body:JSON.stringify({raw:base64UrlEncode(mime)})
+      }).then(function(res){
+        if(res.status===401){
+          _gmailAccessToken=null;
+          if(_gmailOnConnectChange)_gmailOnConnectChange(false);
+          reject(new Error('Gmail connection expired. Click Connect Gmail and try again.'));
+          return;
+        }
+        if(!res.ok){
+          res.json().then(function(err){reject(new Error((err&&err.error&&err.error.message)||('Gmail API error '+res.status)));}).catch(function(){reject(new Error('Gmail API error '+res.status));});
+          return;
+        }
+        resolve();
+      }).catch(reject);
+    }
+    if(!_gmailAccessToken){reject(new Error('Not connected to Gmail yet.'));return;}
+    doSend();
+  });
+}
 
 function EditSchoolModal({c,onUpdate,onClose}){
   const [f,setF]=useState({
@@ -7437,6 +7501,9 @@ function DetailPanel({c,onUpdate,onClose}){
   const [logType,setLogType]=useState('Call');
   const [tplType,setTplType]=useState('initial');
   const [copied,setCopied]=useState(false);
+  const [sending,setSending]=useState(false);
+  const [sent,setSent]=useState(false);
+  const [sendErr,setSendErr]=useState('');
 
   useEffect(()=>{
     setStatus(c.status);setNotes(c.notes);
@@ -7464,6 +7531,18 @@ function DetailPanel({c,onUpdate,onClose}){
   function openMailto(){
     const uri=`mailto:${c.email}?subject=${encodeURIComponent(tpl.subject)}&body=${encodeURIComponent(tpl.body)}`;
     window.open(uri);
+  }
+  function sendGmail(){
+    setSendErr('');setSending(true);
+    sendGmailMessage(c.email,tpl.subject,tpl.body).then(()=>{
+      setSending(false);setSent(true);
+      showToast('Email sent via Gmail','ti-send');
+      const entry={date:new Date().toISOString().slice(0,10),type:'Email',note:`Sent "${tpl.subject}" via Gmail`};
+      onUpdate({...c,status,notes,followUp,contacted,log:[entry,...(c.log||[])]});
+      setTimeout(()=>setSent(false),2000);
+    }).catch(err=>{
+      setSending(false);setSendErr(err.message||'Failed to send.');
+    });
   }
 
   return (
@@ -7588,11 +7667,15 @@ function DetailPanel({c,onUpdate,onClose}){
             <button className="btn sm" style={{flex:1,justifyContent:'center'}} onClick={copyEmail}>
               <i className={'ti '+(copied?'ti-check':'ti-copy')}/>{copied?'Copied!':'Copy All'}
             </button>
-            {c.email&&<button className="btn sm primary" style={{flex:1,justifyContent:'center'}} onClick={openMailto}>
+            {c.email&&<button className="btn sm" style={{flex:1,justifyContent:'center'}} onClick={openMailto}>
               <i className="ti ti-mail"/> Open in Mail
             </button>}
+            {c.email&&<button className="btn sm primary" style={{flex:1,justifyContent:'center'}} disabled={sending} onClick={isGmailConnected()?sendGmail:connectGmail}>
+              <i className={'ti '+(sending?'ti-loader-2':sent?'ti-check':'ti-send')}/>{sending?'Sending...':sent?'Sent!':isGmailConnected()?'Send via Gmail':'Connect Gmail to Send'}
+            </button>}
           </div>
-          {!c.email&&<p style={{fontSize:11,color:'var(--text-muted)',marginTop:8,fontStyle:'italic'}}>Add email address in Contacts tab to enable Open in Mail.</p>}
+          {!c.email&&<p style={{fontSize:11,color:'var(--text-muted)',marginTop:8,fontStyle:'italic'}}>Add email address in Contacts tab to enable sending.</p>}
+          {sendErr&&<p style={{fontSize:11,color:'#dc2626',marginTop:8}}>{sendErr}</p>}
         </>}
       </div>
     </div>
@@ -8120,6 +8203,12 @@ function App(){
   const [districtF,setDistrictF]=useState('All');
   const [spokenFilter,setSpokenFilter]=useState(false);
   const [loaded,setLoaded]=useState(false);
+  const [gmailConnected,setGmailConnected]=useState(false);
+
+  useEffect(()=>{
+    _gmailOnConnectChange=setGmailConnected;
+    return ()=>{_gmailOnConnectChange=null;};
+  },[]);
 
   useEffect(()=>{
     try{
@@ -8226,6 +8315,8 @@ function App(){
           <div className="nav-divider"/>
           <button className="nav-btn" onClick={()=>exportData(contacts)}><i className="ti ti-download"/>Export Backup</button>
           <button className="nav-btn" onClick={()=>document.getElementById('import-file').click()}><i className="ti ti-upload"/>Import Backup</button>
+          <div className="nav-divider"/>
+          <button className="nav-btn" onClick={connectGmail}><i className={'ti '+(gmailConnected?'ti-circle-check':'ti-brand-gmail')}/>{gmailConnected?'Gmail Connected':'Connect Gmail'}</button>
           <div className="nav-divider"/>
           <button className="nav-btn" onClick={()=>{if(window._syncInterval){clearInterval(window._syncInterval);window._syncInterval=null;}supabase.auth.signOut().then(()=>window.location.reload());}}><i className="ti ti-logout"/>Sign Out</button>
         </div>
