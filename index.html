@@ -283,6 +283,7 @@ window.addEventListener('load',function(){
         });
       });
       try{localStorage.setItem(SKEY,JSON.stringify(merged));}catch(e){}
+      window.dispatchEvent(new CustomEvent('crm-synced',{detail:merged}));
       document.getElementById('login-wrap').style.display='none';
       window._syncInterval=setInterval(function(){syncToSupabase(user.id);},30000);
       window.addEventListener('beforeunload',function(){syncToSupabase(user.id);});
@@ -8214,6 +8215,15 @@ function App(){
   useEffect(()=>{
     _gmailOnConnectChange=setGmailConnected;
     return ()=>{_gmailOnConnectChange=null;};
+  },[]);
+
+  useEffect(()=>{
+    function onSynced(e){
+      const migrated=(e.detail||[]).map(c=>({...c,state:c.state||'ID',status:normalizeStatus(c.status),cls:cleanClassification(c.cls,c.state||'ID')}));
+      setContacts(migrated);
+    }
+    window.addEventListener('crm-synced',onSynced);
+    return ()=>window.removeEventListener('crm-synced',onSynced);
   },[]);
 
   useEffect(()=>{
