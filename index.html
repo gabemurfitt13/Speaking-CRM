@@ -205,6 +205,7 @@ function showResetPasswordUI(){
   if(loginFormBox)loginFormBox.style.display='none';
   if(resetBox)resetBox.style.display='block';
   if(window._syncInterval){clearInterval(window._syncInterval);window._syncInterval=null;}
+  if(window._pullInterval){clearInterval(window._pullInterval);window._pullInterval=null;}
 }
 if(IS_RECOVERY_URL)showResetPasswordUI();
 window.addEventListener('load',function(){
@@ -264,9 +265,8 @@ window.addEventListener('load',function(){
       resetPassBtn.disabled=false;resetPassBtn.textContent='Update Password';
     });
   });
-  function loadAndMount(user){
-    window._supabaseUser=user;
-    supabase.from('progress').select('*').eq('user_id',user.id).then(function(res){
+  function pullFromSupabase(uid){
+    return supabase.from('progress').select('*').eq('user_id',uid).then(function(res){
       var map={};
       if(res.data)res.data.forEach(function(r){map[r.school_id]=r;});
       var merged=SEED.map(function(s){
@@ -284,8 +284,19 @@ window.addEventListener('load',function(){
       });
       try{localStorage.setItem(SKEY,JSON.stringify(merged));}catch(e){}
       window.dispatchEvent(new CustomEvent('crm-synced',{detail:merged}));
+    });
+  }
+  function loadAndMount(user){
+    window._supabaseUser=user;
+    pullFromSupabase(user.id).then(function(){
       document.getElementById('login-wrap').style.display='none';
       window._syncInterval=setInterval(function(){syncToSupabase(user.id);},30000);
+      // Pull agent/background-driven updates (e.g. the scheduled email outreach
+      // agent writing to Supabase directly) back into an already-open tab.
+      window._pullInterval=setInterval(function(){pullFromSupabase(user.id);},45000);
+      document.addEventListener('visibilitychange',function(){
+        if(document.visibilityState==='visible')pullFromSupabase(user.id);
+      });
       window.addEventListener('beforeunload',function(){syncToSupabase(user.id);});
     }).catch(function(){
       document.getElementById('login-wrap').style.display='none';
@@ -8334,7 +8345,7 @@ function App(){
           <div className="nav-divider"/>
           <button className="nav-btn" onClick={connectGmail}><i className={'ti '+(gmailConnected?'ti-circle-check':'ti-brand-gmail')}/>{gmailConnected?'Gmail Connected':'Connect Gmail'}</button>
           <div className="nav-divider"/>
-          <button className="nav-btn" onClick={()=>{if(window._syncInterval){clearInterval(window._syncInterval);window._syncInterval=null;}supabase.auth.signOut().then(()=>window.location.reload());}}><i className="ti ti-logout"/>Sign Out</button>
+          <button className="nav-btn" onClick={()=>{if(window._syncInterval){clearInterval(window._syncInterval);window._syncInterval=null;}if(window._pullInterval){clearInterval(window._pullInterval);window._pullInterval=null;}supabase.auth.signOut().then(()=>window.location.reload());}}><i className="ti ti-logout"/>Sign Out</button>
         </div>
         <div className="sid-stats">
           <div className="ss-card"><div className="num">{contacts.length}</div><div className="lbl">Schools</div></div>
