@@ -279,7 +279,8 @@ window.addEventListener('load',function(){
           sca:p.sca||s.sca,scaPhone:p.sca_phone||s.scaPhone,
           followUp:p.follow_up||s.followUp,contacted:p.contacted||s.contacted,log:p.log||s.log,
           spokenBefore:p.spoken_before||false,fee:p.fee||'',expenses:p.expenses||'',
-          students:p.students||'',payStatus:p.pay_status||'Not Invoiced',gigDate:p.gig_date||''
+          students:p.students||'',payStatus:p.pay_status||'Not Invoiced',gigDate:p.gig_date||'',
+          extraContacts:p.extra_contacts||s.extraContacts||[]
         });
       });
       try{localStorage.setItem(SKEY,JSON.stringify(merged));}catch(e){}
@@ -315,7 +316,8 @@ window.addEventListener('load',function(){
         principal:c.principal||'',p_phone:c.pPhone||'',sca:c.sca||'',
         sca_phone:c.scaPhone||'',follow_up:c.followUp||'',contacted:c.contacted||'',log:c.log||[],
         spoken_before:c.spokenBefore||false,fee:c.fee||'',expenses:c.expenses||'',
-        students:c.students||'',pay_status:c.payStatus||'Not Invoiced',gig_date:c.gigDate||''
+        students:c.students||'',pay_status:c.payStatus||'Not Invoiced',gig_date:c.gigDate||'',
+        extra_contacts:c.extraContacts||[]
       };});
       supabase.from('progress').upsert(rows,{onConflict:'school_id,user_id'});
     }catch(e){console.error('Sync error:',e);}
