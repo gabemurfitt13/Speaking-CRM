@@ -206,6 +206,7 @@ function showResetPasswordUI(){
   if(loginFormBox)loginFormBox.style.display='none';
   if(resetBox)resetBox.style.display='block';
   if(window._syncInterval){clearInterval(window._syncInterval);window._syncInterval=null;}
+  if(window._pullInterval){clearInterval(window._pullInterval);window._pullInterval=null;}
 }
 if(IS_RECOVERY_URL)showResetPasswordUI();
 window.addEventListener('load',function(){
@@ -279,6 +280,16 @@ window.addEventListener('load',function(){
       document.getElementById('login-wrap').style.display='none';
       if(window._syncInterval)clearInterval(window._syncInterval);
       window._syncInterval=setInterval(()=>persistence.flush(),30000);
+      // Pull agent/background-driven updates (e.g. the scheduled email outreach
+      // agent writing to Supabase directly) back into an already-open tab.
+      const pullLatest=function(){
+        persistence.load().then(function(c){window.dispatchEvent(new CustomEvent('crm-synced',{detail:c}));});
+      };
+      if(window._pullInterval)clearInterval(window._pullInterval);
+      window._pullInterval=setInterval(pullLatest,45000);
+      document.addEventListener('visibilitychange',function(){
+        if(document.visibilityState==='visible')pullLatest();
+      });
       window.addEventListener('beforeunload',function(e){
         if(persistence.hasPending()){e.preventDefault();e.returnValue='';}
       });
@@ -7239,7 +7250,7 @@ function buildEmailTemplate(c,tplType){
 
 Quick question: are you the right person for booking student assemblies at ${school}, or could you point me to who is?
 
-I'm Gabe Murfitt, an experienced speaker based in Idaho. My CLEAR program helps students think about how they respond to setbacks and how their choices affect other people. CLEAR stands for Courage, Leadership, Endurance, Attitude, and Respect. More here: https://gabemurfitt.com
+I'm Gabe Murfitt, an experienced speaker based in Idaho. My CLEAR program helps students think about how they respond to setbacks and how their choices affect other people. CLEAR stands for Courage, Leadership, Endurance, Attitude, and Respect, and I'd love to send over more details if that's helpful.
 
 Would you have 5 minutes this week for a quick call to see how it'd work for your students?
 
@@ -7251,13 +7262,13 @@ Thanks!`
 
 I'm following up on my note about bringing my CLEAR program to ${school} students.
 
-You can learn more about CLEAR at https://gabemurfitt.com. Are you planning student leadership or assembly programming, and when would be a useful time to discuss whether CLEAR fits?
+I know things are incredibly busy right now, so no pressure. Are you planning student leadership or assembly programming, and when would be a useful time to discuss whether CLEAR fits?
 
 Let me know if you think your students would benefit from this message.
 
 Thanks again,
 Gabe Murfitt
-gabemurfitt.com`
+360-880-1223`
     },
     booked:{
       subject:`Confirmed  -  Gabe Murfitt Speaking at ${school}`,
@@ -8311,7 +8322,7 @@ function App(){
           <div className="nav-divider"/>
           <div id="sync-status" role="status" style={{padding:12,fontSize:12,color:'white'}}>Loading cloud data...</div>
           <button className="nav-btn" onClick={()=>window.crmPersistence?.flush()}>Retry Cloud Save</button>
-          <button className="nav-btn" onClick={async()=>{if(window.crmPersistence&&!(await window.crmPersistence.flush())){alert('Cloud save failed. Export a backup before signing out.');return;}if(window._syncInterval)clearInterval(window._syncInterval);const result=await supabase.auth.signOut();if(result.error){alert('Sign out failed. Please retry.');return;}window.location.reload();}}><i className="ti ti-logout"/>Sign Out</button>
+          <button className="nav-btn" onClick={async()=>{if(window.crmPersistence&&!(await window.crmPersistence.flush())){alert('Cloud save failed. Export a backup before signing out.');return;}if(window._syncInterval)clearInterval(window._syncInterval);if(window._pullInterval){clearInterval(window._pullInterval);window._pullInterval=null;}const result=await supabase.auth.signOut();if(result.error){alert('Sign out failed. Please retry.');return;}window.location.reload();}}><i className="ti ti-logout"/>Sign Out</button>
         </div>
         <div className="sid-stats">
           <div className="ss-card"><div className="num">{contacts.length}</div><div className="lbl">Schools</div></div>
