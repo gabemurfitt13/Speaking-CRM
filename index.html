@@ -10,6 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/persistence.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -209,7 +210,6 @@ function showResetPasswordUI(){
 }
 if(IS_RECOVERY_URL)showResetPasswordUI();
 window.addEventListener('load',function(){
-  var SKEY='gabe-crm-v3';
   supabase.auth.getSession().then(function(res){
     if(window.__isPasswordRecovery)return;
     if(res.data&&res.data.session&&res.data.session.user){
@@ -265,62 +265,40 @@ window.addEventListener('load',function(){
       resetPassBtn.disabled=false;resetPassBtn.textContent='Update Password';
     });
   });
-  function pullFromSupabase(uid){
-    return supabase.from('progress').select('*').eq('user_id',uid).then(function(res){
-      var map={};
-      if(res.data)res.data.forEach(function(r){map[r.school_id]=r;});
-      var merged=SEED.map(function(s){
-        var p=map[s.id];
-        if(!p)return Object.assign({},s,{spokenBefore:false,fee:'',expenses:'',students:'',payStatus:'Not Invoiced',gigDate:''});
-        return Object.assign({},s,{
-          status:(p.status==='Not Contacted'?'Not Started':(p.status||s.status)),notes:p.notes||s.notes,
-          contact:p.contact||s.contact,phone:p.phone||s.phone,email:p.email||s.email,
-          principal:p.principal||s.principal,pPhone:p.p_phone||s.pPhone,
-          sca:p.sca||s.sca,scaPhone:p.sca_phone||s.scaPhone,
-          followUp:p.follow_up||s.followUp,contacted:p.contacted||s.contacted,log:p.log||s.log,
-          spokenBefore:p.spoken_before||false,fee:p.fee||'',expenses:p.expenses||'',
-          students:p.students||'',payStatus:p.pay_status||'Not Invoiced',gigDate:p.gig_date||'',
-          extraContacts:p.extra_contacts||s.extraContacts||[]
-        });
-      });
-      try{localStorage.setItem(SKEY,JSON.stringify(merged));}catch(e){}
+  async function loadAndMount(user){
+    const notify=function(message){
+      const el=document.getElementById('sync-status');
+      if(el)el.textContent=message;
+    };
+    try{
+      const persistence=CRMPersistence.create(supabase,localStorage,user.id,SEED,notify);
+      const merged=await persistence.load();
+      window._supabaseUser=user;
+      window.crmPersistence=persistence;
+      window.crmInitialContacts=merged;
       window.dispatchEvent(new CustomEvent('crm-synced',{detail:merged}));
-    });
-  }
-  function loadAndMount(user){
-    window._supabaseUser=user;
-    pullFromSupabase(user.id).then(function(){
       document.getElementById('login-wrap').style.display='none';
-      window._syncInterval=setInterval(function(){syncToSupabase(user.id);},30000);
+      if(window._syncInterval)clearInterval(window._syncInterval);
+      window._syncInterval=setInterval(()=>persistence.flush(),30000);
       // Pull agent/background-driven updates (e.g. the scheduled email outreach
       // agent writing to Supabase directly) back into an already-open tab.
-      window._pullInterval=setInterval(function(){pullFromSupabase(user.id);},45000);
+      const pullLatest=function(){
+        persistence.load().then(function(c){window.dispatchEvent(new CustomEvent('crm-synced',{detail:c}));});
+      };
+      if(window._pullInterval)clearInterval(window._pullInterval);
+      window._pullInterval=setInterval(pullLatest,45000);
       document.addEventListener('visibilitychange',function(){
-        if(document.visibilityState==='visible')pullFromSupabase(user.id);
+        if(document.visibilityState==='visible')pullLatest();
       });
-      window.addEventListener('beforeunload',function(){syncToSupabase(user.id);});
-    }).catch(function(){
-      document.getElementById('login-wrap').style.display='none';
-    });
-  }
-  function syncToSupabase(uid){
-    try{
-      var raw=localStorage.getItem(SKEY);
-      if(!raw)return;
-      var contacts=JSON.parse(raw);
-      var dirty=contacts.filter(function(c){return c.status!=='Not Started'||c.notes||c.spokenBefore||c.fee||c.followUp;});
-      if(!dirty.length)return;
-      var rows=dirty.map(function(c){return {
-        school_id:c.id,user_id:uid,status:c.status,notes:c.notes||'',
-        contact:c.contact||'',phone:c.phone||'',email:c.email||'',
-        principal:c.principal||'',p_phone:c.pPhone||'',sca:c.sca||'',
-        sca_phone:c.scaPhone||'',follow_up:c.followUp||'',contacted:c.contacted||'',log:c.log||[],
-        spoken_before:c.spokenBefore||false,fee:c.fee||'',expenses:c.expenses||'',
-        students:c.students||'',pay_status:c.payStatus||'Not Invoiced',gig_date:c.gigDate||'',
-        extra_contacts:c.extraContacts||[]
-      };});
-      supabase.from('progress').upsert(rows,{onConflict:'school_id,user_id'});
-    }catch(e){console.error('Sync error:',e);}
+      window.addEventListener('beforeunload',function(e){
+        if(persistence.hasPending()){e.preventDefault();e.returnValue='';}
+      });
+      window.addEventListener('online',()=>persistence.flush());
+      persistence.flush();
+    }catch(e){
+      document.getElementById('login-err').textContent='Could not load cloud records. Your local data has not been replaced. Retry signing in. '+(e.message||'');
+      const btn=document.getElementById('login-btn');btn.disabled=false;btn.textContent='Sign In';
+    }
   }
 });
 </script>
@@ -455,7 +433,6 @@ supabase.auth.onAuthStateChange(function(event){
     showResetPasswordUI();
   }
 });
-var STORAGE_KEY='gabe-crm-v3';
 var SEED_RAW=[];
 SEED_RAW=SEED_RAW.concat([
 ['d1-hs-01','Coeur d\'Alene High School','High School','6A','CDA SD','Coeur d\'Alene','ID',1,'Tony Prka','AD','208-667-4500','','Not Started','',47.721028,-116.777289],
@@ -7271,9 +7248,9 @@ function buildEmailTemplate(c,tplType){
       subject:`Guest Speaker Inquiry  -  ${school}`,
       body:`Hi ${firstName},
 
-Quick one, are you the right person for booking student assemblies at ${school}, or could you point me to who is?
+Quick question: are you the right person for booking student assemblies at ${school}, or could you point me to who is?
 
-I'm a speaker based in Idaho. I share my story of being born without arms and legs to help students build resilience, and I'd love to send over a short clip so you can see it in action.
+I'm Gabe Murfitt, an experienced speaker based in Idaho. My CLEAR program helps students think about how they respond to setbacks and how their choices affect other people. CLEAR stands for Courage, Leadership, Endurance, Attitude, and Respect, and I'd love to send over more details if that's helpful.
 
 Would you have 5 minutes this week for a quick call to see how it'd work for your students?
 
@@ -7283,9 +7260,9 @@ Thanks!`
       subject:`Following Up  -  ${school}`,
       body:`Hi ${firstName},
 
-I'm following up on my note about bringing a message of resilience to ${school} students.
+I'm following up on my note about bringing my CLEAR program to ${school} students.
 
-I know things are incredibly busy right now, so no pressure. I'm happy to send over a short video clip if that would help you get a feel for what the students experience.
+I know things are incredibly busy right now, so no pressure. Are you planning student leadership or assembly programming, and when would be a useful time to discuss whether CLEAR fits?
 
 Let me know if you think your students would benefit from this message.
 
@@ -7302,7 +7279,8 @@ I'm so excited to be coming to ${school}! I wanted to confirm the details and ma
 Here's what I need from you to prepare:
 - Confirmed date, time, and location
 - Approximate number of students attending
-- Any specific themes or topics you'd like me to emphasize
+- Your goals for the audience and which CLEAR principles best fit them
+- Accessible entrance, presentation area, and restroom arrangements
 - AV setup available (microphone, projector/screen?)
 - Point of contact on the day of the event
 
@@ -7526,7 +7504,7 @@ function DetailPanel({c,onUpdate,onClose}){
     setTab('track');setCopied(false);setShowEditSchool(false);
   },[c.id]);
 
-  function save(){onUpdate({...c,status,notes,followUp,contacted,spokenBefore,fee,expenses,students,payStatus,gigDate,extraContacts});showToast('Saved');}
+  function save(){onUpdate({...c,status,notes,followUp,contacted,spokenBefore,fee,expenses,students,payStatus,gigDate,extraContacts});showToast('Changes recorded; check cloud save status');}
   function addLog(){
     if(!logNote.trim())return;
     const entry={date:new Date().toISOString().slice(0,10),type:logType,note:logNote.trim()};
@@ -7534,7 +7512,8 @@ function DetailPanel({c,onUpdate,onClose}){
     setLogNote('');showToast('Activity logged');
   }
 
-  const tpl=buildEmailTemplate(c,tplType);
+  const [draft,setDraft]=useState(()=>buildEmailTemplate(c,'initial'));
+  const tpl=draft;
   const st=STATUS_CFG[status]||STATUS_CFG['Not Started'];
 
   function copyEmail(){
@@ -7548,6 +7527,9 @@ function DetailPanel({c,onUpdate,onClose}){
     window.open(uri);
   }
   function sendGmail(){
+    if(!tpl.subject.trim()||!tpl.body.trim()){setSendErr('Enter a subject and message.');return;}
+    if(/\[[^\]]*(?:here|insert|link)[^\]]*\]/i.test(tpl.body)){setSendErr('Replace the placeholder before sending.');return;}
+    if(!window.confirm('Send this message to '+c.email+'?'))return;
     setSendErr('');setSending(true);
     sendGmailMessage(c.email,tpl.subject,tpl.body).then(()=>{
       setSending(false);setSent(true);
@@ -7674,15 +7656,15 @@ function DetailPanel({c,onUpdate,onClose}){
           </div>
         </>}
 
-        {tab==='finance'&&<div className="det-sect"><h5>Booking Financials</h5><div className="field-group"><label>Gig Date</label><input type="date" className="inp" value={gigDate} onChange={e=>setGigDate(e.target.value)}/></div><div className="field-group"><label>Fee Charged ($)</label><input type="number" className="inp" placeholder="0.00" value={fee} onChange={e=>setFee(e.target.value)}/></div><div className="field-group"><label>Expenses ($)</label><input type="number" className="inp" placeholder="Travel, hotel, meals..." value={expenses} onChange={e=>setExpenses(e.target.value)}/></div><div className="field-group"><label>Net Revenue</label><div style={{padding:'8px 12px',background:'var(--bg)',borderRadius:'var(--radius)',fontWeight:700,fontSize:15}}>${(parseFloat(fee||0)-parseFloat(expenses||0)).toFixed(2)}</div></div><div className="field-group"><label>Students in Room</label><input type="number" className="inp" placeholder="Attendance" value={students} onChange={e=>setStudents(e.target.value)}/></div>{fee&&students&&parseFloat(students)>0&&<div className="field-group"><label>Cost Per Student</label><div style={{padding:'8px 12px',background:'#f0fdf4',borderRadius:'var(--radius)',fontWeight:700,color:'#166534',fontSize:15}}>${(parseFloat(fee||0)/parseFloat(students||1)).toFixed(2)} per student</div></div>}<div className="field-group"><label>Payment Status</label><select className="sel" style={{width:'100%'}} value={payStatus} onChange={e=>setPayStatus(e.target.value)}>{['Not Invoiced','Invoiced','Received','Overdue'].map(function(s){return <option key={s}>{s}</option>;})}</select></div><button className="btn primary" style={{width:'100%',marginTop:8}} onClick={save}>Save Financials</button></div>}
+        {tab==='finance'&&<div className="det-sect"><h5>Booking Financials</h5><div className="field-group"><label>Gig Date</label><input type="date" className="inp" value={gigDate} onChange={e=>setGigDate(e.target.value)}/></div><div className="field-group"><label>Fee Charged ($)</label><input type="number" className="inp" placeholder="0.00" value={fee} onChange={e=>setFee(e.target.value)}/></div><div className="field-group"><label>Expenses ($)</label><input type="number" className="inp" placeholder="Travel, hotel, meals..." value={expenses} onChange={e=>setExpenses(e.target.value)}/></div><div className="field-group"><label>Fee Less Expenses</label><div style={{padding:'8px 12px',background:'var(--bg)',borderRadius:'var(--radius)',fontWeight:700,fontSize:15}}>${(parseFloat(fee||0)-parseFloat(expenses||0)).toFixed(2)}</div></div><div className="field-group"><label>Students in Room</label><input type="number" className="inp" placeholder="Attendance" value={students} onChange={e=>setStudents(e.target.value)}/></div>{fee&&students&&parseFloat(students)>0&&<div className="field-group"><label>Cost Per Student</label><div style={{padding:'8px 12px',background:'#f0fdf4',borderRadius:'var(--radius)',fontWeight:700,color:'#166534',fontSize:15}}>${(parseFloat(fee||0)/parseFloat(students||1)).toFixed(2)} per student</div></div>}<div className="field-group"><label>Payment Status</label><select className="sel" style={{width:'100%'}} value={payStatus} onChange={e=>setPayStatus(e.target.value)}>{['Not Invoiced','Invoiced','Received','Overdue'].map(function(s){return <option key={s}>{s}</option>;})}</select></div><button className="btn primary" style={{width:'100%',marginTop:8}} onClick={save}>Save Financials</button></div>}
         {tab==='email'&&<>
           <div className="tpl-picker">
             {[['initial','First Outreach'],['followup','Follow-up'],['booked','Booking Confirm']].map(([v,l])=>(
-              <button key={v} className={'tpl-btn'+(tplType===v?' active':'')} onClick={()=>{setTplType(v);setCopied(false);}}>{l}</button>
+              <button key={v} className={'tpl-btn'+(tplType===v?' active':'')} onClick={()=>{setTplType(v);setDraft(buildEmailTemplate(c,v));setCopied(false);setSent(false);}}>{l}</button>
             ))}
           </div>
-          <div className="email-subject"><i className="ti ti-tag" style={{marginRight:6,fontSize:12,color:'var(--text-muted)'}}/>{tpl.subject}</div>
-          <div className="email-tpl">{tpl.body}</div>
+          <label>Subject<input className="inp" value={draft.subject} onChange={e=>setDraft({...draft,subject:e.target.value})}/></label>
+          <label>Message<textarea className="inp" style={{minHeight:300}} value={draft.body} onChange={e=>setDraft({...draft,body:e.target.value})}/></label>
           <div className="email-actions">
             <button className="btn sm" style={{flex:1,justifyContent:'center'}} onClick={copyEmail}>
               <i className={'ti '+(copied?'ti-check':'ti-copy')}/>{copied?'Copied!':'Copy All'}
@@ -7754,7 +7736,7 @@ function Dashboard({contacts,onSelectContact,setView,setStatusF,setTypeF,setStat
   return (
     <div className="dash-wrap">
       <div className="stat-grid">
-        <div className="stat-card"><div className="s-label">Total Schools</div><div className="s-num">{stats.total}</div><div className="s-sub">in pipeline</div></div>
+        <div className="stat-card"><div className="s-label">Total Schools</div><div className="s-num">{stats.total}</div><div className="s-sub">in prospect directory</div></div>
         <div className="stat-card" style={{cursor:'pointer'}} onClick={()=>{setSearch('');setTypeF('All');setStateF('All');setDistrictF('All');setSpokenFilter(false);setStatusF('Reached Out');setView('contacts');}} title="Click to filter reached-out schools"><div className="s-label">Reached Out</div><div className="s-num">{stats.contacted}</div><div className="s-sub">click to filter</div></div>
         <div className="stat-card booked"><div className="s-label">Booked</div><div className="s-num">{stats.booked}</div><div className="s-sub">speaking gigs</div></div>
         <div className="stat-card fup"><div className="s-label">Follow-ups Due</div><div className="s-num">{stats.fups}</div><div className="s-sub">need attention</div></div>
@@ -7983,9 +7965,10 @@ function FinanceDashboard({contacts}){
   var invoiced=contacts.filter(function(c){return c.payStatus==='Invoiced';});
   function fmt(n){return '$'+Math.round(n).toLocaleString();}
   var stats=[
-    {label:'Total Revenue',val:fmt(totalRev),color:'#166534',bg:'#f0fdf4'},
+    {label:'Payments Received',val:fmt(booked.filter(c=>c.payStatus==='Received').reduce((sum,c)=>sum+parseFloat(c.fee||0),0)),color:'#166534',bg:'#f0fdf4'},
+    {label:'Recorded Fees',val:fmt(totalRev),color:'#166534',bg:'#f0fdf4'},
     {label:'Total Expenses',val:fmt(totalExp),color:'#92400e',bg:'#fef3c7'},
-    {label:'Net Revenue',val:fmt(totalNet),color:'#1e40af',bg:'#eff6ff'},
+    {label:'Fees Less Expenses',val:fmt(totalNet),color:'#1e40af',bg:'#eff6ff'},
     {label:'Gigs Logged',val:booked.length,color:'#374151',bg:'#f3f4f6'},
     {label:'Students Reached',val:Math.round(totalStudents).toLocaleString(),color:'#5b21b6',bg:'#f5f3ff'},
     {label:'Avg Fee',val:fmt(avgFee),color:'#374151',bg:'#f3f4f6'},
@@ -8110,7 +8093,7 @@ function QueueView({contacts,onOpenContact}) {
     .sort((a,b) => a.followUp > b.followUp ? 1 : -1);
 
   const hotLeads = contacts
-    .filter(c => ['In Discussion','Booked!'].includes(c.status) || c.spokenBefore)
+    .filter(c => c.status === 'In Discussion')
     .sort((a,b) => relationshipScore(b) - relationshipScore(a));
 
   const untouched = contacts
@@ -8233,24 +8216,14 @@ function App(){
   useEffect(()=>{
     function onSynced(e){
       const migrated=(e.detail||[]).map(c=>({...c,state:c.state||'ID',status:normalizeStatus(c.status),cls:cleanClassification(c.cls,c.state||'ID')}));
-      setContacts(migrated);
+      setContacts(migrated);setLoaded(true);
     }
+    if(window.crmInitialContacts)onSynced({detail:window.crmInitialContacts});
     window.addEventListener('crm-synced',onSynced);
     return ()=>window.removeEventListener('crm-synced',onSynced);
   },[]);
 
   useEffect(()=>{
-    try{
-      const raw=localStorage.getItem(STORAGE_KEY);
-      if(raw){
-        const p=JSON.parse(raw);
-        const migrated=p.length?p.map(c=>({...c,state:c.state||'ID',status:normalizeStatus(c.status),cls:cleanClassification(c.cls,c.state||'ID')})):SEED;
-        setContacts(migrated);
-        localStorage.setItem(STORAGE_KEY,JSON.stringify(migrated));
-      } else{setContacts(SEED);localStorage.setItem(STORAGE_KEY,JSON.stringify(SEED));}
-    }catch{setContacts(SEED);}
-    setLoaded(true);
-
     // Import file handler
     var _impEl=document.getElementById('import-file');if(_impEl)_impEl.addEventListener('change',function(e){
       const file=e.target.files[0];
@@ -8260,10 +8233,9 @@ function App(){
         try{
           const parsed=JSON.parse(ev.target.result);
           const data=parsed.contacts||parsed;
-          if(!Array.isArray(data))throw new Error('Invalid format');
-          if(window.confirm(`Import ${data.length} schools? This will replace your current data.`)){
-            setContacts(data);
-            localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+          if(!Array.isArray(data)||data.some(c=>!c||typeof c!=='object'||!c.id||!c.school)||new Set(data.map(c=>String(c.id))).size!==data.length)throw new Error('Invalid or duplicate school records');
+          if(window.confirm(`Import ${data.length} schools? Matching school records will be replaced. Other schools will be retained.`)){
+            setContacts(current=>{const map=new Map(current.map(c=>[String(c.id),c]));data.forEach(c=>map.set(String(c.id),{...c,id:String(c.id),status:normalizeStatus(c.status)}));return [...map.values()];});
             showToast(`Imported ${data.length} schools`,'ti-upload');
           }
         }catch{showToast('Import failed  --  invalid file','ti-alert-circle');}
@@ -8275,7 +8247,7 @@ function App(){
 
   useEffect(()=>{
     if(!loaded)return;
-    try{localStorage.setItem(STORAGE_KEY,JSON.stringify(contacts));}catch{}
+    try{if(window.crmPersistence){window.crmPersistence.save(contacts);window.crmPersistence.flush();}}catch(e){console.error('Local save failed:',e.message);}
   },[contacts,loaded]);
 
   function updateContact(updated){setContacts(cs=>cs.map(c=>c.id===updated.id?updated:c));setSelected(updated);}
@@ -8342,12 +8314,15 @@ function App(){
           <div className="nav-divider"/>
           <button className="nav-btn" onClick={()=>setShowAdd(true)}><i className="ti ti-plus"/>Add School</button>
           <div className="nav-divider"/>
+          <button className="nav-btn" onClick={()=>{try{const raw=localStorage.getItem('gabe-crm-v3');if(!raw){alert('No legacy backup exists on this browser.');return;}exportData(JSON.parse(raw));}catch(e){alert('Could not export the legacy backup.');}}}>Export Pre-update Backup</button>
           <button className="nav-btn" onClick={()=>exportData(contacts)}><i className="ti ti-download"/>Export Backup</button>
           <button className="nav-btn" onClick={()=>document.getElementById('import-file').click()}><i className="ti ti-upload"/>Import Backup</button>
           <div className="nav-divider"/>
           <button className="nav-btn" onClick={connectGmail}><i className={'ti '+(gmailConnected?'ti-circle-check':'ti-brand-gmail')}/>{gmailConnected?'Gmail Connected':'Connect Gmail'}</button>
           <div className="nav-divider"/>
-          <button className="nav-btn" onClick={()=>{if(window._syncInterval){clearInterval(window._syncInterval);window._syncInterval=null;}if(window._pullInterval){clearInterval(window._pullInterval);window._pullInterval=null;}supabase.auth.signOut().then(()=>window.location.reload());}}><i className="ti ti-logout"/>Sign Out</button>
+          <div id="sync-status" role="status" style={{padding:12,fontSize:12,color:'white'}}>Loading cloud data...</div>
+          <button className="nav-btn" onClick={()=>window.crmPersistence?.flush()}>Retry Cloud Save</button>
+          <button className="nav-btn" onClick={async()=>{if(window.crmPersistence&&!(await window.crmPersistence.flush())){alert('Cloud save failed. Export a backup before signing out.');return;}if(window._syncInterval)clearInterval(window._syncInterval);if(window._pullInterval){clearInterval(window._pullInterval);window._pullInterval=null;}const result=await supabase.auth.signOut();if(result.error){alert('Sign out failed. Please retry.');return;}window.location.reload();}}><i className="ti ti-logout"/>Sign Out</button>
         </div>
         <div className="sid-stats">
           <div className="ss-card"><div className="num">{contacts.length}</div><div className="lbl">Schools</div></div>
@@ -8386,7 +8361,7 @@ function App(){
                 ?<div className="empty-state"><i className="ti ti-search"/><p>No schools match your filters.</p></div>
                 :filtered.map(c=><React.Fragment key={c.id}>
                     {selected&&selected.id===c.id
-                      ? <DetailPanel c={selected} onUpdate={updateContact} onClose={()=>setSelected(null)}/>
+                      ? <DetailPanel key={selected.id} c={selected} onUpdate={updateContact} onClose={()=>setSelected(null)}/>
                       : <ContactCard c={c} isActive={false} onClick={()=>setSelected(c)}/>}
                   </React.Fragment>)
               }
@@ -8402,7 +8377,7 @@ function App(){
                 ?<div className="empty-state"><i className="ti ti-check"/><p>All clear  --  no follow-ups due!</p></div>
                 :fupContacts.map(c=><React.Fragment key={c.id}>
                     {selected&&selected.id===c.id
-                      ? <DetailPanel c={selected} onUpdate={updateContact} onClose={()=>setSelected(null)}/>
+                      ? <DetailPanel key={selected.id} c={selected} onUpdate={updateContact} onClose={()=>setSelected(null)}/>
                       : <ContactCard c={c} isActive={false} onClick={()=>setSelected(c)}/>}
                   </React.Fragment>)
               }
