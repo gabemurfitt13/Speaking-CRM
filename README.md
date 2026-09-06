@@ -2,9 +2,10 @@
 
 ## Dependable outreach update (draft)
 
-This branch requires an additive database change before deployment. It has not
-been applied to the live project: the connected account could not inspect that
-project's schema.
+The nullable JSONB record column was applied to the CLEAR CRM database on
+September 6, 2026. All 107 existing rows remained. Rollback-only SQL checks under
+the authenticated role verified owner save/read access and unrelated-user read
+isolation. The existing legacy contact-detail columns are preserved on read/write.
 
 ### Deployment order
 
@@ -43,7 +44,10 @@ Payments Received is separate from Recorded Fees.
 
 Run `node --test tests/*.test.cjs`.
 
-Live database round-trip and owner-isolation checks remain deployment gates.
+Eight automated regression tests pass. Database-level authenticated round-trip
+and unrelated-user read-isolation checks passed without retaining test changes.
+The full browser sign-in/save/reload flow remains a deployment gate: the cloud
+browser could not open the local preview. SQL checks do not replace UI checks.
 Simultaneous editing of the same school on multiple devices is still last-write
 wins; finish syncing one device before editing that school on another. An API
 send success does not establish inbox delivery. Draft text is not persisted.

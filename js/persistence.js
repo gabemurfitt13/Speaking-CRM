@@ -1,6 +1,6 @@
 (function(root){
   'use strict';
-  const fields={status:'status',notes:'notes',contact:'contact',phone:'phone',email:'email',principal:'principal',pPhone:'p_phone',sca:'sca',scaPhone:'sca_phone',followUp:'follow_up',contacted:'contacted',log:'log',spokenBefore:'spoken_before',fee:'fee',expenses:'expenses',students:'students',payStatus:'pay_status',gigDate:'gig_date'};
+  const fields={status:'status',notes:'notes',contact:'contact',phone:'phone',email:'email',principal:'principal',pPhone:'p_phone',sca:'sca',scaPhone:'sca_phone',followUp:'follow_up',contacted:'contacted',log:'log',spokenBefore:'spoken_before',fee:'fee',expenses:'expenses',students:'students',payStatus:'pay_status',gigDate:'gig_date',extraContacts:'extra_contacts',scaEmail:'sca_email',contactConfidence:'contact_confidence',contactSource:'contact_source',lastVerified:'last_verified',manualScore:'manual_score'};
   function restore(seeds,rows,pending){
     const map=new Map(seeds.map(s=>[String(s.id),{...s}]));
     for(const row of rows){
@@ -15,7 +15,7 @@
   }
   function rowFor(c,uid){
     const row={school_id:c.id,user_id:uid,record:c};
-    for(const [key,column] of Object.entries(fields))row[column]=c[key]??(key==='log'?[]:key==='spokenBefore'?false:'');
+    for(const [key,column] of Object.entries(fields))row[column]=c[key]??((key==='log'||key==='extraContacts')?[]:key==='spokenBefore'?false:'');
     return row;
   }
   function create(client,storage,uid,seeds,notify){

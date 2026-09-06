@@ -43,3 +43,9 @@ test('failed cloud load does not overwrite local pending work',async()=>{
  h.client.from=()=>({select(){return this},eq(){return this},order(){return this},range:async()=>({error:new Error('denied')})});
  const p=create(h.client,h.storage,'u',[],()=>{});await assert.rejects(p.load(),/denied/);assert.equal(JSON.parse(h.storage.getItem('gabe-crm-v4:u')).pending['1'].notes,'unsynced');
 });
+test('legacy contact columns survive loading and full-record writes',()=>{
+ const row={school_id:'1',extra_contacts:[{name:'Existing adviser'}],sca_email:'adviser@example.com',contact_confidence:'VERIFIED',contact_source:'Directory',last_verified:'2026-09-01',manual_score:'7'};
+ const c=restore([{id:'1',school:'School'}],[row],{})[0];
+ assert.deepEqual(c.extraContacts,row.extra_contacts);assert.equal(c.scaEmail,row.sca_email);assert.equal(c.manualScore,'7');
+ const written=rowFor(c,'u');for(const key of ['extra_contacts','sca_email','contact_confidence','contact_source','last_verified','manual_score'])assert.deepEqual(written[key],row[key]);
+});
