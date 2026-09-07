@@ -7537,9 +7537,11 @@ function DetailPanel({c,onUpdate,onClose}){
       const entry={date:today,type:'Email',note:`Sent "${tpl.subject}" via Gmail`};
       const advanceStatus=['Not Started','Left Voicemail'].includes(status);
       const newStatus=advanceStatus?'Emailed':status;
+      const newFollowUp=(advanceStatus&&!followUp)?new Date(Date.now()+7*24*60*60*1000).toISOString().slice(0,10):followUp;
       if(advanceStatus)setStatus(newStatus);
       setContacted(today);
-      onUpdate({...c,status:newStatus,notes,followUp,contacted:today,log:[entry,...(c.log||[])]});
+      setFollowUp(newFollowUp);
+      onUpdate({...c,status:newStatus,notes,followUp:newFollowUp,contacted:today,log:[entry,...(c.log||[])]});
       showToast('Email sent via Gmail','ti-send');
       setTimeout(()=>setSent(false),2000);
     }).catch(err=>{
