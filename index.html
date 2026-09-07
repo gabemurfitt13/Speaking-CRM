@@ -7240,7 +7240,8 @@ function exportData(contacts){
 }
 
 function buildEmailTemplate(c,tplType){
-  const nameParts=(c.contact||'').split(' ').filter(Boolean);
+  const isRolePlaceholder=/office|attendance|secretary|front desk|main office/i.test(c.contact||'');
+  const nameParts=isRolePlaceholder?[]:(c.contact||'').split(' ').filter(Boolean);
   const firstName=(nameParts.length&&!/^(mr|mrs|ms|dr|miss|mx)\.?$/i.test(nameParts[0]))?nameParts[0]:(nameParts[1]||'there');
   const school=c.school;
   const templates={
