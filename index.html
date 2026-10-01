@@ -12,6 +12,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/persistence.js"></script>
 <script src="js/inquiries.js?v=1"></script>
+<script src="js/command-model.js?v=1"></script>
+<script src="js/command-center.js?v=1"></script>
 <link rel="stylesheet" href="js/inquiries.css?v=1">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -161,6 +163,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
 .toast.show{opacity:1}
 input[type=file]{display:none}
 </style>
+<link rel="stylesheet" href="js/command-center.css?v=1">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
@@ -7386,7 +7389,7 @@ function EditSchoolModal({c,onUpdate,onClose}){
   });
   const u=(k,v)=>setF(p=>({...p,[k]:v}));
   function save(){
-    if(!f.school.trim()){alert('School name is required.');return;}
+    if(!f.school.trim()){alert('Organization name is required.');return;}
     const updated={
       ...c,
       ...f,
@@ -7412,8 +7415,8 @@ function EditSchoolModal({c,onUpdate,onClose}){
           <button className="btn sm" onClick={onClose}><i className="ti ti-x"/></button>
         </div>
         <div className="form-grid">
-          <div className="form-field full"><label>School Name *</label><input value={f.school} onChange={e=>u('school',e.target.value)} /></div>
-          <div className="form-field"><label>Type</label><select value={f.type} onChange={e=>u('type',e.target.value)}>{['High School','Middle/Jr High','Elementary','K-12','Other'].map(t=><option key={t}>{t}</option>)}</select></div>
+          <div className="form-field full"><label>Organization Name *</label><input value={f.school} onChange={e=>u('school',e.target.value)} /></div>
+          <div className="form-field"><label>Type</label><select value={f.type} onChange={e=>u('type',e.target.value)}>{['High School','Middle/Jr High','Elementary','K-12','Business','Church','Conference','Partner / Sponsor','Referral','Other'].map(t=><option key={t}>{t}</option>)}</select></div>
           <div className="form-field"><label>Classification / Size</label><input value={f.cls} onChange={e=>u('cls',e.target.value)} placeholder="6A, 5A, 6-8..."/></div>
           <div className="form-field"><label>District</label><input value={f.district} onChange={e=>u('district',e.target.value)} /></div>
           <div className="form-field"><label>City</label><input value={f.city} onChange={e=>u('city',e.target.value)} /></div>
@@ -7510,8 +7513,8 @@ function DetailPanel({c,onUpdate,onClose}){
   function save(){onUpdate({...c,status,notes,followUp,contacted,spokenBefore,fee,expenses,students,payStatus,gigDate,extraContacts});showToast('Changes recorded; check cloud save status');}
   function addLog(){
     if(!logNote.trim())return;
-    const entry={date:new Date().toISOString().slice(0,10),type:logType,note:logNote.trim()};
-    onUpdate({...c,status,notes,followUp,contacted,log:[entry,...(c.log||[])]});
+    const entry={date:CRMCommand.day(new Date()),type:logType,note:logNote.trim()};
+    onUpdate({...c,status,notes,followUp,contacted,command:{...c.command,...({'Reply':{stage:'Replied'},'Sales conversation':{stage:'Conversation'},'Pricing request':{pricingRequested:true},'Proposal sent':{stage:'Pricing / Proposal',proposalSentOn:entry.date}}[logType]||{})},log:[entry,...(c.log||[])]});
     setLogNote('');showToast('Activity logged');
   }
 
@@ -7536,8 +7539,8 @@ function DetailPanel({c,onUpdate,onClose}){
     setSendErr('');setSending(true);
     sendGmailMessage(c.email,tpl.subject,tpl.body).then(()=>{
       setSending(false);setSent(true);
-      const today=new Date().toISOString().slice(0,10);
-      const entry={date:today,type:'Email',note:`Sent "${tpl.subject}" via Gmail`};
+      const today=CRMCommand.day(new Date());
+      const entry={date:today,type:'Email',activity:CRMCommand.emails(CRMCommand.normalize(c)).length?'follow_up':'first_contact',note:`Sent "${tpl.subject}" via Gmail`};
       const advanceStatus=['Not Started','Left Voicemail'].includes(status);
       const newStatus=advanceStatus?'Emailed':status;
       const newFollowUp=(advanceStatus&&!followUp)?new Date(Date.now()+7*24*60*60*1000).toISOString().slice(0,10):followUp;
@@ -7606,7 +7609,7 @@ function DetailPanel({c,onUpdate,onClose}){
             <h5>Activity Log</h5>
             <div className="log-input-row">
               <select className="log-type-sel" value={logType} onChange={e=>setLogType(e.target.value)}>
-                {['Call','Email','Meeting','Note'].map(t=><option key={t}>{t}</option>)}
+                {['Call','Email','Meeting','Note','Reply','Sales conversation','Pricing request','Proposal sent'].map(t=><option key={t}>{t}</option>)}
               </select>
               <input className="log-inp" placeholder="What happened?..." value={logNote} onChange={e=>setLogNote(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addLog()}/>
               <button className="btn sm" onClick={addLog}>Add</button>
@@ -7693,20 +7696,20 @@ function AddModal({onSave,onClose}){
   const [f,setF]=useState({school:'',type:'High School',cls:'6A',district:'',city:'',state:'ID',priority:1,contact:'',role:'Activities Director',phone:'',email:'',principal:'',pPhone:'',sca:'',scaPhone:'',status:'Not Started',notes:'',followUp:'',contacted:'',log:[]});
   const u=(k,v)=>setF(p=>({...p,[k]:v}));
   function save(){
-    if(!f.school.trim()){alert('School name is required.');return;}
-    onSave({...f,id:'c-'+Date.now()});
-    showToast('School added!','ti-building-school');
+    if(!f.school.trim()){alert('Organization name is required.');return;}
+    onSave({...f,id:'c-'+Date.now(),command:{createdAt:new Date().toISOString(),market:({'Business':'Businesses / Organizations','Church':'Churches','Conference':'Conferences / Associations','Partner / Sponsor':'Partners / Sponsors','Referral':'Referrals'}[f.type]||'Schools')}});
+    showToast('Prospect added!','ti-building-school');
   }
   return (
     <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div className="modal">
         <div className="modal-head">
-          <h3>Add New School</h3>
+          <h3>Add Prospect / Relationship</h3>
           <button className="btn sm" onClick={onClose}><i className="ti ti-x"/></button>
         </div>
         <div className="form-grid">
-          <div className="form-field full"><label>School Name *</label><input value={f.school} onChange={e=>u('school',e.target.value)} placeholder="School name"/></div>
-          <div className="form-field"><label>Type</label><select value={f.type} onChange={e=>u('type',e.target.value)}>{['High School','Middle/Jr High','Elementary'].map(t=><option key={t}>{t}</option>)}</select></div>
+          <div className="form-field full"><label>Organization Name *</label><input value={f.school} onChange={e=>u('school',e.target.value)} placeholder="School name"/></div>
+          <div className="form-field"><label>Type</label><select value={f.type} onChange={e=>u('type',e.target.value)}>{['High School','Middle/Jr High','Elementary','Business','Church','Conference','Partner / Sponsor','Referral'].map(t=><option key={t}>{t}</option>)}</select></div>
           <div className="form-field"><label>Classification</label><input value={f.cls} onChange={e=>u('cls',e.target.value)} placeholder="6A, 5A, 6-8..."/></div>
           <div className="form-field"><label>District</label><input value={f.district} onChange={e=>u('district',e.target.value)} placeholder="Boise SD"/></div>
           <div className="form-field"><label>City</label><input value={f.city} onChange={e=>u('city',e.target.value)} placeholder="Boise"/></div>
@@ -7722,7 +7725,7 @@ function AddModal({onSave,onClose}){
         </div>
         <div className="modal-footer">
           <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn primary" onClick={save}><i className="ti ti-plus"/> Add School</button>
+          <button className="btn primary" onClick={save}><i className="ti ti-plus"/> Add Prospect</button>
         </div>
       </div>
     </div>
@@ -8202,6 +8205,7 @@ function relationshipScore(c) {
 function App(){
   const [contacts,setContacts]=useState([]);
   const [view,setView]=useState('dashboard');
+  const [mobileMenu,setMobileMenu]=useState(false);
   const [selected,setSelected]=useState(null);
   const [showAdd,setShowAdd]=useState(false);
   const [search,setSearch]=useState('');
@@ -8296,29 +8300,30 @@ function App(){
 
   return (
     <div className="crm">
+      <div className="mobile-nav"><strong>Gabe Murfitt · CLEAR</strong><button className="btn" aria-expanded={mobileMenu} aria-controls="crm-navigation" onClick={()=>setMobileMenu(v=>!v)}>{mobileMenu?'Close menu':'Menu'}</button></div>
       {showAdd&&<AddModal onSave={addContact} onClose={()=>setShowAdd(false)}/>}
-      <div className="sidebar">
+      <div id="crm-navigation" className={"sidebar"+(mobileMenu?" is-open":"")}>
         <div className="sid-brand">
           <h1>Gabe Murfitt</h1>
           <p>Speaker Outreach CRM</p>
         </div>
         <div className="sid-nav">
           {[
-            {v:'dashboard',icon:'ti-layout-dashboard',label:'Dashboard'},
+            {v:'dashboard',icon:'ti-layout-dashboard',label:'Command Center'},
             {v:'inquiries',icon:'ti-inbox',label:'Website Inquiries'},
             {v:'queue',icon:'ti-bolt',label:'Outreach Queue'},
-            {v:'contacts',icon:'ti-building-school',label:'All Schools'},
+            {v:'contacts',icon:'ti-building-school',label:'All Prospects'},
             {v:'followups',icon:'ti-bell',label:'Follow-ups'+(fupCount>0?` (${fupCount})`:'')},
             {v:'districts',icon:'ti-building-community',label:'District View'},
             {v:'finance',icon:'ti-chart-bar',label:'Finance'},
             {v:'map',icon:'ti-map-pin',label:'Map View'},
           ].map(({v,icon,label})=>(
-            <button key={v} className={'nav-btn'+(view===v?' active':'')} onClick={()=>{if(window.crmInquiryDirty&&!window.confirm('Discard unsaved inquiry changes?'))return;setView(v);if(v==='contacts'){setSearch('');setSelected(null);setStateF('All');setDistrictF('All');setTypeF('All');setStatusF('All');setSpokenFilter(false);}}}>
+            <button key={v} className={'nav-btn'+(view===v?' active':'')} onClick={()=>{if((window.crmInquiryDirty||window.crmCommandDirty)&&!window.confirm('Discard unsaved inquiry changes?'))return;setMobileMenu(false);setView(v);if(v==='contacts'){setSearch('');setSelected(null);setStateF('All');setDistrictF('All');setTypeF('All');setStatusF('All');setSpokenFilter(false);}}}>
               <i className={'ti '+icon}/>{label}
             </button>
           ))}
           <div className="nav-divider"/>
-          <button className="nav-btn" onClick={()=>setShowAdd(true)}><i className="ti ti-plus"/>Add School</button>
+          <button className="nav-btn" onClick={()=>{setMobileMenu(false);setShowAdd(true);}}><i className="ti ti-plus"/>Add Prospect</button>
           <div className="nav-divider"/>
           <button className="nav-btn" onClick={()=>{try{const raw=localStorage.getItem('gabe-crm-v3');if(!raw){alert('No legacy backup exists on this browser.');return;}exportData(JSON.parse(raw));}catch(e){alert('Could not export the legacy backup.');}}}>Export Pre-update Backup</button>
           <button className="nav-btn" onClick={()=>exportData(contacts)}><i className="ti ti-download"/>Export Backup</button>
@@ -8328,7 +8333,7 @@ function App(){
           <div className="nav-divider"/>
           <div id="sync-status" role="status" style={{padding:12,fontSize:12,color:'white'}}>Loading cloud data...</div>
           <button className="nav-btn" onClick={()=>window.crmPersistence?.flush()}>Retry Cloud Save</button>
-          <button className="nav-btn" onClick={async()=>{if(window.crmInquiryDirty&&!window.confirm('Discard unsaved inquiry changes?'))return;if(window.crmPersistence&&!(await window.crmPersistence.flush())){alert('Cloud save failed. Export a backup before signing out.');return;}if(window._syncInterval)clearInterval(window._syncInterval);if(window._pullInterval){clearInterval(window._pullInterval);window._pullInterval=null;}const result=await supabase.auth.signOut();if(result.error){alert('Sign out failed. Please retry.');return;}window.location.reload();}}><i className="ti ti-logout"/>Sign Out</button>
+          <button className="nav-btn" onClick={async()=>{if((window.crmInquiryDirty||window.crmCommandDirty)&&!window.confirm('Discard unsaved inquiry changes?'))return;if(window.crmPersistence&&!(await window.crmPersistence.flush())){alert('Cloud save failed. Export a backup before signing out.');return;}if(window._syncInterval)clearInterval(window._syncInterval);if(window._pullInterval){clearInterval(window._pullInterval);window._pullInterval=null;}const result=await supabase.auth.signOut();if(result.error){alert('Sign out failed. Please retry.');return;}window.location.reload();}}><i className="ti ti-logout"/>Sign Out</button>
         </div>
         <div className="sid-stats">
           <div className="ss-card"><div className="num">{contacts.length}</div><div className="lbl">Schools</div></div>
@@ -8339,8 +8344,8 @@ function App(){
       <div className="main">
         {view==='inquiries'&&<WebsiteInquiries client={supabase} uid={window._supabaseUser?.id}/>}
         {view==='dashboard'&&<>
-          <div className="topbar"><span className="topbar-title">Dashboard</span></div>
-          <div className="content"><Dashboard contacts={contacts} onSelectContact={setSelected} setView={setView} setStatusF={setStatusF} setTypeF={setTypeF} setStateF={setStateF} setDistrictF={setDistrictF} setSpokenFilter={setSpokenFilter} setSearch={setSearch}/></div>
+          <div className="topbar"><span className="topbar-title">Command Center</span></div>
+          <div className="content"><SpeakingCommandCenter contacts={contacts} client={supabase} uid={window._supabaseUser?.id} onOpenContact={openContactFromQueue} onUpdateContact={updateContact} onInquiries={()=>setView('inquiries')}/></div>
         </>}
 
         {view==='queue'&&<>
@@ -8352,7 +8357,7 @@ function App(){
           <div className="topbar">
             <div className="srch-wrap"><i className="ti ti-search srch-icon"/><input className="srch" placeholder="Search schools, contacts, cities..." value={search} onChange={e=>setSearch(e.target.value)}/></div>
             <select className="sel" value={statusF} onChange={e=>setStatusF(e.target.value)}>{['All','Reached Out',...STATUSES].map(s=><option key={s}>{s}</option>)}</select>
-            <select className="sel" value={typeF} onChange={e=>setTypeF(e.target.value)}>{['All','High School','Middle/Jr High','Elementary'].map(t=><option key={t}>{t}</option>)}</select>
+            <select className="sel" value={typeF} onChange={e=>setTypeF(e.target.value)}>{['All','High School','Middle/Jr High','Elementary','Business','Church','Conference','Partner / Sponsor','Referral'].map(t=><option key={t}>{t}</option>)}</select>
             <select className="sel" value={stateF} onChange={e=>{setStateF(e.target.value);setDistrictF('All');}}>
               {['All',...Array.from(new Set(contacts.map(c=>c.state).filter(Boolean))).sort()].map(s=><option key={s}>{s}</option>)}
             </select>
