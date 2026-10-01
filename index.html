@@ -11,6 +11,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/persistence.js"></script>
+<script src="js/inquiries.js?v=1"></script>
+<link rel="stylesheet" href="js/inquiries.css?v=1">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -8303,6 +8305,7 @@ function App(){
         <div className="sid-nav">
           {[
             {v:'dashboard',icon:'ti-layout-dashboard',label:'Dashboard'},
+            {v:'inquiries',icon:'ti-inbox',label:'Website Inquiries'},
             {v:'queue',icon:'ti-bolt',label:'Outreach Queue'},
             {v:'contacts',icon:'ti-building-school',label:'All Schools'},
             {v:'followups',icon:'ti-bell',label:'Follow-ups'+(fupCount>0?` (${fupCount})`:'')},
@@ -8310,7 +8313,7 @@ function App(){
             {v:'finance',icon:'ti-chart-bar',label:'Finance'},
             {v:'map',icon:'ti-map-pin',label:'Map View'},
           ].map(({v,icon,label})=>(
-            <button key={v} className={'nav-btn'+(view===v?' active':'')} onClick={()=>{setView(v);if(v==='contacts'){setSearch('');setSelected(null);setStateF('All');setDistrictF('All');setTypeF('All');setStatusF('All');setSpokenFilter(false);}}}>
+            <button key={v} className={'nav-btn'+(view===v?' active':'')} onClick={()=>{if(window.crmInquiryDirty&&!window.confirm('Discard unsaved inquiry changes?'))return;setView(v);if(v==='contacts'){setSearch('');setSelected(null);setStateF('All');setDistrictF('All');setTypeF('All');setStatusF('All');setSpokenFilter(false);}}}>
               <i className={'ti '+icon}/>{label}
             </button>
           ))}
@@ -8325,7 +8328,7 @@ function App(){
           <div className="nav-divider"/>
           <div id="sync-status" role="status" style={{padding:12,fontSize:12,color:'white'}}>Loading cloud data...</div>
           <button className="nav-btn" onClick={()=>window.crmPersistence?.flush()}>Retry Cloud Save</button>
-          <button className="nav-btn" onClick={async()=>{if(window.crmPersistence&&!(await window.crmPersistence.flush())){alert('Cloud save failed. Export a backup before signing out.');return;}if(window._syncInterval)clearInterval(window._syncInterval);if(window._pullInterval){clearInterval(window._pullInterval);window._pullInterval=null;}const result=await supabase.auth.signOut();if(result.error){alert('Sign out failed. Please retry.');return;}window.location.reload();}}><i className="ti ti-logout"/>Sign Out</button>
+          <button className="nav-btn" onClick={async()=>{if(window.crmInquiryDirty&&!window.confirm('Discard unsaved inquiry changes?'))return;if(window.crmPersistence&&!(await window.crmPersistence.flush())){alert('Cloud save failed. Export a backup before signing out.');return;}if(window._syncInterval)clearInterval(window._syncInterval);if(window._pullInterval){clearInterval(window._pullInterval);window._pullInterval=null;}const result=await supabase.auth.signOut();if(result.error){alert('Sign out failed. Please retry.');return;}window.location.reload();}}><i className="ti ti-logout"/>Sign Out</button>
         </div>
         <div className="sid-stats">
           <div className="ss-card"><div className="num">{contacts.length}</div><div className="lbl">Schools</div></div>
@@ -8334,6 +8337,7 @@ function App(){
       </div>
 
       <div className="main">
+        {view==='inquiries'&&<WebsiteInquiries client={supabase} uid={window._supabaseUser?.id}/>}
         {view==='dashboard'&&<>
           <div className="topbar"><span className="topbar-title">Dashboard</span></div>
           <div className="content"><Dashboard contacts={contacts} onSelectContact={setSelected} setView={setView} setStatusF={setStatusF} setTypeF={setTypeF} setStateF={setStateF} setDistrictF={setDistrictF} setSpokenFilter={setSpokenFilter} setSearch={setSearch}/></div>

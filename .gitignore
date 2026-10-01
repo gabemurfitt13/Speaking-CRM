@@ -1,2 +1,4 @@
 .claude/
 node_modules/
+
+wordpress/clear-crm/private-config.php
