@@ -19,10 +19,10 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#f5f4f0;--bg-card:#ffffff;--bg-sidebar:#111827;--bg-sidebar-hover:rgba(255,255,255,0.08);
+  --bg:#eff7f2;--bg-card:#ffffff;--bg-sidebar:#007a3d;--bg-sidebar-hover:rgba(255,255,255,0.08);
   --bg-sidebar-active:rgba(255,255,255,0.14);--border:#e4e3df;--border-strong:#c9c8c4;
   --text:#111827;--text-muted:#6b7280;--text-light:#9ca3af;--text-sidebar:#d1d5db;
-  --text-sidebar-active:#ffffff;--accent:#2563eb;--accent-bg:#eff6ff;
+  --text-sidebar-active:#ffffff;--accent:#007a3d;--accent-bg:#eff7f2;
   --radius:8px;--radius-lg:12px;--shadow:0 1px 3px rgba(0,0,0,0.07),0 1px 2px rgba(0,0,0,0.04);
 }
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
@@ -55,7 +55,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
 .btn{height:32px;padding:0 14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:12px;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;transition:background 0.1s,border-color 0.1s}
 .btn:hover{background:var(--bg);border-color:var(--border-strong)}
 .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
-.btn.primary:hover{background:#1d4ed8;border-color:#1d4ed8}
+.btn.primary:hover{background:#005c2e;border-color:#005c2e}
 .btn.success{background:#16a34a;color:#fff;border-color:#16a34a}
 .btn.success:hover{background:#15803d}
 .btn.sm{height:28px;padding:0 10px;font-size:11px}
@@ -163,25 +163,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
 .toast.show{opacity:1}
 input[type=file]{display:none}
 </style>
-<link rel="stylesheet" href="js/command-center.css?v=1">
+<link rel="stylesheet" href="js/command-center.css?v=20261001-clear-2">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 
 <style>
-#login-wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e3a5f,#2563eb);z-index:9999;font-family:Arial,sans-serif;}
+#login-wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#12432b,#007a3d);z-index:9999;font-family:Arial,sans-serif;}
 #login-box{background:#fff;border-radius:16px;padding:48px 40px;width:340px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.2);}
 .login-inp{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;margin-bottom:8px;box-sizing:border-box;}
-#login-btn{width:100%;padding:13px;border:none;border-radius:8px;background:#2563eb;color:#fff;font-size:14px;font-weight:600;cursor:pointer;}
+#login-btn{width:100%;padding:13px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer;}
 #login-err{margin-top:12px;color:#dc2626;font-size:13px;min-height:18px;}
 #login-msg{margin-top:8px;color:#059669;font-size:13px;min-height:16px;}
-#login-forgot{background:none;border:none;color:#2563eb;font-size:13px;cursor:pointer;margin-top:10px;padding:4px;text-decoration:underline;}
+#login-forgot{background:none;border:none;color:var(--accent);font-size:13px;cursor:pointer;margin-top:10px;padding:4px;text-decoration:underline;}
 #reset-pw-box{display:none;}
 </style>
 <div id="login-wrap">
   <div id="login-box">
-    <div style="font-size:26px;font-weight:800;color:#1e3a5f;margin-bottom:4px;">Gabe Murfitt</div>
+    <div style="font-size:26px;font-weight:800;color:#12432b;margin-bottom:4px;">Gabe Murfitt</div>
     <div style="font-size:13px;color:#6b7280;margin-bottom:32px;">Speaker Outreach CRM</div>
     <div id="login-form-box">
       <input id="login-email" class="login-inp" type="email" placeholder="Email" value="gabemurfittspeaker@gmail.com"/>
