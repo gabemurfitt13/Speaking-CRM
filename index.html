@@ -7480,6 +7480,27 @@ function ContactCard({c,isActive,onClick}){
   );
 }
 
+function ProspectNotes({value,onChange}){
+  const ref=useRef(null);
+  React.useLayoutEffect(()=>{
+    const el=ref.current;
+    if(!el)return;
+    function resize(){
+      el.style.height='auto';
+      el.style.height=el.scrollHeight+el.offsetHeight-el.clientHeight+'px';
+    }
+    resize();
+    let width=el.getBoundingClientRect().width;
+    const observer=new ResizeObserver(()=>{
+      const nextWidth=el.getBoundingClientRect().width;
+      if(nextWidth!==width){width=nextWidth;resize();}
+    });
+    observer.observe(el);
+    return ()=>observer.disconnect();
+  },[value]);
+  return <textarea ref={ref} className="field-ta" style={{overflow:'hidden',resize:'none'}} value={value||''} onChange={onChange} placeholder="Add notes..."/>;
+}
+
 function DetailPanel({c,onUpdate,onClose}){
   const [tab,setTab]=useState('track');
   const [spokenBefore,setSpokenBefore]=useState(c.spokenBefore||false);
@@ -7599,7 +7620,7 @@ function DetailPanel({c,onUpdate,onClose}){
             </div>
             <div className="field-group">
               <label>Notes</label>
-              <textarea className="field-ta" value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Add notes..."/>
+              <ProspectNotes value={notes} onChange={e=>setNotes(e.target.value)}/>
             </div>
             <button className="btn primary" style={{width:'100%',justifyContent:'center'}} onClick={save}>
               <i className="ti ti-device-floppy"/> Save Changes
