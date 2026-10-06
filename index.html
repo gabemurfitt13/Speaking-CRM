@@ -7196,7 +7196,7 @@ SEED = SEED.map(function(s){
 <div id="toast" class="toast"></div>
 <script type="text/babel">
 
-const {useState,useEffect,useRef,useCallback}=React;
+const {useState,useEffect,useRef,useCallback,useMemo}=React;
 const STATUS_CFG={
   'Not Started':{bg:'#f3f4f6',color:'#374151',border:'#d1d5db',bar:'#9ca3af'},
   'Left Voicemail':{bg:'#fffbeb',color:'#92400e',border:'#fcd34d',bar:'#f59e0b'},
@@ -8237,6 +8237,24 @@ function App(){
   const [spokenFilter,setSpokenFilter]=useState(false);
   const [loaded,setLoaded]=useState(false);
   const [gmailConnected,setGmailConnected]=useState(false);
+  const [prospectPage,setProspectPage]=useState(0);
+  const [followupPage,setFollowupPage]=useState(0);
+  useEffect(()=>{setProspectPage(0);},[search,statusF,typeF,stateF,districtF,spokenFilter]);
+  const pageSize=50;
+  function pageControls(total,page,setPage){
+    if(total<=pageSize)return null;
+    const last=Math.max(0,Math.ceil(total/pageSize)-1);
+    const current=Math.min(page,last);
+    return <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:12,padding:12}}>
+      <button className="btn" disabled={current===0} onClick={()=>setPage(current-1)}>Previous</button>
+      <span>{current*pageSize+1}–{Math.min((current+1)*pageSize,total)} of {total}</span>
+      <button className="btn" disabled={current===last} onClick={()=>setPage(current+1)}>Next</button>
+    </div>;
+  }
+  function pageRecords(records,page){
+    const current=Math.min(page,Math.max(0,Math.ceil(records.length/pageSize)-1));
+    return records.slice(current*pageSize,(current+1)*pageSize);
+  }
 
   useEffect(()=>{
     _gmailOnConnectChange=setGmailConnected;
@@ -8288,7 +8306,7 @@ function App(){
   const fupCount=contacts.filter(c=>c.followUp&&c.followUp<=today&&!['Booked!','Not Interested'].includes(c.status)).length;
   const fupContacts=contacts.filter(c=>c.followUp&&c.followUp<=today&&!['Booked!','Not Interested'].includes(c.status)).sort((a,b)=>a.followUp>b.followUp?1:-1);
 
-  const filtered=contacts.filter(c=>{
+  const filtered=useMemo(()=>contacts.filter(c=>{
     const q=search.toLowerCase();
     if(q&&![c.school,c.contact,c.city,c.state,c.district].some(v=>(v||'').toLowerCase().includes(q)))return false;
     if(statusF==='Reached Out'&&!isReachedOut(c))return false;
@@ -8298,7 +8316,7 @@ function App(){
     if(districtF!=='All'&&c.district!==districtF)return false;
     if(spokenFilter&&!c.spokenBefore)return false;
     return true;
-  }).sort((a,b)=>a.priority-b.priority||(a.school>b.school?1:-1));
+  }).sort((a,b)=>a.priority-b.priority||(a.school>b.school?1:-1)),[contacts,search,statusF,typeF,stateF,districtF,spokenFilter]);
 
   function openContactFromQueue(c){
     var found=contacts.find(function(x){return x.id===c.id;});
@@ -8392,12 +8410,13 @@ function App(){
             <div className="list-area">
               {filtered.length===0
                 ?<div className="empty-state"><i className="ti ti-search"/><p>No schools match your filters.</p></div>
-                :filtered.map(c=><React.Fragment key={c.id}>
+                :pageRecords(filtered,prospectPage).map(c=><React.Fragment key={c.id}>
                     {selected&&selected.id===c.id
                       ? <DetailPanel key={selected.id} c={selected} onUpdate={updateContact} onClose={()=>setSelected(null)}/>
                       : <ContactCard c={c} isActive={false} onClick={()=>setSelected(c)}/>}
                   </React.Fragment>)
               }
+              {pageControls(filtered.length,prospectPage,setProspectPage)}
             </div>
           </div>
         </>}
@@ -8408,12 +8427,13 @@ function App(){
             <div className="list-area">
               {fupContacts.length===0
                 ?<div className="empty-state"><i className="ti ti-check"/><p>All clear  --  no follow-ups due!</p></div>
-                :fupContacts.map(c=><React.Fragment key={c.id}>
+                :pageRecords(fupContacts,followupPage).map(c=><React.Fragment key={c.id}>
                     {selected&&selected.id===c.id
                       ? <DetailPanel key={selected.id} c={selected} onUpdate={updateContact} onClose={()=>setSelected(null)}/>
                       : <ContactCard c={c} isActive={false} onClick={()=>setSelected(c)}/>}
                   </React.Fragment>)
               }
+              {pageControls(fupContacts.length,followupPage,setFollowupPage)}
             </div>
           </div>
         </>}
