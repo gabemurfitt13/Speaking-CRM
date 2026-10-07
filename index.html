@@ -7460,6 +7460,29 @@ function PriBadge({p}){
   const lbl=['6A','5A','4A','3A','2A'][p-1]||'';
   return <span className={'pill '+cls} style={{fontSize:'10px'}}>{lbl}</span>;
 }
+
+function schoolContactKey(ct){
+  return [(ct.name||'').trim().toLowerCase(),(ct.email||'').trim().toLowerCase()].join('|');
+}
+function schoolContacts(c,extras=c.extraContacts||[]){
+  const primary=(c.contact||c.email)?{name:c.contact||'',role:c.role||'',phone:c.phone||'',email:c.email||'',contactConfidence:c.contactConfidence||'',contactSource:c.contactSource||'',lastVerified:c.lastVerified||'',kind:'main'}:null;
+  const all=[primary,c.principal?{name:c.principal,role:'Principal',phone:c.pPhone||'',email:c.principalEmail||'',kind:'principal'}:null,c.sca?{name:c.sca,role:'SCA Advisor',phone:c.scaPhone||'',email:c.scaEmail||'',kind:'sca'}:null,...extras.map((ct,index)=>({...ct,kind:'extra',extraIndex:index}))].filter(Boolean);
+  const seen=new Set();
+  return all.filter(ct=>{const key=schoolContactKey(ct);if(seen.has(key))return false;seen.add(key);return true;});
+}
+function promoteSchoolContact(c,ct,extras=c.extraContacts||[]){
+  if(ct.kind==='main')return c;
+  const old=schoolContacts(c,extras).find(x=>x.kind==='main');
+  const remaining=extras.filter((x,i)=>!(ct.kind==='extra'&&i===ct.extraIndex));
+  const others=schoolContacts({...c,contact:'',email:''},remaining);
+  if(old&&!others.some(x=>schoolContactKey(x)===schoolContactKey(old))){
+    const {kind,extraIndex,...saved}=old;remaining.push(saved);
+  }
+  return {...c,contact:ct.name||'',role:ct.role||'',phone:ct.phone||'',email:ct.email||'',
+    contactConfidence:ct.contactConfidence||ct.confidence||(ct.verified===true?'VERIFIED':''),
+    contactSource:ct.contactSource||ct.source||'',lastVerified:ct.lastVerified||ct.verifiedAt||'',extraContacts:remaining};
+}
+
 function ContactCard({c,isActive,onClick}){
   const today=new Date().toISOString().slice(0,10);
   const overdue=c.followUp&&c.followUp<=today&&!['Booked!','Not Interested'].includes(c.status);
@@ -7475,7 +7498,8 @@ function ContactCard({c,isActive,onClick}){
         <PriBadge p={c.priority}/>
         {overdue&&<span className="fup-tag"><i className="ti ti-bell" style={{fontSize:10}}/> Follow-up due</span>}
       </div>
-      {c.contact&&<div className="c-card-contact"><i className="ti ti-user" style={{fontSize:13,color:'var(--text-light)'}}/><strong>{c.contact}</strong>  -  {c.role}</div>}
+      {(c.contact||c.email)&&<div className="c-card-contact" style={{flexWrap:'wrap'}}><i className="ti ti-user" style={{fontSize:13,color:'var(--text-light)'}}/><strong>{c.contact||c.email}</strong> · {c.role} <span className="badge">Main contact</span>{c.contactConfidence==='VERIFIED'&&<span className="badge" style={{color:'var(--accent)',fontWeight:700}}>Verified</span>}</div>}
+      {(c.email||c.phone)&&<div style={{fontSize:12,color:'var(--text-muted)',marginTop:5,overflowWrap:'anywhere'}}>{[c.email,c.phone].filter(Boolean).join(' · ')}</div>
     </div>
   );
 }
@@ -7648,12 +7672,7 @@ function DetailPanel({c,onUpdate,onClose}){
         {tab==='contacts'&&<>
           <div className="det-sect">
             <h5>Contacts</h5>
-            {[
-              c.contact?{name:c.contact,role:c.role||'AD',phone:c.phone,email:c.email}:null,
-              c.principal?{name:c.principal,role:'Principal',phone:c.pPhone,email:''}:null,
-              c.sca?{name:c.sca,role:'SCA Advisor',phone:c.scaPhone,email:c.scaEmail||''}:null,
-              ...(extraContacts||[])
-            ].filter(Boolean).map(function(ct,i){return (
+            {schoolContacts(c,extraContacts).map(function(ct,i){return (
               <div key={i} style={{background:'var(--bg)',borderRadius:8,padding:'10px 12px',marginBottom:8,border:'1px solid var(--border)'}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
                   <div style={{flex:1}}>
@@ -7662,7 +7681,14 @@ function DetailPanel({c,onUpdate,onClose}){
                     {ct.phone&&<div style={{fontSize:12,marginBottom:2}}><a href={'tel:'+ct.phone} style={{color:'var(--text)'}}>{ct.phone}</a></div>}
                     {ct.email&&<div style={{fontSize:12,wordBreak:'break-all'}}><a href={'mailto:'+ct.email} style={{color:'var(--accent)'}}>{ct.email}</a></div>}
                   </div>
-                  {i>=3&&<button onClick={function(){var ec=[...extraContacts];ec.splice(i-3,1);setExtraContacts(ec);onUpdate({...c,status,notes,followUp,contacted,spokenBefore,fee,expenses,students,payStatus,gigDate,extraContacts:ec});}} style={{background:'none',border:'none',cursor:'pointer',color:'#ef4444',fontSize:16,padding:'0 4px'}}>x</button>}
+                  <div style={{display:'flex',gap:6,flexWrap:'wrap',justifyContent:'flex-end'}}>
+                    {(ct.contactConfidence||ct.confidence)==='VERIFIED'||ct.verified===true?<span className="badge" style={{color:'var(--accent)'}}>Verified</span>:null}
+                    <label style={{display:'flex',alignItems:'center',gap:5,fontSize:12,cursor:'pointer'}}><input type="checkbox" checked={ct.kind==='main'} disabled={ct.kind==='main'} onChange={e=>{if(!e.target.checked)return;
+                      const updated=promoteSchoolContact({...c,status,notes,followUp,contacted,spokenBefore,fee,expenses,students,payStatus,gigDate},ct,extraContacts);
+                      setExtraContacts(updated.extraContacts);onUpdate(updated);showToast('Main contact updated; check cloud save status');
+                    }}/> Main contact</label>
+                    {ct.kind==='extra'&&<button aria-label={'Remove '+ct.name} onClick={()=>{const ec=extraContacts.filter((x,index)=>index!==ct.extraIndex);setExtraContacts(ec);onUpdate({...c,status,notes,followUp,contacted,spokenBefore,fee,expenses,students,payStatus,gigDate,extraContacts:ec});}} style={{background:'none',border:'none',cursor:'pointer',color:'#ef4444',fontSize:16,padding:'0 4px'}}>x</button>}
+                  </div>
                 </div>
               </div>
             );})}
