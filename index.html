@@ -7499,7 +7499,7 @@ function ContactCard({c,isActive,onClick}){
         {overdue&&<span className="fup-tag"><i className="ti ti-bell" style={{fontSize:10}}/> Follow-up due</span>}
       </div>
       {(c.contact||c.email)&&<div className="c-card-contact" style={{flexWrap:'wrap'}}><i className="ti ti-user" style={{fontSize:13,color:'var(--text-light)'}}/><strong>{c.contact||c.email}</strong> · {c.role} <span className="badge">Main contact</span>{c.contactConfidence==='VERIFIED'&&<span className="badge" style={{color:'var(--accent)',fontWeight:700}}>Verified</span>}</div>}
-      {(c.email||c.phone)&&<div style={{fontSize:12,color:'var(--text-muted)',marginTop:5,overflowWrap:'anywhere'}}>{[c.email,c.phone].filter(Boolean).join(' · ')}</div>
+      {(c.email||c.phone)&&<div style={{fontSize:12,color:'var(--text-muted)',marginTop:5,overflowWrap:'anywhere'}}>{[c.email,c.phone].filter(Boolean).join(' · ')}</div>}
     </div>
   );
 }
