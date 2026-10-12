@@ -1,0 +1,29 @@
+name: Bulk initial outreach (paused until secrets and production tests)
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 15-23 * * 1-5'
+permissions:
+  contents: read
+concurrency:
+  group: speaking-bulk-initial-sender
+  cancel-in-progress: false
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Validate required configuration
+        env:
+          URL: ${{ secrets.BULK_SENDER_FUNCTION_URL }}
+          KEY: ${{ secrets.BULK_SENDER_CRON_SECRET }}
+        run: |
+          test -n "$URL" && test -n "$KEY" || { echo "Sender is not configured"; exit 1; }
+      - name: Trigger guarded server-side batch
+        env:
+          URL: ${{ secrets.BULK_SENDER_FUNCTION_URL }}
+          KEY: ${{ secrets.BULK_SENDER_CRON_SECRET }}
+        run: |
+          curl --fail-with-body --retry 0 --max-time 100 -X POST "$URL" \
+            -H "Authorization: Bearer $KEY" \
+            -H "Content-Type: application/json" -d '{}'
