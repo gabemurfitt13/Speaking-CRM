@@ -31,7 +31,7 @@ async function main(req:Request){
  const hour=new Intl.DateTimeFormat("en-US",{timeZone:"America/Boise",weekday:"short",hour:"numeric",hour12:false}).formatToParts(new Date());
  const day=hour.find(x=>x.type==="weekday")?.value,hh=Number(hour.find(x=>x.type==="hour")?.value);
  if(["Sat","Sun"].includes(day||"")||hh<9||hh>=17)return json({status:"outside_hours",sent:0});
- const since=new Date();since.setUTCHours(0,0,0,0);
+ const since=new Date();\n const localDate=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Boise",year:"numeric",month:"2-digit",day:"2-digit"}).format(since);\n const localMidnight=new Date(localDate+"T00:00:00"+(new Intl.DateTimeFormat("en-US",{timeZone:"America/Boise",timeZoneName:"shortOffset"}).formatToParts(since).find(p=>p.type==="timeZoneName")?.value?.includes("-6")?"-06:00":"-07:00"));\n since.setTime(localMidnight.getTime());
  const {count,error:countErr}=await db.from("outreach_queue").select("id",{count:"exact",head:true}).eq("user_id",uid).eq("kind","initial").eq("status","sent").gte("sent_at",since.toISOString());
  if(countErr)throw countErr;
  const allowance=Math.min(ctl.batch_limit,ctl.daily_limit-(count||0),20);
@@ -57,20 +57,20 @@ async function main(req:Request){
    if(history.resultSizeEstimate>0||(history.messages||[]).length){await hold("Existing Gmail conversation; manual review required");continue;}
    // Guard against sending multiple schools in one domain in a batch.
    const domain=address.split("@")[1];
-   if(results.some(x=>x.domain===domain)){await hold("Same-domain daily review required");continue;}
+   const {data:recentDomain}=await db.from("outreach_queue").select("verified_email").eq("user_id",uid).eq("kind","initial").eq("status","sent").gte("sent_at",since.toISOString()).limit(1000);\n   if((recentDomain||[]).some(x=>norm(x.verified_email||"").split("@")[1]===domain)){await hold("Same-domain daily limit");continue;}
    const mime=["From: "+profile.emailAddress,"To: "+address,"Subject: "+item.approved_subject.replace(/[\r\n]/g," "), "MIME-Version: 1.0","Content-Type: text/plain; charset=UTF-8","",""+item.approved_body].join("\r\n");
    const message=await gmail(token,"messages/send",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({raw:base64url(mime)})});
    // Once Gmail succeeds, never automatically retry even if CRM persistence fails.
    const now=new Date().toISOString();
    const {error:se}=await db.from("outreach_queue").update({status:"sent",sent_at:now,provider_message_id:message.id,hold_reason:null,updated_at:now}).eq("id",item.id).eq("status","sending");
-   if(se)throw Error("SENT BUT CRM QUEUE WRITE FAILED: "+message.id);
+   if(se){await db.from("outreach_queue").update({status:"held",hold_reason:"GMAIL SENT "+message.id+" but queue persistence failed. Never retry without reconciliation.",provider_message_id:message.id,updated_at:now}).eq("id",item.id);throw Error("SENT BUT CRM QUEUE WRITE FAILED: "+message.id);}
    const log=[...(Array.isArray(p.log)?p.log:[]),{type:"initial_email",recipient:address,subject:item.approved_subject,gmail_message_id:message.id,sent_at:now}];
    const {error:pe2}=await db.from("progress").update({status:"Emailed",contacted:now,log}).eq("user_id",uid).eq("school_id",item.school_id).eq("status","Not Started");
    if(pe2)results.push({school_id:item.school_id,status:"sent_queue_only",message_id:message.id});
    else results.push({school_id:item.school_id,status:"sent",message_id:message.id,domain});
    sent++;
    await sleep(1200);
-  }catch(e){errors++;await db.from("outreach_queue").update({status:"held",hold_reason:"Ambiguous or failed send. Reconcile Gmail before retry: "+String(e).slice(0,220),updated_at:new Date().toISOString()}).eq("id",item.id);results.push({school_id:item.school_id,status:"held_error"});}
+  }catch(e){errors++;await db.from("outreach_queue").update({status:"held",hold_reason:"Ambiguous or failed send. Reconcile Gmail before retry: "+String(e).slice(0,220),updated_at:new Date().toISOString()}).eq("id",item.id).eq("status","sending");results.push({school_id:item.school_id,status:"held_error"});}
  }
  return json({sent,held,errors,results});
 }
