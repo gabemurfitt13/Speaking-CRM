@@ -6,7 +6,7 @@
   const blocked = /not interested|do not contact|booked|opt.?out|unsubscribe/i;
   const hasPrior = p => Boolean(p.contacted) || [p.log,p.record?.log].some(log => Array.isArray(log) && log.some(e => /sent|emailed/i.test(String(e.type || e.action || ''))));
   const eligible = (p, item) => {
-    if (!p || !p.email || !p.last_verified) return 'Verified email and verification date are required.';
+    if (!p || !p.email || !p.last_verified || !p.contact_source || !['high','verified'].includes(String(p.contact_confidence||'').toLowerCase())) return 'High-confidence contact, source and verification date are required.';
     if (p.email.trim().toLowerCase() !== String(item.verified_email || '').trim().toLowerCase()) return 'The verified email has changed. Recheck the recipient.';
     if (blocked.test(String(p.status || '') + ' ' + String(p.notes || ''))) return 'CRM record indicates a hold or opt-out.';
     if (item.kind === 'initial' && hasPrior(p)) return 'Previous outreach is recorded. Do not send another initial email.';
@@ -31,7 +31,7 @@
     React.useEffect(() => { refresh(); }, [client, uid]);
     React.useEffect(()=>{if(!client||!uid)return;let active=true;client.from('progress').select('school_id,email,status,contact,contact_confidence,last_verified,contact_source,contacted,notes,log,record').eq('user_id',uid).eq('status','Not Started').not('email','is',null).limit(1000).then(({data,error})=>{if(!active)return;if(error){setError(error.message);return;}setSchools((data||[]).filter(p=>!hasPrior(p)&&!blocked.test(String(p.notes||''))&&['high','verified'].includes(String(p.contact_confidence||'').toLowerCase())&&p.last_verified&&p.contact_source));});return()=>{active=false};},[client,uid]);
     async function lookup(id) {
-      const q = await client.from('progress').select('school_id,email,status,notes,contacted,last_verified,log').eq('user_id',uid).eq('school_id',id).maybeSingle();
+      const q = await client.from('progress').select('school_id,email,status,notes,contacted,last_verified,contact_source,contact_confidence,log,record').eq('user_id',uid).eq('school_id',id).maybeSingle();
       if (q.error) throw q.error;
       if (!q.data) throw Error('School not found in your CRM. Enter the exact school ID.');
       return q.data;
@@ -41,7 +41,7 @@
       try {
         const p = await lookup(school.trim());
         const proposed = {kind, verified_email:p.email};
-        if (!p.email || !p.last_verified) throw Error('Verify the contact email before queueing.');
+        if (!p.email || !p.last_verified || !p.contact_source || !['high','verified'].includes(String(p.contact_confidence||'').toLowerCase())) throw Error('Verify the email, source and date before queueing.');
         if (blocked.test(String(p.status || '')+' '+String(p.notes || ''))) throw Error('CRM record is on hold or opted out.');
         if (kind === 'initial' && hasPrior(p)) throw Error('This school has already been contacted. Use follow-up.');
         if (kind === 'follow_up' && !hasPrior(p)) throw Error('No previous outreach is recorded.');
