@@ -4,7 +4,7 @@
   const React = root.React, h = React.createElement;
   const states = ['ready', 'scheduled', 'sending', 'sent', 'held', 'failed'];
   const blocked = /not interested|do not contact|booked|opt.?out|unsubscribe/i;
-  const hasPrior = p => Boolean(p.contacted) || (Array.isArray(p.log) && p.log.some(e => /sent|emailed/i.test(String(e.type || ''))));
+  const hasPrior = p => Boolean(p.contacted) || [p.log,p.record?.log].some(log => Array.isArray(log) && log.some(e => /sent|emailed/i.test(String(e.type || e.action || ''))));
   const eligible = (p, item) => {
     if (!p || !p.email || !p.last_verified) return 'Verified email and verification date are required.';
     if (p.email.trim().toLowerCase() !== String(item.verified_email || '').trim().toLowerCase()) return 'The verified email has changed. Recheck the recipient.';
