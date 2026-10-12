@@ -48,7 +48,12 @@
         if (kind === 'follow_up' && !hasPrior(p)) throw Error('No previous outreach is recorded.');
         const existing = rows.find(x => x.school_id === p.school_id && x.kind === kind);
         if (existing && ['sent','sending'].includes(existing.status)) throw Error('This queue item has already been sent or claimed.');
-        const q = await client.from('outreach_queue').upsert({user_id:uid,school_id:p.school_id,kind,status:'held',verified_email:p.email,hold_reason:'Review message and verify eligibility before marking ready',updated_at:new Date().toISOString()}, {onConflict:'user_id,school_id,kind'}).select('id').single();
+        const schoolName=String(p.record?.school||'').trim();
+        if(!schoolName)throw Error('School name is missing. Update the CRM record first.');
+        const firstName=String(p.contact||'').trim().split(' ')[0]||'there';
+        const subject='quick question';
+        const body=kind==='initial'?['Hi '+firstName+',','','Who is the best person to contact about booking a guest speaker for assemblies at '+schoolName+'?','','Thanks,','Gabe Murfitt','gabemurfitt.com'].join('\n'):'';
+        const q = await client.from('outreach_queue').upsert({user_id:uid,school_id:p.school_id,kind,status:'held',verified_email:p.email,approved_subject:subject,approved_body:body,hold_reason:'Review message and verify eligibility before marking ready',updated_at:new Date().toISOString()}, {onConflict:'user_id,school_id,kind'}).select('id').single();
         if (q.error) throw q.error;
         setSchool(''); await refresh();
       } catch (e) { setError(e.message); } finally { setBusy(false); }
