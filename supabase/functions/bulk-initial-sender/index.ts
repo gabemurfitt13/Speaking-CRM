@@ -52,7 +52,10 @@ async function main(req:Request){
   try{
    const {data:p,error:pe}=await db.from("progress").select("*").eq("user_id",uid).eq("school_id",item.school_id).single();
    if(pe||!p||p.status!=="Not Started"||p.contacted||!p.email||norm(p.email)!==norm(item.verified_email)||!["high","verified"].includes(norm(p.contact_confidence||""))||!p.last_verified||!p.contact_source||blocked.test((p.notes||"")+" "+p.status)){await hold("Eligibility or opt-out check failed");continue;}
-   if(!item.approved_subject?.trim()||!item.approved_body?.trim()){await hold("Missing approved draft");continue;}
+   const schoolType=String(p.record?.type||"").toLowerCase();
+   if(!["high school","middle/jr high","elementary school","middle school","junior high","k-12","charter school"].some(x=>schoolType.includes(x))){await hold("Not a verified school type; quick question is schools only");continue;}
+   if(norm(item.approved_subject||"")!=="quick question"){await hold("Only approved quick question subject is allowed");continue;}
+   if(!item.approved_body?.trim()){await hold("Missing approved draft");continue;}
    // Gmail history catches sent messages and existing conversations, not merely CRM state.
    const address=item.verified_email.replace(/["\\]/g,"");
    const q=encodeURIComponent('in:anywhere {to:"'+address+'" from:"'+address+'"}');
