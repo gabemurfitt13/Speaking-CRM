@@ -35,7 +35,7 @@ begin
     from public.outreach_queue q
     join public.progress p on p.user_id=q.user_id and p.school_id=q.school_id
     where q.user_id=p_user_id and q.kind='initial' and q.status='ready'
-      and p.status='Not Started' and p.contacted is null
+      and p.status='Not Started' and coalesce(p.contacted,'')=''
       and lower(trim(p.email))=lower(trim(q.verified_email))
       and p.contact_confidence in ('high','verified')
       and p.last_verified is not null and p.contact_source is not null
