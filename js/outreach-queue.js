@@ -17,6 +17,7 @@
   function Queue({client, uid}) {
     const [rows, setRows] = React.useState([]), [school, setSchool] = React.useState(''), [kind, setKind] = React.useState('initial'), [schools,setSchools]=React.useState([]);
     const [filter, setFilter] = React.useState('all'), [draft, setDraft] = React.useState(null);
+    const [schoolSearch,setSchoolSearch]=React.useState('');
     const [busy, setBusy] = React.useState(false), [error, setError] = React.useState('');
     async function refresh() {
       if (!client || !uid) return;
@@ -83,7 +84,7 @@
       h('div',{className:'cc-heading'},h('h3',null,'Outreach Queue'),h('button',{className:'btn',disabled:busy,onClick:refresh},'Refresh')),
       h('p',{className:'cc-note'},'Initial outreach and follow-ups are approved separately. Ready to Send queues a reviewed message; it does not send it.'),
       h('form',{onSubmit:add,style:{display:'flex',flexWrap:'wrap',gap:8}},
-        h('select',{required:true,value:school,onChange:e=>setSchool(e.target.value),style:{minWidth:240,maxWidth:'100%'}},h('option',{value:''},'Choose a verified school'),schools.filter(p=>!rows.some(q=>q.school_id===p.school_id&&q.kind===kind)).map(p=>h('option',{key:p.school_id,value:p.school_id},(p.record?.school||p.school_id)+' · '+(p.contact||p.email)))),
+        h('div',{style:{width:'100%',maxWidth:560}},h('input',{value:schoolSearch,onChange:e=>{setSchoolSearch(e.target.value);setSchool('');},placeholder:'Search school or contact',style:{width:'100%',marginBottom:6}}),h('select',{required:true,value:school,onChange:e=>setSchool(e.target.value),style:{width:'100%'}},h('option',{value:''},'Select a school that needs initial outreach'),schools.filter(p=>!rows.some(q=>q.school_id===p.school_id&&q.kind===kind)).filter(p=>((p.record?.school||p.school_id)+' '+(p.contact||'')+' '+(p.email||'')).toLowerCase().includes(schoolSearch.toLowerCase())).map(p=>h('option',{key:p.school_id,value:p.school_id},(p.record?.school||p.school_id)+' | '+(p.contact||'Contact unknown')+' | NOT EMAILED'))),h('small',null,'Only high-confidence, Not Started schools without recorded prior outreach appear. '+schools.filter(p=>!rows.some(q=>q.school_id===p.school_id&&q.kind===kind)).length+' available.'))),
         h('select',{value:kind,onChange:e=>setKind(e.target.value)},h('option',{value:'initial'},'Initial outreach'),h('option',{value:'follow_up'},'Follow-up')),
         h('button',{className:'btn primary',disabled:busy,type:'submit'},'Add to queue')),
       error&&h('p',{role:'alert'},error),
