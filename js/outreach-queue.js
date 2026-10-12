@@ -15,7 +15,7 @@
     return null;
   };
   function Queue({client, uid}) {
-    const [rows, setRows] = React.useState([]), [school, setSchool] = React.useState(''), [kind, setKind] = React.useState('initial');
+    const [rows, setRows] = React.useState([]), [school, setSchool] = React.useState(''), [kind, setKind] = React.useState('initial'), [schools,setSchools]=React.useState([]);
     const [filter, setFilter] = React.useState('all'), [draft, setDraft] = React.useState(null);
     const [busy, setBusy] = React.useState(false), [error, setError] = React.useState('');
     async function refresh() {
@@ -29,6 +29,7 @@
       finally { setBusy(false); }
     }
     React.useEffect(() => { refresh(); }, [client, uid]);
+    React.useEffect(()=>{if(!client||!uid)return;let active=true;client.from('progress').select('school_id,email,status,contact,contact_confidence,last_verified,contact_source,contacted,notes,log,record').eq('user_id',uid).eq('status','Not Started').not('email','is',null).limit(1000).then(({data,error})=>{if(!active)return;if(error){setError(error.message);return;}setSchools((data||[]).filter(p=>!hasPrior(p)&&!blocked.test(String(p.notes||''))&&['high','verified'].includes(String(p.contact_confidence||'').toLowerCase())&&p.last_verified&&p.contact_source));});return()=>{active=false};},[client,uid]);
     async function lookup(id) {
       const q = await client.from('progress').select('school_id,email,status,notes,contacted,last_verified,log').eq('user_id',uid).eq('school_id',id).maybeSingle();
       if (q.error) throw q.error;
@@ -82,7 +83,7 @@
       h('div',{className:'cc-heading'},h('h3',null,'Outreach Queue'),h('button',{className:'btn',disabled:busy,onClick:refresh},'Refresh')),
       h('p',{className:'cc-note'},'Initial outreach and follow-ups are approved separately. Ready to Send queues a reviewed message; it does not send it.'),
       h('form',{onSubmit:add,style:{display:'flex',flexWrap:'wrap',gap:8}},
-        h('input',{required:true,placeholder:'Exact CRM school ID',value:school,onChange:e=>setSchool(e.target.value)}),
+        h('select',{required:true,value:school,onChange:e=>setSchool(e.target.value),style:{minWidth:240,maxWidth:'100%'}},h('option',{value:''},'Choose a verified school'),schools.filter(p=>!rows.some(q=>q.school_id===p.school_id&&q.kind===kind)).map(p=>h('option',{key:p.school_id,value:p.school_id},(p.record?.school||p.school_id)+' · '+(p.contact||p.email)))),
         h('select',{value:kind,onChange:e=>setKind(e.target.value)},h('option',{value:'initial'},'Initial outreach'),h('option',{value:'follow_up'},'Follow-up')),
         h('button',{className:'btn primary',disabled:busy,type:'submit'},'Add to queue')),
       error&&h('p',{role:'alert'},error),
