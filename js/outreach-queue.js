@@ -20,8 +20,8 @@ function Queue({client,uid}){
  async function refresh(){
   if(!client||!uid)return;setBusy(true);setError('');
   try{
-   let out=[];for(let from=0;from<3000;from+=500){
-    const q=await client.from('ai_actions').select('id,record_id,record_kind,action_type,title,status,ai_status,execution_output,payload,executed_at,updated_at').eq('user_id',uid).order('updated_at',{ascending:false}).range(from,from+499);
+   let out=[];for(let from=0;from<500;from+=500){
+    const q=await client.from('ai_actions').select('id,record_id,record_kind,action_type,status,ai_status,execution_output,payload,executed_at,updated_at').eq('user_id',uid).order('updated_at',{ascending:false}).range(from,from+499);
     if(q.error)throw q.error;out.push(...(q.data||[]));if((q.data||[]).length<500)break;
    }
    setRows(out.filter(a=>a.record_kind==='progress'&&['research_contact','initial_outreach'].includes(a.action_type)));
@@ -30,7 +30,7 @@ function Queue({client,uid}){
  React.useEffect(()=>{refresh();},[client,uid]);
  const counts=summarize(rows),visible=rows.filter(a=>filter==='all'||classify(a)===filter);
  return h('section',{className:'cc-section',style:{marginTop:20}},h('div',{className:'cc-heading'},h('h3',null,'Outreach Queue'),h('button',{className:'btn',onClick:refresh,disabled:busy},busy?'Loading…':'Refresh queue')),
- h('p',{className:'cc-note'},'Read-only audit of existing school outreach actions. Ready means AI-approved, not independently verified for sending. Sent requires recorded provider evidence. This panel never sends emails.'),
+ h('p',{className:'cc-note'},'Recent 500 actions only, to keep the dashboard responsive. Read-only audit of school outreach actions. Ready means AI-approved, not independently verified for sending. Sent requires recorded provider evidence. This panel never sends emails.'),
  error&&h('p',{role:'alert'},error),
  h('div',{className:'cc-filters'},h('label',null,'Status ',h('select',{value:filter,onChange:e=>setFilter(e.target.value)},['all',...states].map(s=>h('option',{key:s,value:s},s==='all'?'All':s+' ('+counts[s]+')'))))),
  h('div',{className:'stat-grid'},states.map(s=>h('div',{className:'stat-card',key:s},h('div',{className:'s-label'},s),h('div',{className:'s-num'},counts[s])))),
