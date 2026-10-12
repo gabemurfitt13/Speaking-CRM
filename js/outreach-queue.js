@@ -85,6 +85,14 @@
     }
     const counts = Object.fromEntries(states.map(s=>[s,rows.filter(x=>x.status===s).length]));
     const visible = rows.filter(x=>filter==='all'||x.status===filter);
+    const byId = new Map(schools.map(p=>[String(p.school_id),p]));
+    const statusLabels = {ready:'Ready to Send',scheduled:'Scheduled',sending:'Sending',sent:'Sent',held:'Needs Review',failed:'Failed'};
+    const reasonLabel = reason => {
+      if (!reason) return '—';
+      if (/Draft saved|Review message|reviewed draft/i.test(reason)) return 'Review and approve email';
+      if (/Manually placed on hold/i.test(reason)) return 'Paused by you';
+      return reason.replace(/\\b(school_id|user_id|verified_email)\\b/g,'record information');
+    };
     return h('section',{className:'cc-section',style:{marginTop:20}},
       h('div',{className:'cc-heading'},h('h3',null,'Outreach Queue'),h('button',{className:'btn',disabled:busy,onClick:refresh},'Refresh')),
       h('p',{className:'cc-note'},'Initial outreach and follow-ups are approved separately. Ready to Send queues a reviewed message; it does not send it.'),
@@ -97,8 +105,8 @@
       h('div',{style:{overflowX:'auto'}},h('table',{className:'cc-table'},
         h('thead',null,h('tr',null,['School','Type','Status','Reason','Approval'].map(x=>h('th',{key:x},x)))),
         h('tbody',null,visible.map(item=>h('tr',{key:item.id},
-          h('td',null,item.school_id),h('td',null,item.kind==='follow_up'?'Follow-up':'Initial'),
-          h('td',null,item.status),h('td',null,item.hold_reason||'—'),
+          h('td',null,byId.get(String(item.school_id))?.record?.school || 'School name unavailable'),h('td',null,byId.get(String(item.school_id))?.record?.type || byId.get(String(item.school_id))?.record?.category || 'School'),
+          h('td',null,(statusLabels[item.status]||item.status)+(item.kind==='follow_up'?' · Follow-up':' · Initial email')),h('td',null,reasonLabel(item.hold_reason)),
           h('td',null,h('label',null,h('input',{type:'checkbox',checked:item.status==='ready',disabled:busy||['sent','sending'].includes(item.status),onChange:e=>toggle(item,e.target.checked)}),' Ready to Send'),
             h('button',{className:'btn sm',disabled:busy||['sent','sending'].includes(item.status),onClick:()=>setDraft({id:item.id,subject:item.approved_subject||'',body:item.approved_body||''})},'Review draft'))))))),
       draft&&h('div',{className:'cc-editor'},h('h4',null,'Review email draft'),
