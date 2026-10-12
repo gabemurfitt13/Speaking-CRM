@@ -19,6 +19,7 @@
     const [filter, setFilter] = React.useState('all'), [draft, setDraft] = React.useState(null);
     const [schoolSearch,setSchoolSearch]=React.useState('');
     const [busy, setBusy] = React.useState(false), [error, setError] = React.useState('');
+    const [sender,setSender]=React.useState(null);
     async function refresh() {
       if (!client || !uid) return;
       setBusy(true); setError('');
@@ -30,6 +31,9 @@
       finally { setBusy(false); }
     }
     React.useEffect(() => { refresh(); }, [client, uid]);
+    async function refreshSender(){if(!client||!uid)return;const q=await client.from('outreach_sender_control').select('*').eq('user_id',uid).maybeSingle();if(q.error){setError('Bulk sender control unavailable: '+q.error.message);return;}setSender(q.data||{enabled:false,initial_only:true,daily_limit:100,batch_limit:20});}
+    React.useEffect(()=>{refreshSender();},[client,uid]);
+    async function setSenderEnabled(enabled){setBusy(true);setError('');try{const q=await client.from('outreach_sender_control').upsert({user_id:uid,enabled,initial_only:true,daily_limit:sender?.daily_limit||100,batch_limit:sender?.batch_limit||20,updated_at:new Date().toISOString()},{onConflict:'user_id'});if(q.error)throw q.error;await refreshSender();}catch(e){setError('Unable to update sender: '+e.message);}finally{setBusy(false);}}
     React.useEffect(()=>{if(!client||!uid)return;let active=true;client.from('progress').select('school_id,email,status,contact,contact_confidence,last_verified,contact_source,contacted,notes,log,record').eq('user_id',uid).not('email','is',null).limit(1000).then(({data,error})=>{if(!active)return;if(error){setError(error.message);return;}setSchools((data||[]).filter(p=>!blocked.test(String(p.status||'')+' '+String(p.notes||''))&&['high','verified'].includes(String(p.contact_confidence||'').toLowerCase())&&p.last_verified&&p.contact_source));});return()=>{active=false};},[client,uid]);
     async function lookup(id) {
       const q = await client.from('progress').select('school_id,email,status,notes,contacted,last_verified,contact_source,contact_confidence,log,record').eq('user_id',uid).eq('school_id',id).maybeSingle();
@@ -96,6 +100,7 @@
     return h('section',{className:'cc-section',style:{marginTop:20}},
       h('div',{className:'cc-heading'},h('h3',null,'Outreach Queue'),h('button',{className:'btn',disabled:busy,onClick:refresh},'Refresh')),
       h('p',{className:'cc-note'},'Initial outreach and follow-ups are approved separately. Ready to Send queues a reviewed message; it does not send it.'),
+      h('div',{className:'cc-editor',style:{marginBottom:16}},h('h4',null,'Bulk Initial Sender'),h('p',{className:'cc-note'},'Control only. Requires a verified deployed background worker. Follow-ups are never included.'),h('p',null,'Sender: '+(sender?.enabled?'Enabled':'Paused')+' · Initial ready: '+rows.filter(x=>x.kind==='initial'&&x.status==='ready').length+' · Sent: '+rows.filter(x=>x.kind==='initial'&&x.status==='sent').length+' · Held: '+rows.filter(x=>x.kind==='initial'&&x.status==='held').length),h('button',{className:'btn primary',disabled:busy||!sender||sender.enabled,onClick:()=>setSenderEnabled(true)},'Start initial sender'),h('button',{className:'btn',disabled:busy||!sender||!sender.enabled,onClick:()=>setSenderEnabled(false)},'Pause sender'),h('button',{className:'btn',disabled:busy,onClick:()=>{refresh();refreshSender();}},'Refresh status')),
       h('form',{onSubmit:add,style:{display:'flex',flexWrap:'wrap',gap:8}},
         h('div',{style:{width:'100%',maxWidth:560}},h('input',{value:schoolSearch,onChange:e=>{setSchoolSearch(e.target.value);setSchool('');},placeholder:'Search school or contact',style:{width:'100%',marginBottom:6}}),h('select',{required:true,value:school,onChange:e=>setSchool(e.target.value),style:{width:'100%'}},h('option',{value:''},kind==='follow_up'?'Select a school previously emailed':'Select a school that needs initial outreach'),schools.filter(p=>kind==='follow_up'?hasPrior(p):(!hasPrior(p)&&p.status==='Not Started')).filter(p=>!rows.some(q=>q.school_id===p.school_id&&q.kind===kind)).filter(p=>((p.record?.school||p.school_id)+' '+(p.contact||'')+' '+(p.email||'')).toLowerCase().includes(schoolSearch.toLowerCase())).map(p=>h('option',{key:p.school_id,value:p.school_id},(p.record?.school||p.school_id)+' | '+(p.contact||'Contact unknown')+(hasPrior(p)?' | PREVIOUSLY EMAILED':' | NOT EMAILED')))),h('small',null,(kind==='follow_up'?'Only schools with recorded prior outreach appear. ':'Only schools without recorded prior outreach appear. ')+schools.filter(p=>(kind==='follow_up'?hasPrior(p):(!hasPrior(p)&&p.status==='Not Started'))&&!rows.some(q=>q.school_id===p.school_id&&q.kind===kind)).length+' available.')),
         h('select',{value:kind,onChange:e=>setKind(e.target.value)},h('option',{value:'initial'},'Initial outreach'),h('option',{value:'follow_up'},'Follow-up')),
