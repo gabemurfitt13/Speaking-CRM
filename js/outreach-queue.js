@@ -52,7 +52,7 @@
         if(!schoolName)throw Error('School name is missing. Update the CRM record first.');
         const firstName=String(p.contact||'').trim().split(' ')[0]||'there';
         const subject='quick question';
-        const body=kind==='initial'?['Hi '+firstName+',','','Who is the best person to contact about booking a guest speaker for assemblies at '+schoolName+'?','','Thanks,','Gabe Murfitt','gabemurfitt.com'].join('\n'):'';
+        const body=(kind==='initial'?['Hi '+firstName+',','','Who is the best person to contact about booking a guest speaker for assemblies at '+schoolName+'?','','Thanks,','Gabe Murfitt','gabemurfitt.com']:['Hi '+firstName+',','','I wanted to follow up on my earlier email about bringing a guest speaker to '+schoolName+'.','', 'Would you be the right person to speak with about assemblies, or is there someone else I should contact?','','Thanks,','Gabe Murfitt','gabemurfitt.com']).join('\n');
         const q = await client.from('outreach_queue').upsert({user_id:uid,school_id:p.school_id,kind,status:'held',verified_email:p.email,approved_subject:subject,approved_body:body,hold_reason:'Review message and verify eligibility before marking ready',updated_at:new Date().toISOString()}, {onConflict:'user_id,school_id,kind'}).select('id').single();
         if (q.error) throw q.error;
         setSchool(''); await refresh();
