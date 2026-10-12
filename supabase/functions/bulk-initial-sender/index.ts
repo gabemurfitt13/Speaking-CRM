@@ -31,7 +31,10 @@ async function main(req:Request){
  const hour=new Intl.DateTimeFormat("en-US",{timeZone:"America/Boise",weekday:"short",hour:"numeric",hour12:false}).formatToParts(new Date());
  const day=hour.find(x=>x.type==="weekday")?.value,hh=Number(hour.find(x=>x.type==="hour")?.value);
  if(["Sat","Sun"].includes(day||"")||hh<9||hh>=17)return json({status:"outside_hours",sent:0});
- const since=new Date();\n const localDate=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Boise",year:"numeric",month:"2-digit",day:"2-digit"}).format(since);\n const localMidnight=new Date(localDate+"T00:00:00"+(new Intl.DateTimeFormat("en-US",{timeZone:"America/Boise",timeZoneName:"shortOffset"}).formatToParts(since).find(p=>p.type==="timeZoneName")?.value?.includes("-6")?"-06:00":"-07:00"));\n since.setTime(localMidnight.getTime());
+ const since=new Date();
+ const localDate=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Boise",year:"numeric",month:"2-digit",day:"2-digit"}).format(since);
+ const localMidnight=new Date(localDate+"T00:00:00"+(new Intl.DateTimeFormat("en-US",{timeZone:"America/Boise",timeZoneName:"shortOffset"}).formatToParts(since).find(p=>p.type==="timeZoneName")?.value?.includes("-6")?"-06:00":"-07:00"));
+ since.setTime(localMidnight.getTime());
  const {count,error:countErr}=await db.from("outreach_queue").select("id",{count:"exact",head:true}).eq("user_id",uid).eq("kind","initial").eq("status","sent").gte("sent_at",since.toISOString());
  if(countErr)throw countErr;
  const allowance=Math.min(ctl.batch_limit,ctl.daily_limit-(count||0),20);
@@ -57,7 +60,8 @@ async function main(req:Request){
    if(history.resultSizeEstimate>0||(history.messages||[]).length){await hold("Existing Gmail conversation; manual review required");continue;}
    // Guard against sending multiple schools in one domain in a batch.
    const domain=address.split("@")[1];
-   const {data:recentDomain}=await db.from("outreach_queue").select("verified_email").eq("user_id",uid).eq("kind","initial").eq("status","sent").gte("sent_at",since.toISOString()).limit(1000);\n   if((recentDomain||[]).some(x=>norm(x.verified_email||"").split("@")[1]===domain)){await hold("Same-domain daily limit");continue;}
+   const {data:recentDomain}=await db.from("outreach_queue").select("verified_email").eq("user_id",uid).eq("kind","initial").eq("status","sent").gte("sent_at",since.toISOString()).limit(1000);
+   if((recentDomain||[]).some(x=>norm(x.verified_email||"").split("@")[1]===domain)){await hold("Same-domain daily limit");continue;}
    const mime=["From: "+profile.emailAddress,"To: "+address,"Subject: "+item.approved_subject.replace(/[\r\n]/g," "), "MIME-Version: 1.0","Content-Type: text/plain; charset=UTF-8","",""+item.approved_body].join("\r\n");
    const message=await gmail(token,"messages/send",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({raw:base64url(mime)})});
    // Once Gmail succeeds, never automatically retry even if CRM persistence fails.
