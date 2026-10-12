@@ -7483,7 +7483,7 @@ function promoteSchoolContact(c,ct,extras=c.extraContacts||[]){
     contactSource:ct.contactSource||ct.source||'',lastVerified:ct.lastVerified||ct.verifiedAt||'',extraContacts:remaining};
 }
 
-function ContactCard({c,isActive,onClick}){
+function ContactCard({c,isActive,onClick,queueStatus,onToggleQueue,queueBusy}){
   const today=new Date().toISOString().slice(0,10);
   const overdue=c.followUp&&c.followUp<=today&&!['Booked!','Not Interested'].includes(c.status);
   return (
@@ -7500,6 +7500,10 @@ function ContactCard({c,isActive,onClick}){
       </div>
       {(c.contact||c.email)&&<div className="c-card-contact" style={{flexWrap:'wrap'}}><i className="ti ti-user" style={{fontSize:13,color:'var(--text-light)'}}/><strong>{c.contact||c.email}</strong> · {c.role} <span className="badge">Main contact</span>{c.contactConfidence==='VERIFIED'&&<span className="badge" style={{color:'var(--accent)',fontWeight:700}}>Verified</span>}</div>}
       {(c.email||c.phone)&&<div style={{fontSize:12,color:'var(--text-muted)',marginTop:5,overflowWrap:'anywhere'}}>{[c.email,c.phone].filter(Boolean).join(' · ')}</div>}
+      <label onClick={e=>e.stopPropagation()} style={{display:'flex',alignItems:'center',gap:7,marginTop:9,fontSize:12,fontWeight:600,cursor:'pointer'}} title="Queues a reviewed initial email. Does not send immediately.">
+        <input type="checkbox" checked={queueStatus==='ready'} disabled={queueBusy||queueStatus==='sending'||queueStatus==='sent'} onChange={e=>onToggleQueue(c,e.target.checked)}/>
+        Ready to Send {queueStatus==='held'?'(held)':queueStatus==='sending'?'(sending)':queueStatus==='sent'?'(sent)':''}
+      </label>
     </div>
   );
 }
@@ -8264,6 +8268,46 @@ function App(){
   const [loaded,setLoaded]=useState(false);
   const [gmailConnected,setGmailConnected]=useState(false);
   const [prospectPage,setProspectPage]=useState(0);
+  const [schoolQueue,setSchoolQueue]=useState({});
+  const [queueBusyIds,setQueueBusyIds]=useState({});
+  useEffect(()=>{
+    if(!loaded||!window._supabaseUser?.id)return;
+    let active=true;
+    supabase.from('outreach_queue').select('school_id,status').eq('user_id',window._supabaseUser.id).eq('kind','initial').limit(2000).then(({data,error})=>{
+      if(error){console.warn('Queue status unavailable:',error.message);return;}
+      if(active)setSchoolQueue(Object.fromEntries((data||[]).map(r=>[String(r.school_id),r.status])));
+    });
+    return ()=>{active=false;};
+  },[loaded]);
+  async function toggleSchoolQueue(c,checked){
+    const key=String(c.id);
+    if(queueBusyIds[key])return;
+    if(!window._supabaseUser?.id){alert('Sign in before updating the queue.');return;}
+    setQueueBusyIds(v=>({...v,[key]:true}));
+    try{
+      const uid=window._supabaseUser.id;
+      const {data:progress,error:progressError}=await supabase.from('progress').select('school_id,email,status,notes,last_verified,contact_confidence,log').eq('user_id',uid).eq('school_id',key).maybeSingle();
+      if(progressError)throw progressError;
+      if(!progress)throw Error('This school has no saved CRM record. Save it before queueing.');
+      const {data:existing,error:existingError}=await supabase.from('outreach_queue').select('*').eq('user_id',uid).eq('school_id',key).eq('kind','initial').maybeSingle();
+      if(existingError)throw existingError;
+      if(existing&&['sending','sent'].includes(existing.status))throw Error('This outreach is already sending or sent.');
+      if(checked){
+        if(!progress.email||progress.contact_confidence!=='VERIFIED'||!progress.last_verified)throw Error('Verify the main contact email and verification date before queueing.');
+        if(String(progress.email).toLowerCase()!==String(c.email||'').toLowerCase())throw Error('The saved contact email differs from this card. Refresh before queueing.');
+        if(/not interested|do not contact|booked|opt.?out|unsubscribe/i.test(String(progress.status||'')+' '+String(progress.notes||'')))throw Error('This prospect has a hold, opt-out or booking flag.');
+        if(/contacted|emailed|follow.up|booked/i.test(String(progress.status||''))||(Array.isArray(progress.log)&&progress.log.some(x=>/sent|emailed/i.test(String(x.type||'')))))throw Error('Prior outreach is recorded. Initial outreach cannot be queued again.');
+        if(!existing?.approved_subject||!existing?.approved_body)throw Error('Open the Outreach Queue and save a reviewed email draft before checking Ready to Send.');
+        if(String(existing.verified_email||'').toLowerCase()!==String(progress.email).toLowerCase())throw Error('The approved draft recipient does not match the verified email.');
+      }
+      if(!existing)throw Error('Add this school to the Outreach Queue and review its draft first.');
+      const {data:updated,error}=await supabase.from('outreach_queue').update({status:checked?'ready':'held',hold_reason:checked?null:'Manually held from prospect card',updated_at:new Date().toISOString()}).eq('id',existing.id).eq('user_id',uid).eq('status',existing.status).select('id').maybeSingle();
+      if(error)throw error;
+      if(!updated)throw Error('Queue item changed. Refresh and try again.');
+      setSchoolQueue(v=>({...v,[key]:checked?'ready':'held'}));
+    }catch(e){alert('Queue update failed: '+(e.message||e));}
+    finally{setQueueBusyIds(v=>({...v,[key]:false}));}
+  }
   const [followupPage,setFollowupPage]=useState(0);
   useEffect(()=>{setProspectPage(0);},[search,statusF,typeF,stateF,districtF,spokenFilter]);
   const pageSize=50;
@@ -8439,7 +8483,7 @@ function App(){
                 :pageRecords(filtered,prospectPage).map(c=><React.Fragment key={c.id}>
                     {selected&&selected.id===c.id
                       ? <DetailPanel key={selected.id} c={selected} onUpdate={updateContact} onClose={()=>setSelected(null)}/>
-                      : <ContactCard c={c} isActive={false} onClick={()=>setSelected(c)}/>}
+                      : <ContactCard c={c} isActive={false} onClick={()=>setSelected(c)} queueStatus={schoolQueue[String(c.id)]||''} queueBusy={!!queueBusyIds[String(c.id)]} onToggleQueue={toggleSchoolQueue}/>}
                   </React.Fragment>)
               }
               {pageControls(filtered.length,prospectPage,setProspectPage)}
