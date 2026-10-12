@@ -8297,7 +8297,15 @@ function App(){
         if(String(progress.email).toLowerCase()!==String(c.email||'').toLowerCase())throw Error('The saved contact email differs from this card. Refresh before queueing.');
         if(/not interested|do not contact|booked|opt.?out|unsubscribe/i.test(String(progress.status||'')+' '+String(progress.notes||'')))throw Error('This prospect has a hold, opt-out or booking flag.');
         if(/contacted|emailed|follow.up|booked/i.test(String(progress.status||''))||(Array.isArray(progress.log)&&progress.log.some(x=>/sent|emailed/i.test(String(x.type||'')))))throw Error('Prior outreach is recorded. Initial outreach cannot be queued again.');
-        if(!existing?.approved_subject||!existing?.approved_body)throw Error('Open the Outreach Queue and save a reviewed email draft before checking Ready to Send.');
+        if(!existing){
+          const {data:created,error:createError}=await supabase.from('outreach_queue').insert({user_id:uid,school_id:key,kind:'initial',status:'held',verified_email:progress.email,hold_reason:'Review and save the draft before marking ready',updated_at:new Date().toISOString()}).select('id').single();
+          if(createError)throw createError;
+          if(!created)throw Error('Queue entry was not created.');
+          setSchoolQueue(v=>({...v,[key]:'held'}));
+          alert('Added to Outreach Queue on hold. Open Command Center → Outreach Queue, review and save the email draft, then check Ready to Send on this prospect. Nothing was sent.');
+          return;
+        }
+        if(!existing.approved_subject||!existing.approved_body)throw Error('This school is on hold in Outreach Queue. Review and save its email draft there before checking Ready to Send.');
         if(String(existing.verified_email||'').toLowerCase()!==String(progress.email).toLowerCase())throw Error('The approved draft recipient does not match the verified email.');
       }
       if(!existing)throw Error('Add this school to the Outreach Queue and review its draft first.');
