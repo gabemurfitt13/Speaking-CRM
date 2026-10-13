@@ -10,11 +10,12 @@
     if (p.email.trim().toLowerCase() !== String(item.verified_email || '').trim().toLowerCase()) return 'The verified email has changed. Recheck the recipient.';
     if (blocked.test(String(p.status || '') + ' ' + String(p.notes || ''))) return 'CRM record indicates a hold or opt-out.';
     if (item.kind === 'initial' && hasPrior(p)) return 'Previous outreach is recorded. Do not send another initial email.';
-    if (item.kind === 'follow_up' && !hasPrior(p)) return 'Follow-up requires recorded prior outreach.';
+    if (item.kind === 'follow_up' && (!hasPrior(p)||p.status!=='Emailed')) return 'Only unanswered Emailed schools qualify. In Discussion is excluded.';
+    if (item.kind === 'follow_up' && (!item.original_message_id||!item.original_thread_id||item.thread_check_result!=='unanswered')) return 'Verify the original Gmail conversation before marking this follow-up ready.';
     if (!item.approved_subject || !item.approved_body) return 'Review and save the email draft first.';
     return null;
   };
-  function Queue({client, uid}) {
+  function Queue({client, uid, onlyKind}) {
     const [rows, setRows] = React.useState([]), [school, setSchool] = React.useState(''), [kind, setKind] = React.useState('initial'), [schools,setSchools]=React.useState([]);
     const [filter, setFilter] = React.useState('active'), [draft, setDraft] = React.useState(null);
     const [schoolSearch,setSchoolSearch]=React.useState('');
@@ -56,7 +57,7 @@
         const schoolName=String(p.record?.school||'').trim();
         if(!schoolName)throw Error('School name is missing. Update the CRM record first.');
         const firstName=String(p.contact||'').trim().split(' ')[0]||'there';
-        const subject='quick question';
+        const subject=kind==='follow_up'?'Re: quick question':'quick question';
         const body=(kind==='initial'?['Hi '+firstName+',','','Who is the best person to contact about booking a guest speaker for assemblies at '+schoolName+'?','','Thanks,','Gabe Murfitt','gabemurfitt.com']:['Hi '+firstName+',','','I wanted to follow up on my earlier email about bringing a guest speaker to '+schoolName+'.','', 'Would you be the right person to speak with about assemblies, or is there someone else I should contact?','','Thanks,','Gabe Murfitt','gabemurfitt.com']).join('\n');
         const q = await client.from('outreach_queue').upsert({user_id:uid,school_id:p.school_id,kind,status:'held',verified_email:p.email,approved_subject:subject,approved_body:body,hold_reason:'Review message and verify eligibility before marking ready',updated_at:new Date().toISOString()}, {onConflict:'user_id,school_id,kind'}).select('id').single();
         if (q.error) throw q.error;
@@ -88,8 +89,8 @@
         await refresh();
       } catch (e) { setError(e.message); } finally { setBusy(false); }
     }
-    const counts = Object.fromEntries(states.map(s=>[s,rows.filter(x=>x.status===s).length]));
-    const visible = rows.filter(x=>filter==='all'||(filter==='active'?!['sent'].includes(x.status):x.status===filter));
+    const counts = Object.fromEntries(states.map(s=>[s,rows.filter(x=>(!onlyKind||x.kind===onlyKind)&&x.status===s).length]));
+    const visible = rows.filter(x=>onlyKind!=='follow_up'||! /^(biz-|church-|conf-|college-)/i.test(x.school_id)).filter(x=>(!onlyKind||x.kind===onlyKind)&&(filter==='all'||(filter==='active'?!['sent'].includes(x.status):x.status===filter)));
     const byId = new Map(schools.map(p=>[String(p.school_id),p]));
     const searched=visible.filter(item=>[(byId.get(String(item.school_id))?.record?.school||''),item.school_id,item.verified_email,item.approved_subject].join(' ').toLowerCase().includes(queueSearch.toLowerCase()));
     const pageSize=10,totalPages=Math.max(1,Math.ceil(searched.length/pageSize)),currentPage=Math.min(page,totalPages-1);
@@ -102,9 +103,9 @@
       return reason.replace(/\\b(school_id|user_id|verified_email)\\b/g,'record information');
     };
     return h('section',{id:'crm-outreach-queue',className:'cc-section',style:{marginTop:20}},
-      h('div',{className:'cc-heading'},h('h3',null,'Outreach Queue'),h('button',{className:'btn',disabled:busy,onClick:refresh},'Refresh')),
+      h('div',{className:'cc-heading'},h('h3',null,onlyKind==='follow_up'?'School Follow-Up Queue':'Initial Outreach Queue'),h('button',{className:'btn',disabled:busy,onClick:refresh},'Refresh')),
       h('p',{className:'cc-note'},'Initial outreach and follow-ups are approved separately. Ready to Send queues a reviewed message; it does not send it.'),
-      h('details',{open:addOpen,onToggle:e=>setAddOpen(e.currentTarget.open),style:{margin:'12px 0'}},h('summary',{style:{cursor:'pointer',fontWeight:600}},'Add a prospect to the queue'),h('form',{onSubmit:add,style:{display:'flex',flexWrap:'wrap',gap:8}},
+      onlyKind!=='follow_up'&&h('details',{open:addOpen,onToggle:e=>setAddOpen(e.currentTarget.open),style:{margin:'12px 0'}},h('summary',{style:{cursor:'pointer',fontWeight:600}},'Add a prospect to the queue'),h('form',{onSubmit:add,style:{display:'flex',flexWrap:'wrap',gap:8}},
         h('div',{style:{width:'100%',maxWidth:560}},h('input',{value:schoolSearch,onChange:e=>{setSchoolSearch(e.target.value);setSchool('');},placeholder:'Search school or contact',style:{width:'100%',marginBottom:6}}),h('select',{required:true,value:school,onChange:e=>setSchool(e.target.value),style:{width:'100%'}},h('option',{value:''},kind==='follow_up'?'Select a school previously emailed':'Select a school that needs initial outreach'),schools.filter(p=>kind==='follow_up'?hasPrior(p):(!hasPrior(p)&&p.status==='Not Started')).filter(p=>!rows.some(q=>q.school_id===p.school_id&&q.kind===kind)).filter(p=>((p.record?.school||p.school_id)+' '+(p.contact||'')+' '+(p.email||'')).toLowerCase().includes(schoolSearch.toLowerCase())).map(p=>h('option',{key:p.school_id,value:p.school_id},(p.record?.school||p.school_id)+' | '+(p.contact||'Contact unknown')+(hasPrior(p)?' | PREVIOUSLY EMAILED':' | NOT EMAILED')))),h('small',null,(kind==='follow_up'?'Only schools with recorded prior outreach appear. ':'Only schools without recorded prior outreach appear. ')+schools.filter(p=>(kind==='follow_up'?hasPrior(p):(!hasPrior(p)&&p.status==='Not Started'))&&!rows.some(q=>q.school_id===p.school_id&&q.kind===kind)).length+' available.')),
         h('select',{value:kind,onChange:e=>setKind(e.target.value)},h('option',{value:'initial'},'Initial outreach'),h('option',{value:'follow_up'},'Follow-up')),
         h('button',{className:'btn primary',disabled:busy,type:'submit'},'Add to queue'))),
@@ -115,7 +116,7 @@
         h('thead',null,h('tr',null,['School','Type','Status','Reason','Approval'].map(x=>h('th',{key:x},x)))),
         h('tbody',null,pageRows.map(item=>h('tr',{key:item.id},
           h('td',null,byId.get(String(item.school_id))?.record?.school || 'School name unavailable'),h('td',null,byId.get(String(item.school_id))?.record?.type || byId.get(String(item.school_id))?.record?.category || 'School'),
-          h('td',null,(statusLabels[item.status]||item.status)+(item.kind==='follow_up'?' · Follow-up':' · Initial email')),h('td',null,reasonLabel(item.hold_reason)),
+          h('td',null,(statusLabels[item.status]||item.status)+(item.kind==='follow_up'?' · Follow-up':' · Initial email')),h('td',null,reasonLabel(item.hold_reason),item.kind==='follow_up'&&h('small',{style:{display:'block'}},'Due: '+(item.follow_up_due||'Needs original-send verification')+(item.sent_at?' · Sent: '+new Date(item.sent_at).toLocaleString('en-US',{timeZone:'America/Boise'}):'')),item.original_thread_id&&h('a',{href:'https://mail.google.com/mail/u/?authuser=gabemurfittspeaker%40gmail.com#all/'+item.original_thread_id,target:'_blank',rel:'noopener noreferrer'},'Open Gmail conversation')),
           h('td',null,h('label',null,h('input',{type:'checkbox',checked:item.status==='ready',disabled:busy||['sent','sending'].includes(item.status),onChange:e=>toggle(item,e.target.checked)}),' Ready to Send'),
             h('button',{className:'btn sm',disabled:busy||['sent','sending'].includes(item.status),onClick:()=>setDraft({id:item.id,subject:item.approved_subject||'',body:item.approved_body||''})},'Review draft'))))))),
       !searched.length&&h('p',{className:'cc-note'},'No queue items match this view.'),

@@ -15,7 +15,8 @@
 <script src="js/command-model.js?v=working-pipeline-1"></script>
 <script src="js/workflow.js?v=1"></script>
 <script src="js/workflow-board.js?v=1"></script>
-<script src="js/command-center.js?v=working-pipeline-1"></script>
+<script src="js/threaded-followups.js?v=threaded-school-1"></script>
+<script src="js/command-center.js?v=threaded-school-1"></script>
 <link rel="stylesheet" href="js/inquiries.css?v=1">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -434,7 +435,7 @@ var SUPABASE_URL='https://hoyilsqwbdkbxismiatf.supabase.co';
 var SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhveWlsc3F3YmRrYnhpc21pYXRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMTM4MjcsImV4cCI6MjA5NDY4OTgyN30.GaAjxWcfmdBCRkSkRuw3Ix1tDqoxNMCHOPWaY6VGg1c';
 var supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 var GOOGLE_CLIENT_ID='1049700318653-1obue381a9u2itjggddkhq6qq4g7ag9b.apps.googleusercontent.com';
-var GMAIL_SEND_SCOPE='https://www.googleapis.com/auth/gmail.send';
+var GMAIL_SEND_SCOPE='https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly';
 supabase.auth.onAuthStateChange(function(event){
   if(event==='PASSWORD_RECOVERY'&&typeof showResetPasswordUI==='function'){
     showResetPasswordUI();
@@ -7266,18 +7267,14 @@ Would you have 5 minutes this week for a quick call to see how it'd work for you
 Thanks!`
     },
     followup:{
-      subject:`Following Up  -  ${school}`,
+      subject:'Re: quick question',
       body:`Hi ${firstName},
 
-I'm following up on my email about bringing my CLEAR program to ${school} students.
+Just wanted to follow up on my email below. Are you the right person to connect with about bringing a guest speaker to ${school}?
 
-I know things are incredibly busy right now, so no pressure. Are you planning student leadership or assembly programming, and when would be a useful time to discuss whether CLEAR fits?
-
-Let me know if you think your students would benefit from this message.
-
-Thanks again,
+Thanks,
 Gabe Murfitt
-360-880-1223`
+gabemurfitt.com`
     },
     booked:{
       subject:`Confirmed  -  Gabe Murfitt Speaking at ${school}`,
@@ -7357,7 +7354,7 @@ function sendGmailMessage(to,subject,body){
           res.json().then(function(err){reject(new Error((err&&err.error&&err.error.message)||('Gmail API error '+res.status)));}).catch(function(){reject(new Error('Gmail API error '+res.status));});
           return;
         }
-        resolve();
+        res.json().then(resolve).catch(reject);
       }).catch(reject);
     }
     if(!_gmailAccessToken){reject(new Error('Not connected to Gmail yet.'));return;}
@@ -7581,6 +7578,7 @@ function DetailPanel({c,onUpdate,onClose}){
     });
   }
   function openMailto(){
+    if(tplType==='followup'){setSendErr('Use Send via Gmail to preserve and verify the original conversation.');return;}
     const uri=`mailto:${c.email}?subject=${encodeURIComponent(tpl.subject)}&body=${encodeURIComponent(tpl.body)}`;
     window.open(uri);
   }
@@ -7589,10 +7587,18 @@ function DetailPanel({c,onUpdate,onClose}){
     if(/\[[^\]]*(?:here|insert|link)[^\]]*\]/i.test(tpl.body)){setSendErr('Replace the placeholder before sending.');return;}
     if(!window.confirm('Send this message to '+c.email+'?'))return;
     setSendErr('');setSending(true);
-    sendGmailMessage(c.email,tpl.subject,tpl.body).then(()=>{
+    if(tplType==='followup'){
+      CRMThreadedFollowups.send({...c,status},tpl.body,_gmailAccessToken,supabase,window._supabaseUser?.id).then(async message=>{
+        setSending(false);setSent(true);setFollowUp('');
+        if(window.crmPersistence){const contacts=await window.crmPersistence.load();window.dispatchEvent(new CustomEvent('crm-synced',{detail:contacts}));}
+        showToast('Follow-up sent in original Gmail conversation','ti-send');
+      }).catch(err=>{setSending(false);setSendErr(err.message||'Follow-up held for review.');});
+      return;
+    }
+    sendGmailMessage(c.email,tpl.subject,tpl.body).then((message)=>{
       setSending(false);setSent(true);
       const today=CRMCommand.day(new Date());
-      const entry={date:today,type:'Email',activity:CRMCommand.emails(CRMCommand.normalize(c)).length?'follow_up':'first_contact',note:`Sent "${tpl.subject}" via Gmail`};
+      const entry={date:today,type:'Email',activity:CRMCommand.emails(CRMCommand.normalize(c)).length?'follow_up':'first_contact',note:`Sent "${tpl.subject}" via Gmail`,gmailMessageId:message.id,gmailThreadId:message.threadId,timestamp:new Date().toISOString(),recipient:c.email};
       const advanceStatus=['Not Started','Left Voicemail'].includes(status);
       const newStatus=advanceStatus?'Emailed':status;
       const newFollowUp=(advanceStatus&&!followUp)?new Date(Date.now()+7*24*60*60*1000).toISOString().slice(0,10):followUp;
