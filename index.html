@@ -12,8 +12,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/persistence.js"></script>
 <script src="js/inquiries.js?v=1"></script>
-<script src="js/command-model.js?v=1"></script>
-<script src="js/command-center.js?v=ai-draft-editor-1"></script>
+<script src="js/command-model.js?v=working-pipeline-1"></script>
+<script src="js/workflow.js?v=1"></script>
+<script src="js/workflow-board.js?v=1"></script>
+<script src="js/command-center.js?v=working-pipeline-1"></script>
 <link rel="stylesheet" href="js/inquiries.css?v=1">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -7201,6 +7203,7 @@ const STATUS_CFG={
   'Not Started':{bg:'#f3f4f6',color:'#374151',border:'#d1d5db',bar:'#9ca3af'},
   'Left Voicemail':{bg:'#fffbeb',color:'#92400e',border:'#fcd34d',bar:'#f59e0b'},
   'Emailed':{bg:'#eff6ff',color:'#1e40af',border:'#bfdbfe',bar:'#3b82f6'},
+  'Quote Sent':{bg:'#eff7f2',color:'#006633',border:'#a7d3ba',bar:'#007a3d'},
   'In Discussion':{bg:'#f5f3ff',color:'#5b21b6',border:'#ddd6fe',bar:'#8b5cf6'},
   'Booked!':{bg:'#f0fdf4',color:'#166534',border:'#bbf7d0',bar:'#22c55e'},
   'Not Interested':{bg:'#fef2f2',color:'#991b1b',border:'#fecaca',bar:'#ef4444'},
@@ -8376,7 +8379,7 @@ function App(){
     try{if(window.crmPersistence){window.crmPersistence.save(contacts);window.crmPersistence.flush();}}catch(e){console.error('Local save failed:',e.message);}
   },[contacts,loaded]);
 
-  function updateContact(updated){setContacts(cs=>cs.map(c=>c.id===updated.id?updated:c));setSelected(updated);}
+  function updateContact(updated){const next=window.CRMWorkflow?CRMWorkflow.transition(updated,contacts.find(c=>c.id===updated.id)||{}):updated;setContacts(cs=>cs.map(c=>c.id===next.id?next:c));setSelected(next);}
   function addContact(c){setContacts(cs=>[...cs,c]);setShowAdd(false);}
 
   const spokenCount=contacts.filter(c=>c.spokenBefore).length;

@@ -32,6 +32,9 @@
       finally { setBusy(false); }
     }
     React.useEffect(() => { refresh(); }, [client, uid]);
+    const rowsRef=React.useRef(rows);rowsRef.current=rows;
+    React.useEffect(()=>{const select=e=>{const id=String(e.detail?.school_id||'');const existing=rowsRef.current.find(x=>String(x.school_id)===id&&x.kind==='initial'&&!['sent','sending'].includes(x.status));if(existing){setDraft({id:existing.id,subject:existing.approved_subject||'',body:existing.approved_body||''});return;}setSchool(id);setKind('initial');setSchoolSearch('');setAddOpen(true);};root.addEventListener('crm-queue-select',select);return()=>root.removeEventListener('crm-queue-select',select);},[]);
+    const [addOpen,setAddOpen]=React.useState(false);
     React.useEffect(()=>{if(!client||!uid)return;let active=true;client.from('progress').select('school_id,email,status,contact,contact_confidence,last_verified,contact_source,contacted,notes,log,record').eq('user_id',uid).not('email','is',null).limit(1000).then(({data,error})=>{if(!active)return;if(error){setError(error.message);return;}setSchools((data||[]).filter(p=>!blocked.test(String(p.status||'')+' '+String(p.notes||''))&&['high','verified'].includes(String(p.contact_confidence||'').toLowerCase())&&p.last_verified&&p.contact_source));});return()=>{active=false};},[client,uid]);
     async function lookup(id) {
       const q = await client.from('progress').select('school_id,email,status,notes,contacted,last_verified,contact_source,contact_confidence,log,record').eq('user_id',uid).eq('school_id',id).maybeSingle();
@@ -98,10 +101,10 @@
       if (/Manually placed on hold/i.test(reason)) return 'Paused by you';
       return reason.replace(/\\b(school_id|user_id|verified_email)\\b/g,'record information');
     };
-    return h('section',{className:'cc-section',style:{marginTop:20}},
+    return h('section',{id:'crm-outreach-queue',className:'cc-section',style:{marginTop:20}},
       h('div',{className:'cc-heading'},h('h3',null,'Outreach Queue'),h('button',{className:'btn',disabled:busy,onClick:refresh},'Refresh')),
       h('p',{className:'cc-note'},'Initial outreach and follow-ups are approved separately. Ready to Send queues a reviewed message; it does not send it.'),
-      h('details',{style:{margin:'12px 0'}},h('summary',{style:{cursor:'pointer',fontWeight:600}},'Add a prospect to the queue'),h('form',{onSubmit:add,style:{display:'flex',flexWrap:'wrap',gap:8}},
+      h('details',{open:addOpen,onToggle:e=>setAddOpen(e.currentTarget.open),style:{margin:'12px 0'}},h('summary',{style:{cursor:'pointer',fontWeight:600}},'Add a prospect to the queue'),h('form',{onSubmit:add,style:{display:'flex',flexWrap:'wrap',gap:8}},
         h('div',{style:{width:'100%',maxWidth:560}},h('input',{value:schoolSearch,onChange:e=>{setSchoolSearch(e.target.value);setSchool('');},placeholder:'Search school or contact',style:{width:'100%',marginBottom:6}}),h('select',{required:true,value:school,onChange:e=>setSchool(e.target.value),style:{width:'100%'}},h('option',{value:''},kind==='follow_up'?'Select a school previously emailed':'Select a school that needs initial outreach'),schools.filter(p=>kind==='follow_up'?hasPrior(p):(!hasPrior(p)&&p.status==='Not Started')).filter(p=>!rows.some(q=>q.school_id===p.school_id&&q.kind===kind)).filter(p=>((p.record?.school||p.school_id)+' '+(p.contact||'')+' '+(p.email||'')).toLowerCase().includes(schoolSearch.toLowerCase())).map(p=>h('option',{key:p.school_id,value:p.school_id},(p.record?.school||p.school_id)+' | '+(p.contact||'Contact unknown')+(hasPrior(p)?' | PREVIOUSLY EMAILED':' | NOT EMAILED')))),h('small',null,(kind==='follow_up'?'Only schools with recorded prior outreach appear. ':'Only schools without recorded prior outreach appear. ')+schools.filter(p=>(kind==='follow_up'?hasPrior(p):(!hasPrior(p)&&p.status==='Not Started'))&&!rows.some(q=>q.school_id===p.school_id&&q.kind===kind)).length+' available.')),
         h('select',{value:kind,onChange:e=>setKind(e.target.value)},h('option',{value:'initial'},'Initial outreach'),h('option',{value:'follow_up'},'Follow-up')),
         h('button',{className:'btn primary',disabled:busy,type:'submit'},'Add to queue'))),
@@ -125,7 +128,7 @@
         h('label',null,'Message',h('textarea',{value:draft.body,onChange:e=>setDraft({...draft,body:e.target.value}),style:{width:'100%',minHeight:180}})),
         h('button',{className:'btn primary',disabled:busy,onClick:saveDraft},'Save reviewed draft'),
         h('button',{className:'btn',onClick:()=>setDraft(null)},'Cancel')),
-      h('p',{className:'cc-note'},'Displays the 300 most recently updated items. Sending worker is not included or enabled.'));
+      h('p',{className:'cc-note'},'Displays the 300 most recently updated items. Ready items follow your approved sending schedule.'));
   }
   root.SpeakingOutreachQueue = {states,Queue,eligible};
 })(window);

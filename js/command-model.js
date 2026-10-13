@@ -2,7 +2,7 @@
 'use strict';
 const markets=['Schools','Businesses / Organizations','Conferences / Associations','Churches','Partners / Sponsors','Referrals'];
 const stages=['New Lead','Contacted','Replied','Conversation','Pricing / Proposal','Booked'];
-const day=d=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Boise',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
+const dayFormatter=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Boise',year:'numeric',month:'2-digit',day:'2-digit'});const day=d=>dayFormatter.format(d);
 function validDate(v){return typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&!isNaN(Date.parse(v))&&new Date(v+'T12:00:00Z').toISOString().slice(0,10)===v?v:'';}
 function money(v){if(v===''||v==null)return null;const n=Number(String(v).replace(/[$,]/g,''));return Number.isFinite(n)&&n>=0?n:null;}
 function week(d){const s=day(d);const t=new Date(s+'T12:00:00Z');t.setUTCDate(t.getUTCDate()-((t.getUTCDay()+6)%7));return t.toISOString().slice(0,10);}
@@ -20,19 +20,20 @@ function normalize(c,kind='progress'){
   payStatus:c.payStatus||c.pay_status||x.paymentStatus||'Not Invoiced',location:x.location||c.location||[c.city,c.state].filter(Boolean).join(', '),audience:c.students||c.audience_size||x.audience||'',contact:c.contact||c.email||'',test:/integration-test/i.test(tracking.source||'')};
 }
 function sourceFor(t){const v=(t.utm_source||t.source||'').toLowerCase();if(/organic|google|bing|duckduckgo/.test(v))return 'Google / SEO';if(/facebook|instagram|linkedin|tiktok|youtube|social/.test(v))return 'Social media';if(/referral/.test(v))return 'Referral';if(/partner/.test(v))return 'Partner';if(!v||/direct.*unknown/.test(v))return 'Website (unattributed)';return 'Website: '+(t.utm_source||t.source);}
-function emails(r){return r.log.filter(e=>e.type==='Email'&&!/queued|scheduled|bounc|failed|draft/i.test(e.note||'')&&(/sent|via Gmail/i.test(e.note||'')||['first_contact','follow_up'].includes(e.activity))).sort((a,b)=>String(a.date).localeCompare(String(b.date)));}
+function emails(r){return r.log.filter(e=>/^(Email|Email sent|Initial email sent|Follow.up sent)$/.test(e.type||'')&&!/queued|scheduled|bounc|failed|draft/i.test(e.note||'')&&(/sent/i.test(e.type||'')||/sent|via Gmail/i.test(e.note||'')||['first_contact','follow_up'].includes(e.activity))).sort((a,b)=>String(a.date).localeCompare(String(b.date)));}
 function evidence(r,activity){const known=new Set(['New Lead']);if(emails(r).length||r.raw.contacted)known.add('Contacted');if(r.kind==='website_inquiries')known.add('Replied');if(r.stage!=='Closed')known.add(r.stage);
  for(const e of r.log){if(e.type==='Reply')known.add('Replied');if(e.type==='Sales conversation')known.add('Conversation');if(e.type==='Proposal sent')known.add('Pricing / Proposal');}
  for(const e of activity.filter(e=>e.record_kind===r.kind&&e.record_id===r.id)){const s=e.event_type==='milestone'?e.details.stage:e.event_type==='status'?({'In Discussion':'Conversation','Quote Sent':'Pricing / Proposal','Booked!':'Booked',Booked:'Booked',Completed:'Booked',Emailed:'Contacted'}[e.details.to]):null;if(s)known.add(s);}
  return known;
 }
 function model(records,activity=[],now=new Date(),market='All',period='All time'){
+ const byRecord=new Map();for(const e of activity){const key=e.record_kind+':'+e.record_id;const rows=byRecord.get(key)||[];rows.push(e);byRecord.set(key,rows);}const history=r=>byRecord.get(r.key)||[];
  const today=day(now),start=week(now),year=today.slice(0,4),end90=new Date(today+'T12:00:00Z');end90.setUTCDate(end90.getUTCDate()+90);const horizon=day(end90);
  const all=records.filter(r=>!r.test&&!r.command.linkedRecord);
  const scoped=all.filter(r=>market==='All'||r.market===market);
  const cutoff=period==='This year'?year+'-01-01':period==='Last 90 days'?(()=>{const d=new Date(today+'T12:00:00Z');d.setUTCDate(d.getUTCDate()-90);return d.toISOString().slice(0,10);})():'';
- const selected=scoped.filter(r=>!cutoff||r.created>=cutoff||r.log.some(e=>e.date>=cutoff)||activity.some(e=>e.record_kind===r.kind&&e.record_id===r.id&&day(new Date(e.occurred_at))>=cutoff));
- const booked=scoped.filter(r=>r.booked);const bookingDate=r=>r.bookedOn||(()=>{const e=activity.find(e=>e.record_kind===r.kind&&e.record_id===r.id&&e.event_type==='status'&&['Booked!','Booked'].includes(e.details.to));return e?day(new Date(e.occurred_at)):'';})();
+ const selected=scoped.filter(r=>!cutoff||r.created>=cutoff||r.log.some(e=>e.date>=cutoff)||history(r).some(e=>e.record_kind===r.kind&&e.record_id===r.id&&day(new Date(e.occurred_at))>=cutoff));
+ const booked=scoped.filter(r=>r.booked);const bookingDate=r=>r.bookedOn||(()=>{const e=history(r).find(e=>e.record_kind===r.kind&&e.record_id===r.id&&e.event_type==='status'&&['Booked!','Booked'].includes(e.details.to));return e?day(new Date(e.occurred_at)):'';})();
  const ytd=booked.filter(r=>bookingDate(r)>=year+'-01-01'&&bookingDate(r)<=today);
  const upcoming=booked.filter(r=>r.date>=today).sort((a,b)=>a.date.localeCompare(b.date));
  const pipeline=selected.filter(r=>!r.booked&&!r.closed&&r.stage!=='New Lead');const proposals=selected.filter(r=>r.stage==='Pricing / Proposal');
@@ -43,8 +44,8 @@ function model(records,activity=[],now=new Date(),market='All',period='All time'
   if(r.created>=start&&r.created<=today&&r.market==='Conferences / Associations')count('conference',r);
   const qualified=validDate(r.command.qualifiedOn);if(r.command.qualified&&qualified>=start&&qualified<=today)count('qualified',r);
   for(const e of r.log)if(e.date>=start&&e.date<=today){if(r.market==='Partners / Sponsors'&&['Call','Meeting'].includes(e.type))count('partner',r);const k={'Sales conversation':'conversation','Pricing request':'pricing','Proposal sent':'proposal'}[e.type];if(k)count(k,r);}
-  for(const [k,stage] of [['conversation','Conversation'],['proposal','Pricing / Proposal']]){if(!(r.log||[]).some(e=>e.type===(k==='conversation'?'Sales conversation':'Proposal sent')&&e.date>=start&&e.date<=today)&&activity.some(e=>e.record_kind===r.kind&&e.record_id===r.id&&day(new Date(e.occurred_at))>=start&&day(new Date(e.occurred_at))<=today&&((e.event_type==='milestone'&&e.details.stage===stage&&e.details.fromStage!==stage)||(e.event_type==='status'&&e.details.to===(k==='conversation'?'In Discussion':'Quote Sent')))))count(k,r);}
-  if(!r.log.some(e=>e.type==='Pricing request'&&e.date>=start&&e.date<=today)&&activity.some(e=>e.record_kind===r.kind&&e.record_id===r.id&&e.event_type==='milestone'&&e.details.pricingRequested==='true'&&e.details.previousPricingRequested!=='true'&&day(new Date(e.occurred_at))>=start&&day(new Date(e.occurred_at))<=today))count('pricing',r);
+  for(const [k,stage] of [['conversation','Conversation'],['proposal','Pricing / Proposal']]){if(!(r.log||[]).some(e=>e.type===(k==='conversation'?'Sales conversation':'Proposal sent')&&e.date>=start&&e.date<=today)&&history(r).some(e=>e.record_kind===r.kind&&e.record_id===r.id&&day(new Date(e.occurred_at))>=start&&day(new Date(e.occurred_at))<=today&&((e.event_type==='milestone'&&e.details.stage===stage&&e.details.fromStage!==stage)||(e.event_type==='status'&&e.details.to===(k==='conversation'?'In Discussion':'Quote Sent')))))count(k,r);}
+  if(!r.log.some(e=>e.type==='Pricing request'&&e.date>=start&&e.date<=today)&&history(r).some(e=>e.record_kind===r.kind&&e.record_id===r.id&&e.event_type==='milestone'&&e.details.pricingRequested==='true'&&e.details.previousPricingRequested!=='true'&&day(new Date(e.occurred_at))>=start&&day(new Date(e.occurred_at))<=today))count('pricing',r);
   if(bookingDate(r)>=start&&bookingDate(r)<=today)count('booking',r);
  }
  weekly.content=activity.filter(e=>e.record_kind==='content'&&day(new Date(e.occurred_at))>=start&&day(new Date(e.occurred_at))<=today).length;
