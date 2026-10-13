@@ -16,8 +16,10 @@
   };
   function Queue({client, uid}) {
     const [rows, setRows] = React.useState([]), [school, setSchool] = React.useState(''), [kind, setKind] = React.useState('initial'), [schools,setSchools]=React.useState([]);
-    const [filter, setFilter] = React.useState('all'), [draft, setDraft] = React.useState(null);
+    const [filter, setFilter] = React.useState('active'), [draft, setDraft] = React.useState(null);
     const [schoolSearch,setSchoolSearch]=React.useState('');
+    const [page,setPage]=React.useState(0), [queueSearch,setQueueSearch]=React.useState('');
+    React.useEffect(()=>{setPage(0);},[filter,queueSearch]);
     const [busy, setBusy] = React.useState(false), [error, setError] = React.useState('');
     async function refresh() {
       if (!client || !uid) return;
@@ -84,8 +86,11 @@
       } catch (e) { setError(e.message); } finally { setBusy(false); }
     }
     const counts = Object.fromEntries(states.map(s=>[s,rows.filter(x=>x.status===s).length]));
-    const visible = rows.filter(x=>filter==='all'||x.status===filter);
+    const visible = rows.filter(x=>filter==='all'||(filter==='active'?!['sent'].includes(x.status):x.status===filter));
     const byId = new Map(schools.map(p=>[String(p.school_id),p]));
+    const searched=visible.filter(item=>[(byId.get(String(item.school_id))?.record?.school||''),item.school_id,item.verified_email,item.approved_subject].join(' ').toLowerCase().includes(queueSearch.toLowerCase()));
+    const pageSize=10,totalPages=Math.max(1,Math.ceil(searched.length/pageSize)),currentPage=Math.min(page,totalPages-1);
+    const pageRows=searched.slice(currentPage*pageSize,(currentPage+1)*pageSize);
     const statusLabels = {ready:'Ready to Send',scheduled:'Scheduled',sending:'Sending',sent:'Sent',held:'Needs Review',failed:'Failed'};
     const reasonLabel = reason => {
       if (!reason) return '—';
@@ -96,19 +101,25 @@
     return h('section',{className:'cc-section',style:{marginTop:20}},
       h('div',{className:'cc-heading'},h('h3',null,'Outreach Queue'),h('button',{className:'btn',disabled:busy,onClick:refresh},'Refresh')),
       h('p',{className:'cc-note'},'Initial outreach and follow-ups are approved separately. Ready to Send queues a reviewed message; it does not send it.'),
-      h('form',{onSubmit:add,style:{display:'flex',flexWrap:'wrap',gap:8}},
+      h('details',{style:{margin:'12px 0'}},h('summary',{style:{cursor:'pointer',fontWeight:600}},'Add a prospect to the queue'),h('form',{onSubmit:add,style:{display:'flex',flexWrap:'wrap',gap:8}},
         h('div',{style:{width:'100%',maxWidth:560}},h('input',{value:schoolSearch,onChange:e=>{setSchoolSearch(e.target.value);setSchool('');},placeholder:'Search school or contact',style:{width:'100%',marginBottom:6}}),h('select',{required:true,value:school,onChange:e=>setSchool(e.target.value),style:{width:'100%'}},h('option',{value:''},kind==='follow_up'?'Select a school previously emailed':'Select a school that needs initial outreach'),schools.filter(p=>kind==='follow_up'?hasPrior(p):(!hasPrior(p)&&p.status==='Not Started')).filter(p=>!rows.some(q=>q.school_id===p.school_id&&q.kind===kind)).filter(p=>((p.record?.school||p.school_id)+' '+(p.contact||'')+' '+(p.email||'')).toLowerCase().includes(schoolSearch.toLowerCase())).map(p=>h('option',{key:p.school_id,value:p.school_id},(p.record?.school||p.school_id)+' | '+(p.contact||'Contact unknown')+(hasPrior(p)?' | PREVIOUSLY EMAILED':' | NOT EMAILED')))),h('small',null,(kind==='follow_up'?'Only schools with recorded prior outreach appear. ':'Only schools without recorded prior outreach appear. ')+schools.filter(p=>(kind==='follow_up'?hasPrior(p):(!hasPrior(p)&&p.status==='Not Started'))&&!rows.some(q=>q.school_id===p.school_id&&q.kind===kind)).length+' available.')),
         h('select',{value:kind,onChange:e=>setKind(e.target.value)},h('option',{value:'initial'},'Initial outreach'),h('option',{value:'follow_up'},'Follow-up')),
-        h('button',{className:'btn primary',disabled:busy,type:'submit'},'Add to queue')),
+        h('button',{className:'btn primary',disabled:busy,type:'submit'},'Add to queue'))),
       error&&h('p',{role:'alert'},error),
-      h('label',null,'Filter ',h('select',{value:filter,onChange:e=>setFilter(e.target.value)},['all',...states].map(s=>h('option',{key:s,value:s},s==='all'?'All':s+' ('+counts[s]+')')))),
+      h('label',null,'Filter ',h('select',{value:filter,onChange:e=>setFilter(e.target.value)},['active','all',...states].map(s=>h('option',{key:s,value:s},s==='active'?'Active items':s==='all'?'All items':statusLabels[s]+' ('+counts[s]+')')))),
+      h('input',{'aria-label':'Search outreach queue',placeholder:'Search queue by school or email',value:queueSearch,onChange:e=>setQueueSearch(e.target.value),style:{margin:'10px 0',width:'100%',maxWidth:420}}),
       h('div',{style:{overflowX:'auto'}},h('table',{className:'cc-table'},
         h('thead',null,h('tr',null,['School','Type','Status','Reason','Approval'].map(x=>h('th',{key:x},x)))),
-        h('tbody',null,visible.map(item=>h('tr',{key:item.id},
+        h('tbody',null,pageRows.map(item=>h('tr',{key:item.id},
           h('td',null,byId.get(String(item.school_id))?.record?.school || 'School name unavailable'),h('td',null,byId.get(String(item.school_id))?.record?.type || byId.get(String(item.school_id))?.record?.category || 'School'),
           h('td',null,(statusLabels[item.status]||item.status)+(item.kind==='follow_up'?' · Follow-up':' · Initial email')),h('td',null,reasonLabel(item.hold_reason)),
           h('td',null,h('label',null,h('input',{type:'checkbox',checked:item.status==='ready',disabled:busy||['sent','sending'].includes(item.status),onChange:e=>toggle(item,e.target.checked)}),' Ready to Send'),
             h('button',{className:'btn sm',disabled:busy||['sent','sending'].includes(item.status),onClick:()=>setDraft({id:item.id,subject:item.approved_subject||'',body:item.approved_body||''})},'Review draft'))))))),
+      !searched.length&&h('p',{className:'cc-note'},'No queue items match this view.'),
+      h('div',{style:{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',margin:'12px 0'}},
+        h('button',{className:'btn',disabled:currentPage===0,onClick:()=>setPage(currentPage-1)},'Previous'),
+        h('span',{'aria-live':'polite'},searched.length?(currentPage*pageSize+1)+'–'+Math.min((currentPage+1)*pageSize,searched.length)+' of '+searched.length:'0 items'),
+        h('button',{className:'btn',disabled:currentPage>=totalPages-1,onClick:()=>setPage(currentPage+1)},'Next')),
       draft&&h('div',{className:'cc-editor'},h('h4',null,'Review email draft'),
         h('label',null,'Subject',h('input',{value:draft.subject,onChange:e=>setDraft({...draft,subject:e.target.value})})),
         h('label',null,'Message',h('textarea',{value:draft.body,onChange:e=>setDraft({...draft,body:e.target.value}),style:{width:'100%',minHeight:180}})),
