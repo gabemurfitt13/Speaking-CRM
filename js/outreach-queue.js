@@ -74,7 +74,7 @@
         const q = await client.from('outreach_queue').update({approved_subject:draft.subject.trim(),approved_body:draft.body.trim(),status:'held',hold_reason:'Draft saved. Check Ready to Send after review.',updated_at:new Date().toISOString()}).eq('id',draft.id).eq('user_id',uid).in('status',['held','ready','failed']).select('*').maybeSingle();
         if (q.error) throw q.error;
         if (!q.data) throw Error('Item changed. Refresh before editing.');
-        if(draft.approveAfterSave){const approval=await client.rpc('review_outreach_queue',{queue_id:q.data.id,expected_status:q.data.status,reviewed_subject:q.data.approved_subject,reviewed_body:q.data.approved_body,reviewed_recipient:q.data.verified_email,mark_ready:true});if(approval.error)throw approval.error;if(!approval.data)throw Error('Approval was not saved.');}
+        {const approval=await client.rpc('approve_outreach_draft',{queue_id:q.data.id,expected_status:q.data.status,reviewed_subject:q.data.approved_subject,reviewed_body:q.data.approved_body,reviewed_recipient:q.data.verified_email,mark_ready:true});if(approval.error)throw approval.error;if(!approval.data)throw Error('Approval was not saved.');}
         setDraft(null); await refresh();
       } catch (e) { setError(e.message); } finally { setBusy(false); }
     }
@@ -83,17 +83,12 @@
       setApprovalFeedback(v=>({...v,[item.id]:{pending:true,message:'Saving approval…'}}));
       try {
         if (['sending','sent'].includes(item.status)) throw Error('This item cannot be changed while sending or after being sent.');
-        if (checked) {
-          const p = await lookup(item.school_id);
-          const reason = eligible(p,item);
-          if (reason) throw Error(reason);
-        }
-        const q = await client.rpc('review_outreach_queue',{queue_id:item.id,expected_status:item.status,reviewed_subject:item.approved_subject,reviewed_body:item.approved_body,reviewed_recipient:item.verified_email,mark_ready:checked});
+        const q = await client.rpc('approve_outreach_draft',{queue_id:item.id,expected_status:item.status,reviewed_subject:item.approved_subject,reviewed_body:item.approved_body,reviewed_recipient:item.verified_email,mark_ready:checked});
         if (q.error) throw q.error;
         const updated=Array.isArray(q.data)?q.data[0]:q.data;
         if (!updated) throw Error('Queue item changed. Refresh and retry.');
         setRows(current=>current.map(row=>row.id===item.id?updated:row));
-        setApprovalFeedback(v=>({...v,[item.id]:{message:checked?(updated.status==='scheduled'?'Approved for scheduled date':'Approval saved. Ready for sending schedule.'):'Paused'}}));
+        setApprovalFeedback(v=>({...v,[item.id]:{message:checked?(updated.status==='held'?'Your approval is saved. '+(updated.hold_reason||'Sending checks pending'):updated.status==='scheduled'?'Approved for scheduled date':'Approval saved. Ready for sending schedule.'):'Paused'}}));
         root.dispatchEvent(new CustomEvent('crm-queue-synced',{detail:[updated]}));
       } catch (e) { const message=e.message||String(e);setError(message);setApprovalFeedback(v=>({...v,[item.id]:{failed:true,message}})); } finally { setBusy(false); }
     }
@@ -124,9 +119,9 @@
       h('div',{style:{overflowX:'auto'}},h('table',{className:'cc-table'},
         h('thead',null,h('tr',null,['School','Type','Status','Reason','Approval'].map(x=>h('th',{key:x},x)))),
         h('tbody',null,pageRows.map(item=>h('tr',{key:item.id},
-          h('td',null,byId.get(String(item.school_id))?.record?.school || 'School name unavailable'),h('td',null,byId.get(String(item.school_id))?.record?.type || byId.get(String(item.school_id))?.record?.category || 'School'),
-          h('td',null,(statusLabels[item.status]||item.status)+(item.kind==='follow_up'?' · Follow-up':' · Initial email')),h('td',null,reasonLabel(item.hold_reason),item.kind==='follow_up'&&h('small',{style:{display:'block'}},'Original email sent: '+(item.original_sent_at?new Date(item.original_sent_at).toLocaleDateString('en-US',{timeZone:'America/Boise'}):'Not recorded')+' · Follow-up due: '+(item.follow_up_due||'Not scheduled')+(item.sent_at?' · Follow-up sent: '+new Date(item.sent_at).toLocaleString('en-US',{timeZone:'America/Boise'}):'')),item.original_thread_id&&h('a',{href:'https://mail.google.com/mail/u/?authuser=gabemurfittspeaker%40gmail.com#all/'+item.original_thread_id,target:'_blank',rel:'noopener noreferrer'},'Open Gmail conversation')),
-          h('td',null,h('label',null,h('input',{type:'checkbox',checked:['ready','scheduled'].includes(item.status),disabled:busy||['sent','sending'].includes(item.status),onChange:e=>toggle(item,e.target.checked)}),' Ready to Send'),
+          h('td',null,byId.get(String(item.school_id))?.record?.school || item.school_id,h('small',{style:{display:'block',overflowWrap:'anywhere'}},'To: '+(item.verified_email||'No recipient email saved'))),h('td',null,byId.get(String(item.school_id))?.record?.type || byId.get(String(item.school_id))?.record?.category || 'School'),
+          h('td',null,(item.review_approved_at&&item.status==='held'?'Approved · sending blocked':statusLabels[item.status]||item.status)+(item.kind==='follow_up'?' · Follow-up':' · Initial email')),h('td',null,reasonLabel(item.hold_reason),item.kind==='follow_up'&&h('small',{style:{display:'block'}},'Original email sent: '+(item.original_sent_at?new Date(item.original_sent_at).toLocaleDateString('en-US',{timeZone:'America/Boise'}):'Not recorded')+' · Follow-up due: '+(item.follow_up_due||'Not scheduled')+(item.sent_at?' · Follow-up sent: '+new Date(item.sent_at).toLocaleString('en-US',{timeZone:'America/Boise'}):'')),item.original_thread_id&&h('a',{href:'https://mail.google.com/mail/u/?authuser=gabemurfittspeaker%40gmail.com#all/'+item.original_thread_id,target:'_blank',rel:'noopener noreferrer'},'Open Gmail conversation')),
+          h('td',null,h('label',null,h('input',{type:'checkbox',checked:!!item.review_approved_at||['ready','scheduled'].includes(item.status),disabled:busy||['sent','sending'].includes(item.status),onChange:e=>toggle(item,e.target.checked)}),' Ready to Send'),
             approvalFeedback[item.id]&&h('p',{role:approvalFeedback[item.id].failed?'alert':'status',style:{maxWidth:300,margin:'6px 0',color:approvalFeedback[item.id].failed?'#b91c1c':'var(--accent)',fontSize:12}},approvalFeedback[item.id].message),
             h('button',{className:'btn sm',disabled:busy||['sent','sending'].includes(item.status),onClick:()=>setDraft({id:item.id,subject:item.approved_subject||'',body:item.approved_body||''})},'Review draft'))))))),
       !searched.length&&h('p',{className:'cc-note'},'No queue items match this view.'),
@@ -134,10 +129,10 @@
         h('button',{className:'btn',disabled:currentPage===0,onClick:()=>setPage(currentPage-1)},'Previous'),
         h('span',{'aria-live':'polite'},searched.length?(currentPage*pageSize+1)+'–'+Math.min((currentPage+1)*pageSize,searched.length)+' of '+searched.length:'0 items'),
         h('button',{className:'btn',disabled:currentPage>=totalPages-1,onClick:()=>setPage(currentPage+1)},'Next')),
-      draft&&h('div',{className:'cc-editor',ref:draftEditorRef},h('h4',null,'Review email draft'),
+      draft&&h('div',{className:'cc-editor',ref:draftEditorRef},h('h4',null,'Review email draft'),h('p',null,'To: '+(rows.find(x=>x.id===draft.id)?.verified_email||'No recipient email saved')),
         h('label',null,'Subject',h('input',{value:draft.subject,onChange:e=>setDraft({...draft,subject:e.target.value})})),
         h('label',null,'Message',h('textarea',{value:draft.body,onChange:e=>setDraft({...draft,body:e.target.value}),style:{width:'100%',minHeight:180}})),
-        h('button',{className:'btn primary',disabled:busy,onClick:saveDraft},draft.approveAfterSave?'Save and mark ready':'Save reviewed draft'),
+        h('button',{className:'btn primary',disabled:busy,onClick:saveDraft},draft.approveAfterSave?'Save and mark ready':'Save and mark ready'),
         h('button',{className:'btn',onClick:()=>setDraft(null)},'Cancel')),
       h('p',{className:'cc-note'},'Displays the 300 most recently updated items. Ready items follow your approved sending schedule.'));
   }
