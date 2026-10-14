@@ -92,15 +92,16 @@
         root.dispatchEvent(new CustomEvent('crm-queue-synced',{detail:[updated]}));
       } catch (e) { const message=e.message||String(e);setError(message);setApprovalFeedback(v=>({...v,[item.id]:{failed:true,message}})); } finally { setBusy(false); }
     }
+    const resolved=item=>['FOLLOWUP_EXISTS','PRIOR_FOLLOWUP_RECORDED','HUMAN_RESPONSE','CRM_SUPPRESSED','RECONNECT_REVIEW','OLD_OUTREACH'].includes(item.thread_check_result);
     const approved=item=>!!item.review_approved_at||['ready','scheduled','sending'].includes(item.status);
     const inScope=item=>(!onlyKind||item.kind===onlyKind)&&(onlyKind!=='follow_up'||! /^(biz-|church-|conf-|college-)/i.test(item.school_id));
-    const stageCounts={review:rows.filter(x=>inScope(x)&&x.status!=='sent'&&!approved(x)).length,approved:rows.filter(x=>inScope(x)&&x.status!=='sent'&&approved(x)).length,sent:rows.filter(x=>inScope(x)&&x.status==='sent').length,all:rows.filter(inScope).length};
+    const stageCounts={excluded:rows.filter(x=>inScope(x)&&x.status!=='sent'&&resolved(x)).length,review:rows.filter(x=>inScope(x)&&x.status!=='sent'&&!approved(x)&&!resolved(x)).length,approved:rows.filter(x=>inScope(x)&&x.status!=='sent'&&approved(x)&&!resolved(x)).length,sent:rows.filter(x=>inScope(x)&&x.status==='sent').length,all:rows.filter(inScope).length};
     const counts = Object.fromEntries(states.map(s=>[s,rows.filter(x=>(!onlyKind||x.kind===onlyKind)&&x.status===s).length]));
     const [queueContacts,setQueueContacts]=React.useState([]);
     const queueContactIds=[...new Set(rows.map(x=>String(x.school_id)))].sort().join('|');
     React.useEffect(()=>{if(!client||!uid||!queueContactIds)return;let active=true;client.from('progress').select('school_id,contact,record,contacted,follow_up').eq('user_id',uid).in('school_id',queueContactIds.split('|')).then(q=>{if(active&&!q.error)setQueueContacts(q.data||[]);});return()=>{active=false;};},[client,uid,queueContactIds]);
     const byId = new Map([...schools,...queueContacts].map(p=>[String(p.school_id),p]));
-    const visible=rows.filter(inScope).filter(x=>filter==='all'||(filter==='review'?x.status!=='sent'&&!approved(x):filter==='approved'?x.status!=='sent'&&approved(x):x.status===filter));
+    const visible=rows.filter(inScope).filter(x=>filter==='all'||(filter==='review'?x.status!=='sent'&&!approved(x)&&!resolved(x):filter==='approved'?x.status!=='sent'&&approved(x)&&!resolved(x):filter==='excluded'?x.status!=='sent'&&resolved(x):x.status===filter));
     if(onlyKind==='follow_up')visible.sort((a,b)=>{const date=x=>{const p=byId.get(String(x.school_id));return x.follow_up_due||p?.follow_up||p?.record?.followUp||x.original_sent_at?.slice(0,10)||p?.contacted||'9999-12-31';};return date(a).localeCompare(date(b))||String(a.created_at||'').localeCompare(String(b.created_at||''))||String(a.id).localeCompare(String(b.id));});
     const searched=visible.filter(item=>[(byId.get(String(item.school_id))?.record?.school||''),item.school_id,item.verified_email,item.approved_subject].join(' ').toLowerCase().includes(queueSearch.toLowerCase()));
     const pageSize=10,totalPages=Math.max(1,Math.ceil(searched.length/pageSize)),currentPage=Math.min(page,totalPages-1);
@@ -120,7 +121,7 @@
         h('select',{value:kind,onChange:e=>setKind(e.target.value)},h('option',{value:'initial'},'Initial outreach'),h('option',{value:'follow_up'},'Follow-up')),
         h('button',{className:'btn primary',disabled:busy,type:'submit'},'Add to queue'))),
       error&&h('p',{role:'alert'},error),
-      h('div',{style:{display:'flex',gap:8,flexWrap:'wrap'},'aria-label':'Queue stages'},['review','approved','sent','all'].map(stage=>h('button',{className:'btn'+(stage===filter?' primary':''),onClick:()=>setFilter(stage),'aria-pressed':stage===filter},({review:'Needs your approval',approved:'Approved / awaiting send',sent:'Sent',all:'All'})[stage]+' ('+stageCounts[stage]+')'))),
+      h('div',{style:{display:'flex',gap:8,flexWrap:'wrap'},'aria-label':'Queue stages'},['review','approved','sent','excluded','all'].map(stage=>h('button',{className:'btn'+(stage===filter?' primary':''),onClick:()=>setFilter(stage),'aria-pressed':stage===filter},({review:'Needs your approval',approved:'Approved / awaiting send',sent:'Sent',excluded:'Resolved / excluded',all:'All'})[stage]+' ('+stageCounts[stage]+')'))),
       h('input',{'aria-label':'Search outreach queue',placeholder:'Search queue by school or email',value:queueSearch,onChange:e=>setQueueSearch(e.target.value),style:{margin:'10px 0',width:'100%',maxWidth:420}}),
       h('div',{style:{overflowX:'auto'}},h('table',{className:'cc-table'},
         h('thead',null,h('tr',null,['School / contact','Dates','Status','Review / approve'].map(x=>h('th',{key:x},x)))),
@@ -128,11 +129,11 @@
           h('td',null,h('strong',null,p?.record?.school||item.school_id),h('small',{style:{display:'block'}},p?.contact||p?.record?.contact||'Contact name not recorded'),h('small',{style:{display:'block',overflowWrap:'anywhere'}},item.verified_email||'Recipient needed')),
           h('td',null,item.kind==='follow_up'?h(React.Fragment,null,h('small',{style:{display:'block'}},'Original sent: '+format(sent)),h('small',{style:{display:'block'}},'Follow-up due: '+format(due))):h('small',null,item.sent_at?'Sent: '+format(item.sent_at):item.scheduled_at?'Scheduled: '+format(item.scheduled_at):'Initial outreach'),
             item.kind==='follow_up'&&item.sent_at&&h('small',{style:{display:'block'}},'Follow-up sent: '+format(item.sent_at))),
-          h('td',null,item.status==='sent'?'Sent':approved(item)?item.status==='held'?'Approved · checks pending':item.status==='scheduled'?'Approved · scheduled':item.status==='sending'?'Sending':'Approved · ready':'Needs your approval',
-            approved(item)&&item.status==='held'&&h('details',null,h('summary',null,'Sending details'),h('p',{style:{maxWidth:280,fontSize:12}},reasonLabel(item.hold_reason))),
+          h('td',null,item.status==='sent'?'Sent':resolved(item)?'Excluded from routine outreach':approved(item)?item.status==='held'?'Approved · checks pending':item.status==='scheduled'?'Approved · scheduled':item.status==='sending'?'Sending':'Approved · ready':'Needs your approval',
+            (approved(item)||resolved(item))&&item.status==='held'&&h('details',null,h('summary',null,'Sending details'),h('p',{style:{maxWidth:280,fontSize:12}},reasonLabel(item.hold_reason))),
             item.original_thread_id&&h('a',{style:{display:'block'},href:'https://mail.google.com/mail/u/?authuser=gabemurfittspeaker%40gmail.com#all/'+item.original_thread_id,target:'_blank',rel:'noopener noreferrer'},'Original email')),
           h('td',null,h('button',{className:'btn sm',disabled:busy||['sent','sending'].includes(item.status),onClick:()=>setDraft({id:item.id,subject:item.approved_subject||'',body:item.approved_body||''})},'Review / edit'),
-            h('label',{style:{display:'flex',gap:6,alignItems:'center',marginTop:8}},h('input',{type:'checkbox',checked:approved(item),disabled:busy||['sent','sending'].includes(item.status),onChange:e=>toggle(item,e.target.checked)}),' Ready to Send'),
+            h('label',{style:{display:'flex',gap:6,alignItems:'center',marginTop:8}},h('input',{type:'checkbox',checked:approved(item),disabled:busy||resolved(item)||['sent','sending'].includes(item.status),onChange:e=>toggle(item,e.target.checked)}),' Ready to Send'),
             approvalFeedback[item.id]&&(approvalFeedback[item.id].failed||approvalFeedback[item.id].pending)&&h('p',{role:approvalFeedback[item.id].failed?'alert':'status',style:{maxWidth:260,fontSize:12}},approvalFeedback[item.id].message)));})))),
       !searched.length&&h('p',{className:'cc-note'},'No queue items match this view.'),
       h('div',{style:{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',margin:'12px 0'}},
