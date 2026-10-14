@@ -23,6 +23,7 @@
     const [page,setPage]=React.useState(0), [queueSearch,setQueueSearch]=React.useState('');
     React.useEffect(()=>{setPage(0);},[filter,queueSearch]);
     const [busy, setBusy] = React.useState(false), [error, setError] = React.useState('');
+    const [approvalFeedback,setApprovalFeedback]=React.useState({});
     async function refresh() {
       if (!client || !uid) return;
       setBusy(true); setError('');
@@ -79,6 +80,7 @@
     }
     async function toggle(item, checked) {
       setBusy(true); setError('');
+      setApprovalFeedback(v=>({...v,[item.id]:{pending:true,message:'Saving approval…'}}));
       try {
         if (['sending','sent'].includes(item.status)) throw Error('This item cannot be changed while sending or after being sent.');
         if (checked) {
@@ -88,9 +90,12 @@
         }
         const q = await client.rpc('review_outreach_queue',{queue_id:item.id,expected_status:item.status,reviewed_subject:item.approved_subject,reviewed_body:item.approved_body,reviewed_recipient:item.verified_email,mark_ready:checked});
         if (q.error) throw q.error;
-        if (!q.data) throw Error('Queue item changed. Refresh and retry.');
-        await refresh();
-      } catch (e) { setError(e.message); } finally { setBusy(false); }
+        const updated=Array.isArray(q.data)?q.data[0]:q.data;
+        if (!updated) throw Error('Queue item changed. Refresh and retry.');
+        setRows(current=>current.map(row=>row.id===item.id?updated:row));
+        setApprovalFeedback(v=>({...v,[item.id]:{message:checked?(updated.status==='scheduled'?'Approved for scheduled date':'Approval saved. Ready for sending schedule.'):'Paused'}}));
+        root.dispatchEvent(new CustomEvent('crm-queue-synced',{detail:[updated]}));
+      } catch (e) { const message=e.message||String(e);setError(message);setApprovalFeedback(v=>({...v,[item.id]:{failed:true,message}})); } finally { setBusy(false); }
     }
     const counts = Object.fromEntries(states.map(s=>[s,rows.filter(x=>(!onlyKind||x.kind===onlyKind)&&x.status===s).length]));
     const visible = rows.filter(x=>onlyKind!=='follow_up'||! /^(biz-|church-|conf-|college-)/i.test(x.school_id)).filter(x=>(!onlyKind||x.kind===onlyKind)&&(filter==='all'||(filter==='active'?!['sent'].includes(x.status):x.status===filter)));
@@ -121,6 +126,7 @@
           h('td',null,byId.get(String(item.school_id))?.record?.school || 'School name unavailable'),h('td',null,byId.get(String(item.school_id))?.record?.type || byId.get(String(item.school_id))?.record?.category || 'School'),
           h('td',null,(statusLabels[item.status]||item.status)+(item.kind==='follow_up'?' · Follow-up':' · Initial email')),h('td',null,reasonLabel(item.hold_reason),item.kind==='follow_up'&&h('small',{style:{display:'block'}},'Due: '+(item.follow_up_due||'Needs original-send verification')+(item.sent_at?' · Sent: '+new Date(item.sent_at).toLocaleString('en-US',{timeZone:'America/Boise'}):'')),item.original_thread_id&&h('a',{href:'https://mail.google.com/mail/u/?authuser=gabemurfittspeaker%40gmail.com#all/'+item.original_thread_id,target:'_blank',rel:'noopener noreferrer'},'Open Gmail conversation')),
           h('td',null,h('label',null,h('input',{type:'checkbox',checked:['ready','scheduled'].includes(item.status),disabled:busy||['sent','sending'].includes(item.status),onChange:e=>toggle(item,e.target.checked)}),' Ready to Send'),
+            approvalFeedback[item.id]&&h('p',{role:approvalFeedback[item.id].failed?'alert':'status',style:{maxWidth:300,margin:'6px 0',color:approvalFeedback[item.id].failed?'#b91c1c':'var(--accent)',fontSize:12}},approvalFeedback[item.id].message),
             h('button',{className:'btn sm',disabled:busy||['sent','sending'].includes(item.status),onClick:()=>setDraft({id:item.id,subject:item.approved_subject||'',body:item.approved_body||''})},'Review draft'))))))),
       !searched.length&&h('p',{className:'cc-note'},'No queue items match this view.'),
       h('div',{style:{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',margin:'12px 0'}},
