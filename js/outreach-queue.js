@@ -96,12 +96,12 @@
     const inScope=item=>(!onlyKind||item.kind===onlyKind)&&(onlyKind!=='follow_up'||! /^(biz-|church-|conf-|college-)/i.test(item.school_id));
     const stageCounts={review:rows.filter(x=>inScope(x)&&x.status!=='sent'&&!approved(x)).length,approved:rows.filter(x=>inScope(x)&&x.status!=='sent'&&approved(x)).length,sent:rows.filter(x=>inScope(x)&&x.status==='sent').length,all:rows.filter(inScope).length};
     const counts = Object.fromEntries(states.map(s=>[s,rows.filter(x=>(!onlyKind||x.kind===onlyKind)&&x.status===s).length]));
-    const visible=rows.filter(inScope).filter(x=>filter==='all'||(filter==='review'?x.status!=='sent'&&!approved(x):filter==='approved'?x.status!=='sent'&&approved(x):x.status===filter));
-    if(onlyKind==='follow_up')visible.sort((a,b)=>{const date=x=>x.follow_up_due||x.original_sent_at?.slice(0,10)||'9999-12-31';return date(a).localeCompare(date(b))||String(a.created_at||'').localeCompare(String(b.created_at||''))||String(a.id).localeCompare(String(b.id));});
     const [queueContacts,setQueueContacts]=React.useState([]);
     const queueContactIds=[...new Set(rows.map(x=>String(x.school_id)))].sort().join('|');
     React.useEffect(()=>{if(!client||!uid||!queueContactIds)return;let active=true;client.from('progress').select('school_id,contact,record,contacted,follow_up').eq('user_id',uid).in('school_id',queueContactIds.split('|')).then(q=>{if(active&&!q.error)setQueueContacts(q.data||[]);});return()=>{active=false;};},[client,uid,queueContactIds]);
     const byId = new Map([...schools,...queueContacts].map(p=>[String(p.school_id),p]));
+    const visible=rows.filter(inScope).filter(x=>filter==='all'||(filter==='review'?x.status!=='sent'&&!approved(x):filter==='approved'?x.status!=='sent'&&approved(x):x.status===filter));
+    if(onlyKind==='follow_up')visible.sort((a,b)=>{const date=x=>{const p=byId.get(String(x.school_id));return x.follow_up_due||p?.follow_up||p?.record?.followUp||x.original_sent_at?.slice(0,10)||p?.contacted||'9999-12-31';};return date(a).localeCompare(date(b))||String(a.created_at||'').localeCompare(String(b.created_at||''))||String(a.id).localeCompare(String(b.id));});
     const searched=visible.filter(item=>[(byId.get(String(item.school_id))?.record?.school||''),item.school_id,item.verified_email,item.approved_subject].join(' ').toLowerCase().includes(queueSearch.toLowerCase()));
     const pageSize=10,totalPages=Math.max(1,Math.ceil(searched.length/pageSize)),currentPage=Math.min(page,totalPages-1);
     const pageRows=searched.slice(currentPage*pageSize,(currentPage+1)*pageSize);
