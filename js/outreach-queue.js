@@ -99,6 +99,7 @@
     }
     const counts = Object.fromEntries(states.map(s=>[s,rows.filter(x=>(!onlyKind||x.kind===onlyKind)&&x.status===s).length]));
     const visible = rows.filter(x=>onlyKind!=='follow_up'||! /^(biz-|church-|conf-|college-)/i.test(x.school_id)).filter(x=>(!onlyKind||x.kind===onlyKind)&&(filter==='all'||(filter==='active'?!['sent'].includes(x.status):x.status===filter)));
+    if(onlyKind==='follow_up')visible.sort((a,b)=>{const date=x=>x.follow_up_due||x.original_sent_at?.slice(0,10)||'9999-12-31';return date(a).localeCompare(date(b))||String(a.created_at||'').localeCompare(String(b.created_at||''))||String(a.id).localeCompare(String(b.id));});
     const byId = new Map(schools.map(p=>[String(p.school_id),p]));
     const searched=visible.filter(item=>[(byId.get(String(item.school_id))?.record?.school||''),item.school_id,item.verified_email,item.approved_subject].join(' ').toLowerCase().includes(queueSearch.toLowerCase()));
     const pageSize=10,totalPages=Math.max(1,Math.ceil(searched.length/pageSize)),currentPage=Math.min(page,totalPages-1);
