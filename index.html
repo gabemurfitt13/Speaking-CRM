@@ -7501,8 +7501,8 @@ function ContactCard({c,isActive,onClick,queueStatus,onToggleQueue,queueBusy}){
       {(c.contact||c.email)&&<div className="c-card-contact" style={{flexWrap:'wrap'}}><i className="ti ti-user" style={{fontSize:13,color:'var(--text-light)'}}/><strong>{c.contact||c.email}</strong> · {c.role} <span className="badge">Main contact</span>{c.contactConfidence==='VERIFIED'&&<span className="badge" style={{color:'var(--accent)',fontWeight:700}}>Verified</span>}</div>}
       {(c.email||c.phone)&&<div style={{fontSize:12,color:'var(--text-muted)',marginTop:5,overflowWrap:'anywhere'}}>{[c.email,c.phone].filter(Boolean).join(' · ')}</div>}
       <label onClick={e=>e.stopPropagation()} style={{display:'flex',alignItems:'center',gap:7,marginTop:9,fontSize:12,fontWeight:600,cursor:'pointer'}} title="Queues a reviewed initial email. Does not send immediately.">
-        <input type="checkbox" checked={queueStatus==='ready'} disabled={queueBusy||queueStatus==='sending'||queueStatus==='sent'} onChange={e=>onToggleQueue(c,e.target.checked)}/>
-        Ready to Send {queueStatus==='held'?'(held)':queueStatus==='sending'?'(sending)':queueStatus==='sent'?'(sent)':''}
+        <input type="checkbox" checked={['ready','scheduled'].includes(queueStatus)} disabled={queueBusy||queueStatus==='sending'||queueStatus==='sent'} onChange={e=>onToggleQueue(c,e.target.checked)}/>
+        Ready to Send {queueStatus==='scheduled'?'(scheduled)':queueStatus==='held'?'(held)':queueStatus==='sending'?'(sending)':queueStatus==='sent'?'(sent)':''}
       </label>
     </div>
   );
@@ -8279,6 +8279,7 @@ function App(){
   const [prospectPage,setProspectPage]=useState(0);
   const [schoolQueue,setSchoolQueue]=useState({});
   const [queueBusyIds,setQueueBusyIds]=useState({});
+  useEffect(()=>{const synced=e=>setSchoolQueue(current=>({...current,...Object.fromEntries((e.detail||[]).filter(r=>r.kind==='initial').map(r=>[String(r.school_id),r.status]))}));window.addEventListener('crm-queue-synced',synced);return()=>window.removeEventListener('crm-queue-synced',synced);},[]);
   useEffect(()=>{
     if(!loaded||!window._supabaseUser?.id)return;
     let active=true;
@@ -8287,7 +8288,7 @@ function App(){
       if(active)setSchoolQueue(Object.fromEntries((data||[]).map(r=>[String(r.school_id),r.status])));
     });
     return ()=>{active=false;};
-  },[loaded]);
+  },[loaded,view]);
   async function toggleSchoolQueue(c,checked){
     const key=String(c.id);
     if(queueBusyIds[key])return;
@@ -8295,33 +8296,39 @@ function App(){
     setQueueBusyIds(v=>({...v,[key]:true}));
     try{
       const uid=window._supabaseUser.id;
-      const {data:progress,error:progressError}=await supabase.from('progress').select('school_id,email,status,notes,last_verified,contact_confidence,log').eq('user_id',uid).eq('school_id',key).maybeSingle();
+      const {data:progress,error:progressError}=await supabase.from('progress').select('school_id,email,status,notes,last_verified,contact_confidence,contact_source,log').eq('user_id',uid).eq('school_id',key).maybeSingle();
       if(progressError)throw progressError;
       if(!progress)throw Error('This school has no saved CRM record. Save it before queueing.');
       const {data:existing,error:existingError}=await supabase.from('outreach_queue').select('*').eq('user_id',uid).eq('school_id',key).eq('kind','initial').maybeSingle();
       if(existingError)throw existingError;
       if(existing&&['sending','sent'].includes(existing.status))throw Error('This outreach is already sending or sent.');
       if(checked){
-        if(!progress.email||progress.contact_confidence!=='VERIFIED'||!progress.last_verified)throw Error('Verify the main contact email and verification date before queueing.');
+        if(!progress.email||!['high','verified'].includes(String(progress.contact_confidence||'').toLowerCase())||!progress.last_verified||!progress.contact_source)throw Error('Verify the main contact email and verification date before queueing.');
         if(String(progress.email).toLowerCase()!==String(c.email||'').toLowerCase())throw Error('The saved contact email differs from this card. Refresh before queueing.');
         if(/not interested|do not contact|booked|opt.?out|unsubscribe/i.test(String(progress.status||'')+' '+String(progress.notes||'')))throw Error('This prospect has a hold, opt-out or booking flag.');
         if(/contacted|emailed|follow.up|booked/i.test(String(progress.status||''))||(Array.isArray(progress.log)&&progress.log.some(x=>/sent|emailed/i.test(String(x.type||'')))))throw Error('Prior outreach is recorded. Initial outreach cannot be queued again.');
-        if(!existing){
-          const {data:created,error:createError}=await supabase.from('outreach_queue').insert({user_id:uid,school_id:key,kind:'initial',status:'held',verified_email:progress.email,hold_reason:'Review and save the draft before marking ready',updated_at:new Date().toISOString()}).select('id').single();
-          if(createError)throw createError;
-          if(!created)throw Error('Queue entry was not created.');
+        if(!existing||!existing.approved_subject||!existing.approved_body){
+          const firstName=String(c.contact||'').trim().split(' ')[0]||'there';
+          const subject=existing?.approved_subject||'quick question';
+          const body=existing?.approved_body||['Hi '+firstName+',','','Who is the best person to contact about booking a guest speaker at '+c.school+'?','','Thanks,','Gabe Murfitt','gabemurfitt.com'].join('\n');
+          const payload={approved_subject:subject,approved_body:body,verified_email:progress.email,status:'held',hold_reason:'Review the draft before approval',updated_at:new Date().toISOString()};
+          const request=existing?supabase.from('outreach_queue').update(payload).eq('id',existing.id).eq('user_id',uid).eq('status',existing.status):supabase.from('outreach_queue').insert({...payload,user_id:uid,school_id:key,kind:'initial'});
+          const created=await request.select('*').maybeSingle();
+          if(created.error)throw created.error;
+          if(!created.data)throw Error('Queue item changed. Refresh and retry.');
           setSchoolQueue(v=>({...v,[key]:'held'}));
-          alert('Added to Outreach Queue on hold. Open Command Center → Outreach Queue, review and save the email draft, then check Ready to Send on this prospect. Nothing was sent.');
+          window.crmQueueRequestedSchool=key;setView('dashboard');
+          showToast('Review the draft, then save and mark ready.');
           return;
         }
-        if(!existing.approved_subject||!existing.approved_body)throw Error('This school is on hold in Outreach Queue. Review and save its email draft there before checking Ready to Send.');
         if(String(existing.verified_email||'').toLowerCase()!==String(progress.email).toLowerCase())throw Error('The approved draft recipient does not match the verified email.');
       }
       if(!existing)throw Error('Add this school to the Outreach Queue and review its draft first.');
-      const {data:updated,error}=await supabase.from('outreach_queue').update({status:checked?'ready':'held',hold_reason:checked?null:'Manually held from prospect card',updated_at:new Date().toISOString()}).eq('id',existing.id).eq('user_id',uid).eq('status',existing.status).select('id').maybeSingle();
+      const {data:reviewed,error}=await supabase.rpc('review_outreach_queue',{queue_id:existing.id,expected_status:existing.status,reviewed_subject:existing.approved_subject,reviewed_body:existing.approved_body,reviewed_recipient:existing.verified_email,mark_ready:checked});
+      const updated=Array.isArray(reviewed)?reviewed[0]:reviewed;
       if(error)throw error;
       if(!updated)throw Error('Queue item changed. Refresh and try again.');
-      setSchoolQueue(v=>({...v,[key]:checked?'ready':'held'}));
+      setSchoolQueue(v=>({...v,[key]:updated.status}));showToast(checked?(updated.status==='scheduled'?'Approved for its scheduled date':'Approved and ready for the sending schedule'):'Outreach paused');
     }catch(e){alert('Queue update failed: '+(e.message||e));}
     finally{setQueueBusyIds(v=>({...v,[key]:false}));}
   }

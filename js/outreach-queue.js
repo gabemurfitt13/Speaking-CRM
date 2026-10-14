@@ -19,6 +19,7 @@
     const [rows, setRows] = React.useState([]), [school, setSchool] = React.useState(''), [kind, setKind] = React.useState('initial'), [schools,setSchools]=React.useState([]);
     const [filter, setFilter] = React.useState('active'), [draft, setDraft] = React.useState(null);
     const [schoolSearch,setSchoolSearch]=React.useState('');
+    const draftEditorRef=React.useRef(null);React.useEffect(()=>{if(draft&&draftEditorRef.current){draftEditorRef.current.scrollIntoView({behavior:'smooth',block:'center'});draftEditorRef.current.querySelector('input')?.focus({preventScroll:true});}},[draft?.id]);
     const [page,setPage]=React.useState(0), [queueSearch,setQueueSearch]=React.useState('');
     React.useEffect(()=>{setPage(0);},[filter,queueSearch]);
     const [busy, setBusy] = React.useState(false), [error, setError] = React.useState('');
@@ -28,7 +29,7 @@
       try {
         const q = await client.from('outreach_queue').select('*').eq('user_id', uid).order('updated_at', {ascending:false}).limit(300);
         if (q.error) throw q.error;
-        setRows(q.data || []);
+        setRows(q.data || []);root.dispatchEvent(new CustomEvent('crm-queue-synced',{detail:q.data||[]}));
       } catch (e) { setError(e.message || 'Unable to load queue'); }
       finally { setBusy(false); }
     }
@@ -37,6 +38,7 @@
     React.useEffect(()=>{const select=e=>{const id=String(e.detail?.school_id||'');const existing=rowsRef.current.find(x=>String(x.school_id)===id&&x.kind==='initial'&&!['sent','sending'].includes(x.status));if(existing){setDraft({id:existing.id,subject:existing.approved_subject||'',body:existing.approved_body||''});return;}setSchool(id);setKind('initial');setSchoolSearch('');setAddOpen(true);};root.addEventListener('crm-queue-select',select);return()=>root.removeEventListener('crm-queue-select',select);},[]);
     const [addOpen,setAddOpen]=React.useState(false);
     React.useEffect(()=>{if(!client||!uid)return;let active=true;client.from('progress').select('school_id,email,status,contact,contact_confidence,last_verified,contact_source,contacted,notes,log,record').eq('user_id',uid).not('email','is',null).limit(1000).then(({data,error})=>{if(!active)return;if(error){setError(error.message);return;}setSchools((data||[]).filter(p=>!blocked.test(String(p.status||'')+' '+String(p.notes||''))&&['high','verified'].includes(String(p.contact_confidence||'').toLowerCase())&&p.last_verified&&p.contact_source));});return()=>{active=false};},[client,uid]);
+    React.useEffect(()=>{const id=root.crmQueueRequestedSchool;if(!id||onlyKind&&onlyKind!=='initial')return;const item=rows.find(x=>String(x.school_id)===String(id)&&x.kind==='initial');if(item){setDraft({id:item.id,subject:item.approved_subject||'',body:item.approved_body||'',approveAfterSave:true});root.crmQueueRequestedSchool=null;}},[rows,onlyKind]);
     async function lookup(id) {
       const q = await client.from('progress').select('school_id,email,status,notes,contacted,last_verified,contact_source,contact_confidence,log,record').eq('user_id',uid).eq('school_id',id).maybeSingle();
       if (q.error) throw q.error;
@@ -68,9 +70,10 @@
       if (!draft || !draft.subject.trim() || !draft.body.trim()) { setError('Subject and message are required.'); return; }
       setBusy(true); setError('');
       try {
-        const q = await client.from('outreach_queue').update({approved_subject:draft.subject.trim(),approved_body:draft.body.trim(),status:'held',hold_reason:'Draft saved. Check Ready to Send after review.',updated_at:new Date().toISOString()}).eq('id',draft.id).eq('user_id',uid).in('status',['held','ready','failed']).select('id').maybeSingle();
+        const q = await client.from('outreach_queue').update({approved_subject:draft.subject.trim(),approved_body:draft.body.trim(),status:'held',hold_reason:'Draft saved. Check Ready to Send after review.',updated_at:new Date().toISOString()}).eq('id',draft.id).eq('user_id',uid).in('status',['held','ready','failed']).select('*').maybeSingle();
         if (q.error) throw q.error;
         if (!q.data) throw Error('Item changed. Refresh before editing.');
+        if(draft.approveAfterSave){const approval=await client.rpc('review_outreach_queue',{queue_id:q.data.id,expected_status:q.data.status,reviewed_subject:q.data.approved_subject,reviewed_body:q.data.approved_body,reviewed_recipient:q.data.verified_email,mark_ready:true});if(approval.error)throw approval.error;if(!approval.data)throw Error('Approval was not saved.');}
         setDraft(null); await refresh();
       } catch (e) { setError(e.message); } finally { setBusy(false); }
     }
@@ -83,7 +86,7 @@
           const reason = eligible(p,item);
           if (reason) throw Error(reason);
         }
-        const q = await client.from('outreach_queue').update({status:checked?'ready':'held',hold_reason:checked?null:'Manually placed on hold',updated_at:new Date().toISOString()}).eq('id',item.id).eq('user_id',uid).eq('status',item.status).select('id').maybeSingle();
+        const q = await client.rpc('review_outreach_queue',{queue_id:item.id,expected_status:item.status,reviewed_subject:item.approved_subject,reviewed_body:item.approved_body,reviewed_recipient:item.verified_email,mark_ready:checked});
         if (q.error) throw q.error;
         if (!q.data) throw Error('Queue item changed. Refresh and retry.');
         await refresh();
@@ -117,17 +120,17 @@
         h('tbody',null,pageRows.map(item=>h('tr',{key:item.id},
           h('td',null,byId.get(String(item.school_id))?.record?.school || 'School name unavailable'),h('td',null,byId.get(String(item.school_id))?.record?.type || byId.get(String(item.school_id))?.record?.category || 'School'),
           h('td',null,(statusLabels[item.status]||item.status)+(item.kind==='follow_up'?' · Follow-up':' · Initial email')),h('td',null,reasonLabel(item.hold_reason),item.kind==='follow_up'&&h('small',{style:{display:'block'}},'Due: '+(item.follow_up_due||'Needs original-send verification')+(item.sent_at?' · Sent: '+new Date(item.sent_at).toLocaleString('en-US',{timeZone:'America/Boise'}):'')),item.original_thread_id&&h('a',{href:'https://mail.google.com/mail/u/?authuser=gabemurfittspeaker%40gmail.com#all/'+item.original_thread_id,target:'_blank',rel:'noopener noreferrer'},'Open Gmail conversation')),
-          h('td',null,h('label',null,h('input',{type:'checkbox',checked:item.status==='ready',disabled:busy||['sent','sending'].includes(item.status),onChange:e=>toggle(item,e.target.checked)}),' Ready to Send'),
+          h('td',null,h('label',null,h('input',{type:'checkbox',checked:['ready','scheduled'].includes(item.status),disabled:busy||['sent','sending'].includes(item.status),onChange:e=>toggle(item,e.target.checked)}),' Ready to Send'),
             h('button',{className:'btn sm',disabled:busy||['sent','sending'].includes(item.status),onClick:()=>setDraft({id:item.id,subject:item.approved_subject||'',body:item.approved_body||''})},'Review draft'))))))),
       !searched.length&&h('p',{className:'cc-note'},'No queue items match this view.'),
       h('div',{style:{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',margin:'12px 0'}},
         h('button',{className:'btn',disabled:currentPage===0,onClick:()=>setPage(currentPage-1)},'Previous'),
         h('span',{'aria-live':'polite'},searched.length?(currentPage*pageSize+1)+'–'+Math.min((currentPage+1)*pageSize,searched.length)+' of '+searched.length:'0 items'),
         h('button',{className:'btn',disabled:currentPage>=totalPages-1,onClick:()=>setPage(currentPage+1)},'Next')),
-      draft&&h('div',{className:'cc-editor'},h('h4',null,'Review email draft'),
+      draft&&h('div',{className:'cc-editor',ref:draftEditorRef},h('h4',null,'Review email draft'),
         h('label',null,'Subject',h('input',{value:draft.subject,onChange:e=>setDraft({...draft,subject:e.target.value})})),
         h('label',null,'Message',h('textarea',{value:draft.body,onChange:e=>setDraft({...draft,body:e.target.value}),style:{width:'100%',minHeight:180}})),
-        h('button',{className:'btn primary',disabled:busy,onClick:saveDraft},'Save reviewed draft'),
+        h('button',{className:'btn primary',disabled:busy,onClick:saveDraft},draft.approveAfterSave?'Save and mark ready':'Save reviewed draft'),
         h('button',{className:'btn',onClick:()=>setDraft(null)},'Cancel')),
       h('p',{className:'cc-note'},'Displays the 300 most recently updated items. Ready items follow your approved sending schedule.'));
   }
