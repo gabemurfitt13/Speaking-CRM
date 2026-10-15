@@ -1,0 +1,34 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createHandler, seal, unseal, CLIENT_ID, OWNER, MAILBOX, ORIGIN, SCOPES} from '../supabase/functions/gmail-oauth/handler.mjs';
+function fixture(options={}) {
+ const states=new Map(), saved=[]; let exchanges=0;
+ const env={GOOGLE_CLIENT_ID:CLIENT_ID,GOOGLE_CLIENT_SECRET:'test-google-secret',SUPABASE_SERVICE_ROLE_KEY:'test-service-role-secret',SUPABASE_URL:'https://hoyilsqwbdkbxismiatf.supabase.co',...options.env};
+ const store={async saveState(x){states.set(x.state_hash,x)},async consumeState(hash,now){const x=states.get(hash); if(!x||x.expires_at<=now)return null;states.delete(hash);return x},async saveConnection(x){saved.push(x)},async getConnection(){return saved.at(-1)||null}};
+ const handler=createHandler({env,store,now:()=>options.now||1792080000000,getUser:async()=>options.user===undefined?{id:OWNER}:options.user,fetch:async(url,init)=>{
+  if(url.includes('oauth2.googleapis.com')){exchanges++;assert.equal(init.method,'POST');assert.ok(init.body.get('code_verifier'));assert.equal(init.body.get('redirect_uri'),env.SUPABASE_URL+'/functions/v1/gmail-oauth/callback');return Response.json({access_token:'test-access',refresh_token:options.noRefresh?undefined:'test-refresh',scope:options.scope||SCOPES.join(' ')},{status:options.tokenStatus||200})}
+  assert.equal(url,'https://gmail.googleapis.com/gmail/v1/users/me/profile');assert.equal(init.headers.Authorization,'Bearer test-access');return Response.json({emailAddress:options.mailbox||MAILBOX},{status:options.profileStatus||200});
+ }});
+ const post=(route,origin=ORIGIN)=>handler(new Request('https://example.test/gmail-oauth/'+route,{method:'POST',headers:{Authorization:'Bearer test-jwt',Origin:origin}}));
+ async function begin(){const response=await post('start');assert.equal(response.status,200);return new URL((await response.json()).authorizationUrl)}
+ const callback=state=>handler(new Request('https://example.test/gmail-oauth/callback?code=test-code&state='+encodeURIComponent(state)));
+ return {handler,post,begin,callback,states,saved,env,exchanges:()=>exchanges};
+}
+test('AES-GCM roundtrip, no plaintext, wrong key and tampering rejected',async()=>{const value=await seal('sensitive-refresh','key-one');assert.ok(!JSON.stringify(value).includes('sensitive-refresh'));assert.equal(await unseal(value,'key-one'),'sensitive-refresh');await assert.rejects(unseal(value,'other-key'));await assert.rejects(unseal({...value,data:'AAAA'},'key-one'));});
+test('unauthenticated request cannot begin',async()=>{const f=fixture();const r=await f.handler(new Request('https://example.test/gmail-oauth/start',{method:'POST'}));assert.equal(r.status,401);assert.equal(f.states.size,0)});
+test('another authenticated user cannot connect',async()=>{const f=fixture({user:{id:'other'}});assert.equal((await f.post('start')).status,403);assert.equal(f.states.size,0)});
+test('untrusted origin is refused',async()=>{const f=fixture();assert.equal((await f.post('start','https://evil.test')).status,403)});
+test('missing credentials fail closed',async()=>{const f=fixture({env:{GOOGLE_CLIENT_SECRET:''}});assert.equal((await f.post('start')).status,503)});
+test('wrong Google client ID fails closed',async()=>{const f=fixture({env:{GOOGLE_CLIENT_ID:'wrong'}});assert.equal((await f.post('start')).status,503)});
+test('authorization uses exact callback, offline access, PKCE and Gmail scopes',async()=>{const f=fixture();const u=await f.begin();assert.equal(u.origin,'https://accounts.google.com');assert.equal(u.searchParams.get('access_type'),'offline');assert.equal(u.searchParams.get('prompt'),'consent');assert.equal(u.searchParams.get('code_challenge_method'),'S256');assert.equal(u.searchParams.get('login_hint'),MAILBOX);assert.equal(u.searchParams.get('scope'),SCOPES.join(' '));assert.equal(u.searchParams.get('state').length,43);assert.ok(!JSON.stringify([...f.states.values()]).includes(u.searchParams.get('state')))});
+test('missing state never exchanges a code',async()=>{const f=fixture();assert.equal((await f.callback('')).status,400);assert.equal(f.exchanges(),0)});
+test('expired state never exchanges a code',async()=>{const f=fixture();const u=await f.begin();for(const x of f.states.values())x.expires_at='2000-01-01T00:00:00Z';assert.equal((await f.callback(u.searchParams.get('state'))).status,400);assert.equal(f.exchanges(),0)});
+test('valid callback saves encrypted refresh token and verifies mailbox',async()=>{const f=fixture();const u=await f.begin();const r=await f.callback(u.searchParams.get('state'));assert.equal(r.status,200);assert.equal(f.saved.length,1);assert.equal(f.saved[0].mailbox,MAILBOX);assert.equal(await unseal(f.saved[0].refresh_token_encrypted,f.env.SUPABASE_SERVICE_ROLE_KEY),'test-refresh');const body=await r.text();assert.ok(!body.includes('test-refresh'));assert.ok(!body.includes('test-access'))});
+test('callback replay never exchanges twice',async()=>{const f=fixture();const u=await f.begin();const state=u.searchParams.get('state');assert.equal((await f.callback(state)).status,200);assert.equal((await f.callback(state)).status,400);assert.equal(f.exchanges(),1)});
+test('wrong mailbox cannot replace connection',async()=>{const f=fixture({mailbox:'someone@example.com'});const u=await f.begin();assert.equal((await f.callback(u.searchParams.get('state'))).status,403);assert.equal(f.saved.length,0)});
+test('missing read scope cannot save connection',async()=>{const f=fixture({scope:SCOPES[0]});const u=await f.begin();assert.equal((await f.callback(u.searchParams.get('state'))).status,400);assert.equal(f.saved.length,0)});
+test('missing refresh token cannot mark connected',async()=>{const f=fixture({noRefresh:true});const u=await f.begin();assert.equal((await f.callback(u.searchParams.get('state'))).status,400);assert.equal(f.saved.length,0)});
+test('Google token rejection never saves a connection',async()=>{const f=fixture({tokenStatus:400});const u=await f.begin();assert.equal((await f.callback(u.searchParams.get('state'))).status,502);assert.equal(f.saved.length,0)});
+test('Gmail profile rejection never saves a connection',async()=>{const f=fixture({profileStatus:403});const u=await f.begin();assert.equal((await f.callback(u.searchParams.get('state'))).status,502);assert.equal(f.saved.length,0)});
+test('status never exposes token material',async()=>{const f=fixture();const u=await f.begin();await f.callback(u.searchParams.get('state'));const r=await f.post('status');assert.deepEqual(await r.json(),{configured:true,connected:true,mailbox:MAILBOX,connectedAt:new Date(1792080000000).toISOString(),sendsEmail:false})});
+test('health contains configuration boolean only and never sends',async()=>{const f=fixture();const r=await f.handler(new Request('https://example.test/gmail-oauth/health'));assert.deepEqual(await r.json(),{ok:true,configured:true,sendsEmail:false});assert.equal(f.exchanges(),0)});
