@@ -26,6 +26,18 @@ export async function unseal(value, secret) {
   const raw = await crypto.subtle.decrypt({name:'AES-GCM', iv:decode(value.iv), additionalData:encoder.encode(MAILBOX)}, await encryptionKey(secret), decode(value.data));
   return new TextDecoder().decode(raw);
 }
+// Accept the already-saved case/spacing variants without exposing or changing values.
+export function googleCredentialEnv(source) {
+  const result = {};
+  for (const canonical of ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET']) {
+    if (source[canonical]) { result[canonical] = source[canonical]; continue; }
+    const matches = Object.entries(source).filter(([name, value]) => value && name.replace(/\s/g, '').toUpperCase() === canonical);
+    const values = [...new Set(matches.map(([, value]) => value))];
+    // Conflicting aliases require review; never guess which credential is current.
+    result[canonical] = values.length === 1 ? values[0] : '';
+  }
+  return result;
+}
 export function createHandler(deps) {
   const {env, store, getUser, fetch: request = fetch, now = () => Date.now()} = deps;
   const configurationErrors = () => [!env.GOOGLE_CLIENT_ID ? 'GOOGLE_CLIENT_ID_MISSING' : env.GOOGLE_CLIENT_ID !== CLIENT_ID ? 'GOOGLE_CLIENT_ID_MISMATCH' : null, !env.GOOGLE_CLIENT_SECRET ? 'GOOGLE_CLIENT_SECRET_MISSING' : null, !env.SUPABASE_SERVICE_ROLE_KEY ? 'SERVER_KEY_MISSING' : null].filter(Boolean);
