@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createHandler, seal, unseal, CLIENT_ID, OWNER, MAILBOX, ORIGIN, SCOPES} from '../supabase/functions/gmail-oauth/handler.mjs';
+import {createHandler, googleCredentialEnv, seal, unseal, CLIENT_ID, OWNER, MAILBOX, ORIGIN, SCOPES} from '../supabase/functions/gmail-oauth/handler.mjs';
 function fixture(options={}) {
  const states=new Map(), saved=[]; let exchanges=0;
  const env={GOOGLE_CLIENT_ID:CLIENT_ID,GOOGLE_CLIENT_SECRET:'test-google-secret',SUPABASE_SERVICE_ROLE_KEY:'test-service-role-secret',SUPABASE_URL:'https://hoyilsqwbdkbxismiatf.supabase.co',...options.env};
@@ -34,3 +34,13 @@ test('status never exposes token material',async()=>{const f=fixture();const u=a
 test('health contains configuration boolean only and never sends',async()=>{const f=fixture();const r=await f.handler(new Request('https://example.test/gmail-oauth/health'));assert.deepEqual(await r.json(),{ok:true,configured:true,configurationErrors:[],sendsEmail:false});assert.equal(f.exchanges(),0)});
 
 test('health identifies missing setup without exposing values',async()=>{const f=fixture({env:{GOOGLE_CLIENT_ID:'',GOOGLE_CLIENT_SECRET:''}});const r=await f.handler(new Request('https://example.test/gmail-oauth/health'));assert.deepEqual((await r.json()).configurationErrors,['GOOGLE_CLIENT_ID_MISSING','GOOGLE_CLIENT_SECRET_MISSING']);});
+
+test('existing mixed-case names and whitespace are accepted without value changes',()=>{
+ assert.deepEqual(googleCredentialEnv({'Google_client _ID':'id-value',Google_client_secret:'secret-value',RESEND_API_KEY:'unrelated'}),{GOOGLE_CLIENT_ID:'id-value',GOOGLE_CLIENT_SECRET:'secret-value'});
+});
+test('canonical settings take precedence over old aliases',()=>{
+ assert.equal(googleCredentialEnv({GOOGLE_CLIENT_SECRET:'current',Google_client_secret:'old'}).GOOGLE_CLIENT_SECRET,'current');
+});
+test('conflicting aliases fail closed',()=>{
+ assert.equal(googleCredentialEnv({'Google_client _ID':'first',Google_client_ID:'second'}).GOOGLE_CLIENT_ID,'');
+});
