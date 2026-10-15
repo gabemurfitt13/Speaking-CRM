@@ -25,5 +25,7 @@ begin
  insert into public.gmail_worker_runs(user_id,mode,max_sends,token_hash) values(u,'dry_run',1,encode(sha256(convert_to(repeat('x',72),'UTF8')),'hex')) returning id into r;
  select count(*) into n from public.claim_gmail_worker_request(r,repeat('x',72));if n<>1 then raise exception 'Valid one-time token rejected';end if;
  select count(*) into n from public.claim_gmail_worker_request(r,repeat('x',72));if n<>0 then raise exception 'Worker token replay was allowed';end if;
+ update public.gmail_worker_runs set status='completed' where id=r;
+ perform public.request_gmail_outreach_worker('dry_run',1);
 end $$;
 select 'PASS: conditional approval claim, frozen copy, Gmail CRM sync, sent immutability, worker ACLs, one-time token replay' as validation;
