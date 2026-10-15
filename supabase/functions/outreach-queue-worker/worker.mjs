@@ -49,7 +49,7 @@ export function plainBody(payload){
 }
 export function confirmedMessage(m,q,rfc=null){
  const to=addresses(header(m,'To'));const from=addresses(header(m,'From'));
- return m.labelIds?.includes('SENT')&&to.length===1&&to[0]===email(q.verified_email)&&from.length===1&&from[0]===MAILBOX&&!header(m,'Cc')&&!header(m,'Bcc')&&header(m,'Subject')===q.approved_subject&&(!rfc||header(m,'Message-ID')===rfc)&&plainBody(m.payload)?.replace(/\r\n/g,'\n').trimEnd()===q.approved_body.replace(/\r\n/g,'\n').trimEnd();
+ return m.labelIds?.includes('SENT')&&to.length===1&&to[0]===email(q.verified_email)&&from.length===1&&from[0]===MAILBOX&&!header(m,'Cc')&&!header(m,'Bcc')&&header(m,'Subject')===q.approved_subject&&(!rfc||header(m,'Message-ID')===rfc||(/^<[^<>\s]+@[^<>\s]+>$/.test(header(m,'Message-ID'))&&header(m,'X-Speaking-CRM-Queue')===q.id))&&plainBody(m.payload)?.replace(/\r\n/g,'\n').trimEnd()===q.approved_body.replace(/\r\n/g,'\n').trimEnd();
 }
 export class ProviderError extends Error{constructor(status,reason){super('GMAIL_HTTP_'+status+'_'+reason);this.status=status;this.provider=true;}}
 export class Gmail {
@@ -99,15 +99,20 @@ export async function runWorker({run,store,gmail,now=()=>Date.now(),phase=()=>{}
   return {...base,items,sent:0};
  }
  if(!businessHours(now(),'America/Boise'))return {...base,sent:0,stopped:'Outside Boise weekday business hours'};
+ if(account.daily>=270||account.hourly>=45)return {...base,sent:0,stopped:'Shared sending ceiling reached'};
  const claims=await store.claims();if(claims.length)return {...base,sent:0,stopped:'Existing sending claims require reconciliation',claims:claims.map(q=>({id:q.id,schoolId:q.school_id,claimedAt:q.claimed_at}))};
  if(await store.aiActive())return {...base,sent:0,stopped:'AI sender ownership is active'};
  phase('Gmail delivery notices');const bounces=await gmail.list('in:anywhere after:'+Math.floor(dayStart(now())/1000)+' {from:mailer-daemon from:postmaster subject:"Delivery Status Notification" subject:"Undeliverable"}',10);
  if(bounces.messages.length>2){if(run.mode==='live')await store.pause('BOUNCE_REVIEW: more than two delivery notices today');return {...base,sent:0,stopped:'Bounce accumulation requires review',deliveryNotices:bounces.messages.map(x=>x.id)};}
  phase('CRM district context');const contexts=await store.context();phase('CRM candidates');const candidates=await store.candidates();
+ const groupsByEmail=new Map(contexts.map(c=>[email(c.email),district(c)]));
+ const activeDistricts=new Map(contexts.filter(c=>(/discussion|booked|not interested|do not contact|try next year|closed/i.test(c.status)||c.status==='No'||c.record?.command?.workflow?.routinePaused)).map(c=>[district(c),c.school_id]));
+ const alreadyToday=(key,domain,s)=>s.messages.some(m=>addresses(header(m,'To')).some(a=>a.split('@')[1]===domain||groupsByEmail.get(a)===key));
  for(const {queue:q,prospect:p} of candidates){
   if(now()-started>95000||sent>=run.max_sends||(run.mode==='dry_run'&&items.filter(x=>x.eligible).length>=run.max_sends))break;
   phase('Candidate '+q.school_id);inspected++;let reason=staticCheck(q,p,now());const key=district(p),domain=email(q.verified_email).split('@')[1];
-  if(!reason){const activeSibling=contexts.find(c=>c.school_id!==p.school_id&&district(c)===key&&(/discussion|booked|not interested|do not contact|try next year|closed/i.test(c.status)||c.status==='No'||c.record?.command?.workflow?.routinePaused));if(activeSibling)reason='District has existing CRM outreach or conversation; review sibling '+activeSibling.school_id;}
+  if(!reason&&activeDistricts.has(key))reason='District has existing CRM outreach or conversation; review sibling '+activeDistricts.get(key);
+  if(!reason&&alreadyToday(key,domain,account))reason='District already contacted today';
   if(!reason){const prior=await gmail.list('in:anywhere "'+q.verified_email+'"',1);if(prior.messages.length)reason='Recipient already appears in Gmail correspondence, drafts, or scheduled mail';}
   if(!reason){if(!domainCache.has(domain))domainCache.set(domain,await priorDomain(gmail,domain));reason=domainCache.get(domain);}
   if(!reason){const school=p.record?.school||p.record?.name;if(!school)reason='School name is missing';else{const expanded=school.replace(/\bHS\b/gi,'High School').replace(/\bMS\b/gi,'Middle School').replace(/\bJH\b/gi,'Junior High');const names=[...new Set([school,expanded])].map(x=>'"'+x.replace(/["\\]/g,'')+'"').join(' ');const history=await gmail.list('in:anywhere {'+names+'}',1);if(history.messages.length)reason='School appears in earlier Gmail correspondence; reconnect review required';}}
@@ -115,8 +120,7 @@ export async function runWorker({run,store,gmail,now=()=>Date.now(),phase=()=>{}
   if(run.mode==='dry_run'){items.push({queueId:q.id,schoolId:q.school_id,recipient:q.verified_email,eligible:true});continue;}
   account=await snapshot(gmail,now(),cache);
   if(account.daily>=270||account.hourly>=45){items.push({queueId:q.id,eligible:false,reason:'Shared sending ceiling reached'});break;}
-  const todaysAddresses=account.messages.flatMap(m=>addresses(header(m,'To')));
-  if(todaysAddresses.some(a=>a.split('@')[1]===domain||contexts.some(c=>email(c.email)===a&&district(c)===key))){items.push({queueId:q.id,schoolId:q.school_id,eligible:false,reason:'District already contacted today'});continue;}
+  if(alreadyToday(key,domain,account)){items.push({queueId:q.id,schoolId:q.school_id,eligible:false,reason:'District already contacted today'});continue;}
   // Repeat complete address search immediately before acquiring the unchanged approval.
   if((await gmail.list('in:anywhere "'+q.verified_email+'"',1)).messages.length){items.push({queueId:q.id,eligible:false,reason:'Correspondence appeared during preflight'});continue;}
   const claimed=await store.claim(run,q,account);if(!claimed){items.push({queueId:q.id,eligible:false,reason:'Claim rejected or approval changed'});continue;}
@@ -128,7 +132,7 @@ export async function runWorker({run,store,gmail,now=()=>Date.now(),phase=()=>{}
    await store.accepted(claimed,accepted);
    const confirmed=await gmail.full(accepted.id);
    if(!confirmedMessage(confirmed,q,prepared.rfc))throw Error('GMAIL_SENT_IDENTITY_NOT_CONFIRMED');
-   await store.confirm(claimed,confirmed,prepared.rfc);
+   await store.confirm(claimed,confirmed,header(confirmed,'Message-ID'));
    sent++;cache.set(confirmed.id,confirmed);domainCache.set(domain,'District already contacted in this run');
    contexts.push({...p,status:'Emailed'});
    items.push({queueId:q.id,schoolId:q.school_id,recipient:q.verified_email,sent:true,messageId:confirmed.id,threadId:confirmed.threadId,sentAt:new Date(Number(confirmed.internalDate)).toISOString()});
