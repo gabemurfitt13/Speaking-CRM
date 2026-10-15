@@ -1,8 +1,8 @@
 # Existing Speaking CRM worker: Gmail initials
 
-The existing worker uses the authorized offline Gmail connection. No new sender or cron job is created. Only unchanged, approved, ready direct-school initials are sent. Follow-ups, replies and non-schools are excluded.
+The existing worker uses the authorized offline Gmail connection. One server timer invokes the SAME existing worker; the existing ChatGPT automation is monitor-only, so there is no competing sender. Only unchanged, approved, ready direct-school initials are sent. Follow-ups, replies and non-schools are excluded.
 
-The sole main automation `6ac6c49bdc248191a61b7bfef8348f52` invokes:
+The server timer named `speaking-crm-existing-gmail-worker` invokes `gmail_outreach_worker_tick()` every two minutes, requesting at most two sends per run. The existing ChatGPT task `6ac6c49bdc248191a61b7bfef8348f52` monitors and reconciles only. For a coordinated manual run when the timer is idle:
 
 ```sql
 select public.request_gmail_outreach_worker('live',45);
@@ -18,4 +18,6 @@ A run has a maximum of 45 sends and a 95-second loop budget. It can return fewer
 
 SQL: `db/gmail-worker.sql`. Tests: `node --test tests/*.test.cjs tests/gmail-oauth.test.mjs tests/gmail-worker.test.mjs`. Transactional database checks: `tests/gmail-worker-db.sql` followed by ROLLBACK. Never commit QA sent identifiers.
 
-Deploy files preserving directories: `outreach-queue-worker/index.ts`, `outreach-queue-worker/worker.mjs`, `gmail-oauth/handler.mjs`. The shared module handles encryption and existing credential name variants. Control defaults disabled. Audit connection/claims, dry run, enable under Gabe's authorization, test one eligible live send and verify Gmail/CRM before reconnecting the main automation.
+Deploy files preserving directories: `outreach-queue-worker/index.ts`, `outreach-queue-worker/worker.mjs`, `gmail-oauth/handler.mjs`. The shared module handles encryption and existing credential name variants. Control defaults disabled. Audit connection/claims, dry run, enable under Gabe's authorization, test one eligible live send and verify Gmail/CRM before reconnecting the main automation as a monitor.
+
+Server schedule source: `db/gmail-worker-schedule.sql` and `db/activate-existing-gmail-worker.sql`. There is exactly one timer job with that name. SQL serialization prevents overlap. Worker control `enabled=false` stops future live runs; `pause_reason` also suppresses them. Business hours are evaluated in Boise inside the tick, so the UTC cron expression handles DST without changing the job.
