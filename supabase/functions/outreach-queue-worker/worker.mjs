@@ -57,9 +57,9 @@ export class Gmail {
  async api(path,options={}){
   const response=await this.request('https://gmail.googleapis.com/gmail/v1/users/me/'+path,{...options,headers:{Authorization:'Bearer '+this.token,'Content-Type':'application/json',...options.headers},signal:AbortSignal.timeout(15000)});
   if(!response.ok){const body=await response.json().catch(()=>({}));throw new ProviderError(response.status,String(body.error?.errors?.[0]?.reason||body.error?.status||'request_rejected').replace(/[^A-Za-z0-9_]/g,'').slice(0,100));}
-  return response.json();
+  const text=await response.text();try{return JSON.parse(text);}catch{throw Error('GMAIL_INVALID_JSON_'+path.split('?')[0]+'_HTTP_'+response.status+'_BYTES_'+text.length);}
  }
- async list(query,limit=1000){let pageToken,all=[];do{const params=new URLSearchParams({q:query,includeSpamTrash:'true',maxResults:'500',fields:'messages(id,threadId),nextPageToken'});if(pageToken)params.set('pageToken',pageToken);const page=await this.api('messages?'+params);all.push(...(page.messages||[]));pageToken=page.nextPageToken;if(all.length>=limit){return {messages:all,complete:!pageToken};}}while(pageToken);return {messages:all,complete:true};}
+ async list(query,limit=1000){let pageToken,all=[];do{const params=new URLSearchParams({q:query,includeSpamTrash:'true',maxResults:'500',fields:'messages(id,threadId),nextPageToken,resultSizeEstimate'});if(pageToken)params.set('pageToken',pageToken);const page=await this.api('messages?'+params);all.push(...(page.messages||[]));pageToken=page.nextPageToken;if(all.length>=limit){return {messages:all,complete:!pageToken};}}while(pageToken);return {messages:all,complete:true};}
  async full(id){return this.api('messages/'+encodeURIComponent(id)+'?format=full');}
  async thread(id){return this.api('threads/'+encodeURIComponent(id)+'?format=full');}
  async send(raw){return this.api('messages/send',{method:'POST',body:JSON.stringify({raw})});}
@@ -86,9 +86,9 @@ async function priorDomain(gmail,domain){
   if(m.labelIds?.includes('SENT')&&/On .{5,150}wrote:|From:.{0,150}\n|Original Message/i.test(plainBody(m.payload)||''))return 'Quoted district conversation requires review';
  }}return null;
 }
-export async function runWorker({run,store,gmail,now=()=>Date.now()}){
+export async function runWorker({run,store,gmail,now=()=>Date.now(),phase=()=>{}}){
  const started=now(),items=[],cache=new Map(),domainCache=new Map();let sent=0,failed=0,ambiguous=0,inspected=0;
- let account=await snapshot(gmail,now(),cache);
+ phase('Gmail account snapshot');let account=await snapshot(gmail,now(),cache);
  const base={runId:run.id,mode:run.mode,mailbox:MAILBOX,initialAccountDaily:account.daily,initialAccountHourly:account.hourly};
  if(run.mode==='audit_claims'){
   for(const q of await store.claims()){
@@ -101,12 +101,12 @@ export async function runWorker({run,store,gmail,now=()=>Date.now()}){
  if(!businessHours(now(),'America/Boise'))return {...base,sent:0,stopped:'Outside Boise weekday business hours'};
  const claims=await store.claims();if(claims.length)return {...base,sent:0,stopped:'Existing sending claims require reconciliation',claims:claims.map(q=>({id:q.id,schoolId:q.school_id,claimedAt:q.claimed_at}))};
  if(await store.aiActive())return {...base,sent:0,stopped:'AI sender ownership is active'};
- const bounces=await gmail.list('in:anywhere after:'+Math.floor(dayStart(now())/1000)+' {from:mailer-daemon from:postmaster subject:"Delivery Status Notification" subject:"Undeliverable"}',10);
+ phase('Gmail delivery notices');const bounces=await gmail.list('in:anywhere after:'+Math.floor(dayStart(now())/1000)+' {from:mailer-daemon from:postmaster subject:"Delivery Status Notification" subject:"Undeliverable"}',10);
  if(bounces.messages.length>2){if(run.mode==='live')await store.pause('BOUNCE_REVIEW: more than two delivery notices today');return {...base,sent:0,stopped:'Bounce accumulation requires review',deliveryNotices:bounces.messages.map(x=>x.id)};}
- const contexts=await store.context();const candidates=await store.candidates();
+ phase('CRM district context');const contexts=await store.context();phase('CRM candidates');const candidates=await store.candidates();
  for(const {queue:q,prospect:p} of candidates){
   if(now()-started>95000||sent>=run.max_sends||(run.mode==='dry_run'&&items.filter(x=>x.eligible).length>=run.max_sends))break;
-  inspected++;let reason=staticCheck(q,p,now());const key=district(p),domain=email(q.verified_email).split('@')[1];
+  phase('Candidate '+q.school_id);inspected++;let reason=staticCheck(q,p,now());const key=district(p),domain=email(q.verified_email).split('@')[1];
   if(!reason){const activeSibling=contexts.find(c=>c.school_id!==p.school_id&&district(c)===key&&(/discussion|booked|not interested|do not contact|try next year|closed/i.test(c.status)||c.status==='No'||c.record?.command?.workflow?.routinePaused));if(activeSibling)reason='District has existing CRM outreach or conversation; review sibling '+activeSibling.school_id;}
   if(!reason){const prior=await gmail.list('in:anywhere "'+q.verified_email+'"',1);if(prior.messages.length)reason='Recipient already appears in Gmail correspondence, drafts, or scheduled mail';}
   if(!reason){if(!domainCache.has(domain))domainCache.set(domain,await priorDomain(gmail,domain));reason=domainCache.get(domain);}
