@@ -8,7 +8,7 @@ const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:
 Deno.serve(async req=>{
  if(req.method==='GET'&&new URL(req.url).pathname.endsWith('/health'))return json({ok:true,transport:'gmail',initialsOnly:true});
  if(req.method!=='POST')return json({error:'POST_REQUIRED'},405);
- let run;
+ let run,phase='worker authentication';
  try{
   const text=await req.text();if(text.length>8192)return json({error:'REQUEST_TOO_LARGE'},413);
   let input;try{input=JSON.parse(text);}catch{return json({error:'INVALID_JSON'},400);}
@@ -31,13 +31,13 @@ Deno.serve(async req=>{
    async pause(reason){checked(await db.from('gmail_worker_control').update({pause_reason:reason,updated_at:new Date().toISOString()}).eq('user_id',OWNER));}
   };
   const connection=checked(await db.from('gmail_connections').select('*').eq('user_id',OWNER).eq('status','connected').single());
-  const gmail=await refreshGmail(env,connection);
-  const result=await runWorker({run,store,gmail});
+  phase='Gmail refresh';const gmail=await refreshGmail(env,connection);
+  const result=await runWorker({run,store,gmail,phase:value=>{phase=value}});
   checked(await db.from('gmail_worker_runs').update({status:'completed',finished_at:new Date().toISOString(),result}).eq('id',run.id));
   return json(result);
  }catch(error){
   // Do not log request URLs, secrets, OAuth responses, or bearer tokens.
-  const message=String(error.message||'WORKER_FAILED').slice(0,1200);
+  const message=String(phase+': '+(error.message||'WORKER_FAILED')).slice(0,1200);
   if(run){await db.from('gmail_worker_runs').update({status:'failed',finished_at:new Date().toISOString(),result:{error:message}}).eq('id',run.id);if(run.mode==='live')await db.from('gmail_worker_control').update({pause_reason:message,updated_at:new Date().toISOString()}).eq('user_id',OWNER);}
   return json({error:message},500);
  }
