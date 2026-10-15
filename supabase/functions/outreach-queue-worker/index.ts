@@ -19,6 +19,8 @@ Deno.serve(async req=>{
   const updateClaim=(q,values)=>db.from('outreach_queue').update(values).eq('user_id',OWNER).eq('id',q.id).eq('status','sending').eq('claimed_at',q.claimed_at).select('id');
   const saveClaim=async(q,values)=>{const data=checked(await updateClaim(q,values));if(data.length!==1)throw Error('CRM_CLAIM_OWNERSHIP_CHANGED');};
   const store={
+   async sentCache(since){const rows=checked(await db.from('gmail_worker_sent_cache').select('gmail_metadata').eq('user_id',OWNER).gte('sent_at',new Date(since).toISOString()));return rows.map(x=>x.gmail_metadata);},
+   async saveSentCache(messages){checked(await db.from('gmail_worker_sent_cache').upsert(messages.map(m=>({user_id:OWNER,message_id:m.id,sent_at:new Date(Number(m.internalDate)).toISOString(),gmail_metadata:{id:m.id,threadId:m.threadId,labelIds:m.labelIds,internalDate:m.internalDate,payload:{headers:(m.payload?.headers||[]).filter(h=>['to','from','subject','message-id'].includes(h.name.toLowerCase()))}}})),{onConflict:'user_id,message_id'}));},
    async claims(){return checked(await db.from('outreach_queue').select('*').eq('user_id',OWNER).eq('status','sending'));},
    async aiActive(){const rows=checked(await db.from('ai_actions').select('status,payload,execution_output').eq('user_id',OWNER).in('status',['pending','approved','sending']));return rows.some(a=>a.status==='sending'||a.payload?.sendInProgress===true||a.execution_output?.sendInProgress===true);},
    async context(){let all=[];for(let offset=0;;offset+=1000){const page=checked(await db.rpc('gmail_worker_district_context',{p_user_id:OWNER}).range(offset,offset+999));all.push(...page);if(page.length<1000)return all;}},
@@ -33,7 +35,7 @@ Deno.serve(async req=>{
   const connection=checked(await db.from('gmail_connections').select('*').eq('user_id',OWNER).eq('status','connected').single());
   phase='Gmail refresh';const gmail=await refreshGmail(env,connection);
   const result=await runWorker({run,store,gmail,phase:value=>{phase=value}});
-  checked(await db.from('gmail_worker_runs').update({status:'completed',finished_at:new Date().toISOString(),result}).eq('id',run.id));
+  checked(await db.from('gmail_worker_runs').update({status:result.providerStopped?'failed':'completed',finished_at:new Date().toISOString(),result}).eq('id',run.id));
   return json(result);
  }catch(error){
   // Do not log request URLs, secrets, OAuth responses, or bearer tokens.
