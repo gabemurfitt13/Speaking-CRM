@@ -1,6 +1,6 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.95.0';
-import {createHandler} from './handler.mjs';
-const env = Object.fromEntries(['SUPABASE_URL','SUPABASE_ANON_KEY','SUPABASE_SERVICE_ROLE_KEY','GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET'].map(k => [k,Deno.env.get(k) || '']));
+import {createHandler, googleCredentialEnv} from './handler.mjs';
+const env = {...Object.fromEntries(['SUPABASE_URL','SUPABASE_ANON_KEY','SUPABASE_SERVICE_ROLE_KEY'].map(k => [k,Deno.env.get(k) || ''])), ...googleCredentialEnv(Deno.env.toObject())};
 const db = createClient(env.SUPABASE_URL,env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
 const auth = createClient(env.SUPABASE_URL,env.SUPABASE_ANON_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
 const checked = ({data,error}) => {if(error) throw new Error('DATABASE_OPERATION_FAILED'); return data;};
