@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {staticCheck,businessHours,dayStart,rawInitial,confirmedMessage,runWorker,ProviderError,Gmail} from '../supabase/functions/outreach-queue-worker/worker.mjs';
+import {staticCheck,businessHours,dayStart,rawInitial,confirmedMessage,runWorker,ProviderError,Gmail,QuotaYield} from '../supabase/functions/outreach-queue-worker/worker.mjs';
 import {OWNER,MAILBOX,base64url} from '../supabase/functions/gmail-oauth/handler.mjs';
 const NOW=Date.parse('2026-10-15T16:30:00Z');
 function candidate(id='mi-test',domain='example-school.edu'){
@@ -37,3 +37,7 @@ test('empty searches request resultSizeEstimate instead of masking every respons
 test('a bodyless provider response is not treated as an empty verified mailbox',async()=>{const g=new Gmail('test',async()=>new Response(null,{status:204}));await assert.rejects(g.list('no hits'),/GMAIL_INVALID_JSON/);});
 
 test('Gmail rewritten RFC ID is accepted only with the exact queue header and confirmed body',()=>{const c=candidate();const m=sent(c.queue);m.payload.headers.find(h=>h.name==='Message-ID').value='<google-generated@mail.gmail.com>';assert.equal(!!confirmedMessage(m,c.queue,'<requested@example.com>'),false);m.payload.headers.push({name:'X-Speaking-CRM-Queue',value:c.queue.id});assert.ok(confirmedMessage(m,c.queue,'<requested@example.com>'));m.payload.headers.at(-1).value='another-queue';assert.equal(!!confirmedMessage(m,c.queue,'<requested@example.com>'),false);});
+
+test('Gmail pacing applies current method costs and never exceeds the local budget',async()=>{const delays=[];const g=new Gmail('test',async()=>Response.json({}),{clock:()=>0,delay:async ms=>delays.push(ms),maxUnits:120});await g.full('one');await g.send('raw');assert.deepEqual(delays,[400,2400]);await assert.rejects(g.list('next'),QuotaYield);});
+test('quota yield in a later preflight preserves earlier confirmed sends without a provider pause',async()=>{const f=fixture();f.run.max_sends=2;const next=candidate('mi-next','second-school.edu');next.queue.id='second-id';next.prospect.record.command.spreadGroup='Second-District';f.store.candidates=async()=>[f.c,next];const original=f.gmail.list;f.gmail.list=async query=>{if(query.includes(next.queue.verified_email))throw new QuotaYield();return original(query)};const result=await runWorker(f);assert.equal(result.sent,1);assert.equal(result.stopReason,'GMAIL_API_BUDGET_YIELD');assert.equal(result.providerStopped,false);assert.ok(!f.events.includes('pause'));});
+test('SENT cache failure cannot turn a confirmed send into an ambiguous send',async()=>{const f=fixture();f.store.saveSentCache=async()=>{throw Error('cache unavailable')};const result=await runWorker(f);assert.equal(result.sent,1);assert.equal(result.ambiguous,0);assert.ok(result.cacheWarnings.length);assert.ok(!f.events.includes('hold'));});
