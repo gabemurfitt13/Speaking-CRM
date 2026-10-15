@@ -20,7 +20,7 @@ grant select,insert,update,delete on public.gmail_worker_control,public.gmail_wo
 
 create or replace function public.request_gmail_outreach_worker(p_mode text default 'dry_run',p_max_sends int default 1)
 returns jsonb language plpgsql security invoker set search_path='' as $$
-declare owner_id uuid; run_id uuid; token text; request_id bigint; ctl public.gmail_worker_control%rowtype;
+declare owner_id uuid; run_id uuid; token text; net_request_id bigint; ctl public.gmail_worker_control%rowtype;
 begin
  if current_user<>'postgres' and coalesce(auth.jwt()->>'role','')<>'service_role' then raise exception 'Service role required';end if;
  if p_mode not in ('dry_run','live','audit_claims') or p_max_sends not between 1 and 45 then raise exception 'Invalid worker mode or limit';end if;
@@ -34,9 +34,9 @@ begin
  if exists(select 1 from public.gmail_worker_runs where user_id=owner_id and status in ('requested','running')) then raise exception 'Another worker run is active';end if;
  token:=gen_random_uuid()::text||gen_random_uuid()::text;
  insert into public.gmail_worker_runs(user_id,mode,max_sends,token_hash) values(owner_id,p_mode,p_max_sends,encode(sha256(convert_to(token,'UTF8')),'hex')) returning id into run_id;
- select net.http_post(url:='https://hoyilsqwbdkbxismiatf.supabase.co/functions/v1/outreach-queue-worker',body:=jsonb_build_object('runId',run_id,'runToken',token),headers:=jsonb_build_object('Content-Type','application/json'),timeout_milliseconds:=120000) into request_id;
- update public.gmail_worker_runs set request_id=request_id where id=run_id;
- return jsonb_build_object('runId',run_id,'requestId',request_id,'mode',p_mode,'maxSends',p_max_sends);
+ select net.http_post(url:='https://hoyilsqwbdkbxismiatf.supabase.co/functions/v1/outreach-queue-worker',body:=jsonb_build_object('runId',run_id,'runToken',token),headers:=jsonb_build_object('Content-Type','application/json'),timeout_milliseconds:=120000) into net_request_id;
+ update public.gmail_worker_runs set request_id=net_request_id where id=run_id;
+ return jsonb_build_object('runId',run_id,'requestId',net_request_id,'mode',p_mode,'maxSends',p_max_sends);
 end; $$;
 revoke all on function public.request_gmail_outreach_worker(text,int) from public,anon,authenticated;
 grant execute on function public.request_gmail_outreach_worker(text,int) to service_role;
