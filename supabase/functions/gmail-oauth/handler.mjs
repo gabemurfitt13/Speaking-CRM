@@ -28,7 +28,8 @@ export async function unseal(value, secret) {
 }
 export function createHandler(deps) {
   const {env, store, getUser, fetch: request = fetch, now = () => Date.now()} = deps;
-  const configured = () => env.GOOGLE_CLIENT_ID === CLIENT_ID && !!env.GOOGLE_CLIENT_SECRET && !!env.SUPABASE_SERVICE_ROLE_KEY;
+  const configurationErrors = () => [!env.GOOGLE_CLIENT_ID ? 'GOOGLE_CLIENT_ID_MISSING' : env.GOOGLE_CLIENT_ID !== CLIENT_ID ? 'GOOGLE_CLIENT_ID_MISMATCH' : null, !env.GOOGLE_CLIENT_SECRET ? 'GOOGLE_CLIENT_SECRET_MISSING' : null, !env.SUPABASE_SERVICE_ROLE_KEY ? 'SERVER_KEY_MISSING' : null].filter(Boolean);
+  const configured = () => configurationErrors().length === 0;
   const callback = env.SUPABASE_URL + '/functions/v1/gmail-oauth/callback';
   const headers = {'Content-Type':'application/json', 'Cache-Control':'no-store', 'Referrer-Policy':'no-referrer', 'Access-Control-Allow-Origin':ORIGIN, 'Vary':'Origin', 'Access-Control-Allow-Headers':'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods':'POST, OPTIONS'};
   const json = (body, status=200) => new Response(JSON.stringify(body), {status, headers});
@@ -37,7 +38,7 @@ export function createHandler(deps) {
     const url = new URL(req.url);
     const route = url.pathname.split('/').filter(Boolean).at(-1);
     if (req.method === 'OPTIONS') return req.headers.get('Origin') === ORIGIN ? new Response(null, {status:204, headers}) : json({error:'ORIGIN_NOT_ALLOWED'},403);
-    if (req.method === 'GET' && route === 'health') return json({ok:true, configured:configured(), sendsEmail:false});
+    if (req.method === 'GET' && route === 'health') return json({ok:true, configured:configured(), configurationErrors:configurationErrors(), sendsEmail:false});
     try {
       if (req.method === 'GET' && route === 'callback') {
         if (!configured()) return page('Google client credentials are not configured. No connection was saved.',503);
