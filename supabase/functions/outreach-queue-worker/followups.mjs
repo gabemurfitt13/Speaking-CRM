@@ -15,7 +15,11 @@ export function followupStatic(q,p,now){
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q.verified_email||'')||email(q.verified_email)!==email(p.email))return 'RECIPIENT_CHANGED';
  if(!['high','verified'].includes(email(p.contact_confidence))||!p.contact_source||!p.last_verified||Date.parse(p.last_verified)>now||!Number.isFinite(Date.parse(p.last_verified))||now-Date.parse(p.last_verified)>31*86400000)return 'CONTACT_REVIEW';
  const notes=[p.notes,p.record?.notes,JSON.stringify(p.record?.command?.holds||'')].filter(Boolean).join('\n');
- if(/\bDEFERRED\b|\bWARM\b|\bRECONNECT\b|DO NOT CONTACT|do not send yet|Gabe handles|OSAA|snippet.only|BOUNCED|invalid email|account inactive/i.test(notes))return 'CONTACT_OR_SPECIAL_HOLD';
+ if(/\bDEFERRED\b|\bWARM\b|\bRECONNECT\b|DO NOT CONTACT|do not send yet|Gabe handles|snippet.only|BOUNCED|invalid email|account inactive/i.test(notes))return 'CONTACT_OR_SPECIAL_HOLD';
+ const proof=p.record?.command?.followupContactVerification;
+ let directPublished=false;
+ try{const host=new URL(proof?.source||'').hostname.toLowerCase(),domain=email(p.email).split('@')[1];directPublished=proof?.exactAddressPublished===true&&email(proof.email)===email(q.verified_email)&&proof.source===p.contact_source&&Number.isFinite(Date.parse(proof.checkedAt))&&Date.parse(proof.checkedAt)<=now&&now-Date.parse(proof.checkedAt)<=31*86400000&&(host===domain||host.endsWith('.'+domain));}catch{}
+ if(/OSAA/i.test(notes)&&!directPublished)return 'CONTACT_OR_SPECIAL_HOLD';
  if(/Kamiakin|Meadowdale|Edgemont|Mountlake Terrace|Everett Jackson|Carmichael|Magic Valley|Lapwai|Brindlee|Buena Park|Sonora|Liberty.*Joes/i.test(p.record?.school||'')||/Kennewick|Kuna|Fresno/i.test(p.record?.district||''))return 'SPECIAL_CASE_REVIEW';
  const zones=ZONES[String(p.record?.state||'').toUpperCase()];
  if(!zones)return 'TIMEZONE_UNKNOWN';
