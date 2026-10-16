@@ -6,7 +6,7 @@ export const core=globalThis.CRMThreadedFollowups;
 export function followupStatic(q,p,now){
  if(q.user_id!==OWNER||p.user_id!==OWNER||q.kind!=='follow_up'||!q.review_approved_at)return 'APPROVAL_REQUIRED';
  if(!['held','ready'].includes(q.status)||q.provider_message_id||q.follow_up_thread_id)return 'SEND_EVIDENCE_REVIEW';
- if(q.status==='held'&&!/^Your saved draft is approved\. Original Gmail thread matched[.;].*(?:RATE_LIMIT_EXCEEDED|403|blocked)/i.test(q.hold_reason||''))return 'INTENTIONAL_HOLD';
+ if(q.status==='held'&&q.hold_reason!=='Approved by you; sending blocked: Original Gmail conversation check pending'&&!/^Your saved draft is approved\. Original Gmail thread matched[.;].*(?:RATE_LIMIT_EXCEEDED|403|blocked)/i.test(q.hold_reason||''))return 'INTENTIONAL_HOLD';
  if(q.status==='ready'&&q.hold_reason)return 'INTENTIONAL_HOLD';
  if(!q.follow_up_due||q.follow_up_due>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Boise'}).format(new Date(now)))return 'NOT_DUE';
  if(q.scheduled_at&&Date.parse(q.scheduled_at)>now)return 'NOT_DUE';
@@ -48,6 +48,7 @@ export async function runFollowups({run,store,gmail,now=()=>Date.now(),phase=()=
  const live=run.mode==='followups',started=now(),items=[],cache=new Map(),domainCache=new Map();let sent=0,failed=0,ambiguous=0,inspected=0,providerStopped=false,stopReason=null;
  for(const m of store.sentCache?await store.sentCache(dayStart(now())):[])cache.set(m.id,m);
  let account=await snapshot(gmail,now(),cache);
+ if(store.saveSentCache&&account.messages.length)try{await store.saveSentCache(account.messages);}catch{}
  const base={runId:run.id,mode:run.mode,mailbox:MAILBOX,initialAccountDaily:account.daily,initialAccountHourly:account.hourly};
  if(await store.aiActive()||(await store.claims()).length)return {...base,sent:0,stopped:'Another sending claim requires reconciliation'};
  if(account.daily>=270||account.hourly>=45)return {...base,sent:0,stopped:'Shared sending ceiling reached'};
