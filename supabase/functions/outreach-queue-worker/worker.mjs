@@ -6,7 +6,7 @@ export function district(p){return compact(p.record?.command?.spreadGroup||p.rec
 export function localParts(now,tz){return Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:tz,weekday:'short',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(now)).map(p=>[p.type,p.value]));}
 export function businessHours(now,tz){const p=localParts(now,tz);return !['Sat','Sun'].includes(p.weekday)&&Number(p.hour)>=9&&Number(p.hour)<15;}
 export function dayStart(now){const p=localParts(now,'America/Boise');const midday=Date.UTC(+p.year,+p.month-1,+p.day,12);const h=Number(localParts(midday,'America/Boise').hour);return midday-(h*60+Number(localParts(midday,'America/Boise').minute))*60000;}
-const ZONES={WA:['America/Los_Angeles'],OR:['America/Los_Angeles','America/Boise'],ID:['America/Boise','America/Los_Angeles'],MT:['America/Denver'],CO:['America/Denver'],UT:['America/Denver'],AZ:['America/Phoenix','America/Denver'],CA:['America/Los_Angeles'],TX:['America/Chicago','America/Denver'],AL:['America/Chicago'],MI:['America/Detroit','America/Chicago'],OH:['America/New_York'],FL:['America/New_York','America/Chicago'],WI:['America/Chicago'],TN:['America/Chicago','America/New_York'],MN:['America/Chicago'],MO:['America/Chicago'],IN:['America/Indiana/Indianapolis','America/Chicago'],MD:['America/New_York'],SC:['America/New_York'],NJ:['America/New_York'],GA:['America/New_York'],NM:['America/Denver'],NV:['America/Los_Angeles','America/Boise']};
+export const ZONES={WA:['America/Los_Angeles'],OR:['America/Los_Angeles','America/Boise'],ID:['America/Boise','America/Los_Angeles'],MT:['America/Denver'],CO:['America/Denver'],UT:['America/Denver'],AZ:['America/Phoenix','America/Denver'],CA:['America/Los_Angeles'],TX:['America/Chicago','America/Denver'],AL:['America/Chicago'],MI:['America/Detroit','America/Chicago'],OH:['America/New_York'],FL:['America/New_York','America/Chicago'],WI:['America/Chicago'],TN:['America/Chicago','America/New_York'],MN:['America/Chicago'],MO:['America/Chicago'],IN:['America/Indiana/Indianapolis','America/Chicago'],MD:['America/New_York'],SC:['America/New_York'],NJ:['America/New_York'],GA:['America/New_York'],NM:['America/Denver'],NV:['America/Los_Angeles','America/Boise']};
 const blockedIds=new Set(['wa2-131','wa2-085','wa2-253','wa2-087','wa2-083','co-042','ca-113','nm-041','nv-114','al-544']);
 export function staticCheck(q,p,now){
  if(q.user_id!==OWNER||p.user_id!==OWNER)return 'Wrong account';
@@ -58,7 +58,7 @@ export class Gmail {
  ensureSendBudget(){if(this.maxUnits-this.usedUnits<120)throw new QuotaYield();}
  async pace(path){const cost=path==='messages/send'?100:path.startsWith('threads/')?40:path.startsWith('messages/')?20:path==='profile'?1:5;if(this.usedUnits+cost>this.maxUnits)throw new QuotaYield();this.usedUnits+=cost;const now=this.clock();this.nextAt=Math.max(now,this.nextAt)+cost*20;await this.delay(this.nextAt-now);}
  async api(path,options={}){
-  await this.pace(path);const response=await this.request('https://gmail.googleapis.com/gmail/v1/users/me/'+path,{...options,headers:{Authorization:'Bearer '+this.token,'Content-Type':'application/json',...options.headers},signal:AbortSignal.timeout(15000)});
+  const {beforeRequest,...fetchOptions}=options;await this.pace(path);if(beforeRequest){try{await beforeRequest();}catch(error){error.preSend=true;throw error;}}const response=await this.request('https://gmail.googleapis.com/gmail/v1/users/me/'+path,{...fetchOptions,headers:{Authorization:'Bearer '+this.token,'Content-Type':'application/json',...options.headers},signal:AbortSignal.timeout(15000)});
   if(!response.ok){const body=await response.json().catch(()=>({}));throw new ProviderError(response.status,String(body.error?.errors?.[0]?.reason||body.error?.status||'request_rejected').replace(/[^A-Za-z0-9_]/g,'').slice(0,100), /quota|rate|retry/i.test(body.error?.message||'')?String(body.error.message).slice(0,800):'');}
   const text=await response.text();try{return JSON.parse(text);}catch{throw Error('GMAIL_INVALID_JSON_'+path.split('?')[0]+'_HTTP_'+response.status+'_BYTES_'+text.length);}
  }
@@ -66,7 +66,7 @@ export class Gmail {
  async metadata(id){return this.api('messages/'+encodeURIComponent(id)+'?format=metadata&fields=id,threadId,labelIds,internalDate,payload(headers)&metadataHeaders=To&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Message-ID');}
  async full(id){return this.api('messages/'+encodeURIComponent(id)+'?format=full');}
  async thread(id){return this.api('threads/'+encodeURIComponent(id)+'?format=full');}
- async send(raw){return this.api('messages/send',{method:'POST',body:JSON.stringify({raw})});}
+ async send(raw,beforeRequest,threadId){return this.api('messages/send',{method:'POST',body:JSON.stringify({raw,...(threadId?{threadId}:{})}),beforeRequest});}
 }
 export async function refreshGmail(env,connection,request=fetch){
  const refresh=await unseal(connection.refresh_token_encrypted,env.SUPABASE_SERVICE_ROLE_KEY);
@@ -134,7 +134,7 @@ export async function runWorker({run,store,gmail,now=()=>Date.now(),phase=()=>{}
   const prepared=rawInitial(q,now());let accepted=null,sendStarted=false;
   try{
    await store.intent(claimed,{runId:run.id,rfcMessageId:prepared.rfc,phase:'send_requested',checkedAt:new Date(now()).toISOString()});
-   sendStarted=true;accepted=await gmail.send(prepared.raw);
+   sendStarted=true;accepted=await gmail.send(prepared.raw,store.beforeSend?()=>store.beforeSend(claimed):undefined);
    if(!accepted.id||!accepted.threadId)throw Error('GMAIL_ACCEPTANCE_ID_MISSING');
    await store.accepted(claimed,accepted);
    const confirmed=await gmail.full(accepted.id);
@@ -145,9 +145,10 @@ export async function runWorker({run,store,gmail,now=()=>Date.now(),phase=()=>{}
    items.push({queueId:q.id,schoolId:q.school_id,recipient:q.verified_email,sent:true,messageId:confirmed.id,threadId:confirmed.threadId,sentAt:new Date(Number(confirmed.internalDate)).toISOString()});
   }catch(error){
    const rejected=error instanceof ProviderError&&error.status>=400&&error.status<500&&!accepted;
-   const label=!sendStarted?'FAILED_PRE_SEND':rejected?'FAILED_REJECTED':'AMBIGUOUS_SEND';if(rejected||!sendStarted)failed++;else ambiguous++;
+   const label=(!sendStarted||error.preSend)?'FAILED_PRE_SEND':rejected?'FAILED_REJECTED':'AMBIGUOUS_SEND';if(rejected||!sendStarted||error.preSend)failed++;else ambiguous++;
    await store.hold(claimed,label+': '+error.message+(accepted?.id?'; Gmail accepted ID '+accepted.id:''),accepted);
    items.push({queueId:q.id,schoolId:q.school_id,sent:false,outcome:label,error:error.message,messageId:accepted?.id||null});
+   if(error.preSend){stopReason=error.message;break;}
    if(!rejected||[401,403,429].includes(error.status)){stopReason=label+': '+error.message;providerStopped=true;await store.pause(stopReason);break;}
   }
  }}catch(error){stopReason=error.message;providerStopped=!(error instanceof QuotaYield);items.push({preflightFailed:true,error:error.message});if(providerStopped&&run.mode==='live')await store.pause('PREFLIGHT: '+error.message);}
