@@ -27,7 +27,9 @@ export function followupStatic(q,p,now){
  return null;
 }
 export async function preflight(gmail,q,p,now){
- const found=await gmail.list('in:anywhere "'+q.verified_email+'"',200);
+ const campusContacts=[...new Set([q.verified_email,...[...(p.extra_contacts||[]),...(p.record?.extraContacts||[])].map(c=>c.email)].map(email).filter(a=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a)))];
+ const query=campusContacts.length===1?'"'+campusContacts[0]+'"':'{'+campusContacts.map(a=>'"'+a+'"').join(' ')+'}';
+ const found=await gmail.list('in:anywhere '+query,200);
  if(!found.complete)return {eligible:false,code:'INCOMPLETE_HISTORY',error:'Recipient history exceeds complete review budget'};
  const messages=new Map();for(const x of found.messages)messages.set(x.id,await gmail.full(x.id));
  const ids=new Set([q.original_thread_id,...[...messages.values()].map(x=>x.threadId)]);
@@ -36,14 +38,25 @@ export async function preflight(gmail,q,p,now){
  const match=core.analyze({...p.record,status:p.status,email:p.email},all,q.original_message_id,now);
  if(!match.eligible)return {...match,messageIds:[...messages.keys()]};
  if(match.threadId!==q.original_thread_id||match.subject!==q.approved_subject)return {eligible:false,code:'APPROVED_THREAD_CHANGED',error:'Original thread or exact approved subject differs'};
+ if(all.some(m=>m.id!==original.id&&core.stamp(m)>=core.stamp(original)&&core.labels(m).includes('SENT')&&addresses(header(m,'From')).includes(MAILBOX)&&addresses(header(m,'To')).some(a=>campusContacts.includes(a))))return {eligible:false,code:'CAMPUS_FOLLOWUP_EXISTS',error:'A later outbound message already exists for a saved contact at this school'};
  if(all.some(m=>m.id!==original.id&&core.stamp(m)<core.stamp(original)&&addresses(header(m,'To')).includes(email(q.verified_email))&&core.labels(m).includes('SENT')))return {eligible:false,code:'PRIOR_CONTACT_REVIEW',error:'Earlier exact-address outreach requires reconnect review'};
  return {...match,messageIds:[...messages.keys()],checkedAt:new Date(now).toISOString(),allMailChecked:true,completeThreadChecked:true,recipient:q.verified_email,originalMessageId:match.originalId};
+}
+export function districtRestriction(message){
+ if(/mailer-daemon|postmaster/i.test(header(message,'From'))||/delivery status|undeliverable/i.test(header(message,'Subject')))return false;
+ const text=core.content(message).replace(/<[^>]*>/g,' ').replace(/^>.*$/gm,'').split(/\r?\n(?:On .{0,200}wrote:|From:|-----Original Message-----)/i)[0];
+ const scope=/\bdistrict[ -]*wide\b|\b(?:our|the|this) (?:school )?district\b|\b(?:all|any|every|each|none)(?: of)? (?:our |the |this )?(?:schools|campuses)\b|\bany other (?:schools|campuses)\b/i;
+ const restriction=/\b(?:do not|don't|does not|doesn't|cannot|can't|may not|not (?:allow|accept|permit)|prohibit(?:ed|s)?|no (?:outside|external|guest|speakers)|must (?:go|be)|requir(?:e|es|ed))\b/i;
+ return text.split(/[.!?\n]+/).some(sentence=>scope.test(sentence)&&restriction.test(sentence));
+}
+export function districtWideContextHold(context,key){
+ for(const p of context){const hold=p.record?.command?.districtWideHold;if(district(p)===key&&hold?.active===true&&hold.scope==='district'&&hold.gmailMessageId&&hold.reason)return 'Explicit district-wide hold: '+hold.reason;}
+ return null;
 }
 export async function districtReview(gmail,domain){
  const found=await gmail.list('in:anywhere "'+domain+'" -from:'+MAILBOX,100);
  if(!found.complete||found.messages.length>30)return 'District inbound history needs manual review';
- // A sibling reply is a district hold, never evidence that this campus replied.
- if(found.messages.length)return 'District has inbound correspondence; review sibling conversations before outreach';
+ for(const item of found.messages){const message=await gmail.full(item.id);if(districtRestriction(message))return 'Explicit district-wide instruction in Gmail message '+message.id;}
  return null;
 }
 export function confirmedFollowup(m,q,match){return confirmedMessage(m,q)&&m.threadId===match.threadId&&header(m,'In-Reply-To')===match.rfcMessageId&&header(m,'References').split(/\s+/).includes(match.rfcMessageId);}
@@ -58,13 +71,13 @@ export async function runFollowups({run,store,gmail,now=()=>Date.now(),phase=()=
  if(account.daily>=270||account.hourly>=45)return {...base,sent:0,stopped:'Shared sending ceiling reached'};
  if(!businessHours(now(),'America/Boise'))return {...base,sent:0,stopped:'Outside Boise hours'};
  const bounces=await gmail.list('in:anywhere after:'+Math.floor(dayStart(now())/1000)+' {from:mailer-daemon from:postmaster subject:"Delivery Status Notification" subject:"Undeliverable"}',10);
- if(!bounces.complete||bounces.messages.length>2){if(live)await store.pause('BOUNCE_REVIEW: more than two delivery notices today');return {...base,sent:0,stopped:'Bounce accumulation requires review'};}
+ const reviewedNotices=new Set(await store.reviewedDeliveryNoticeIds?.()||[]);const unreviewedNotices=bounces.messages.filter(x=>!reviewedNotices.has(x.id));
+ if(!bounces.complete||unreviewedNotices.length>2){if(live)await store.pause('BOUNCE_REVIEW: more than two unreviewed delivery notices or incomplete history');return {...base,sent:0,stopped:'Bounce accumulation requires review',deliveryNotices:unreviewedNotices.map(x=>x.id)};}
  const context=await store.context();
- const active=new Map(context.filter(p=>/discussion|booked|not interested|do not contact|try next year|closed/i.test(p.status)||p.status==='No'||p.record?.command?.workflow?.routinePaused).map(p=>[district(p),p.school_id]));
  try{for(const {queue:q,prospect:p} of await store.followupCandidates()){
   if(now()-started>85000||sent>=run.max_sends||(!live&&items.filter(i=>i.eligible).length>=run.max_sends))break;
   inspected++;phase('Follow-up '+q.school_id);let reason=followupStatic(q,p,now());const key=district(p),domain=email(q.verified_email).split('@')[1];
-  if(!reason&&active.has(key))reason='DISTRICT_CONVERSATION_REVIEW: '+active.get(key);
+  if(!reason)reason=districtWideContextHold(context,key);
   if(!reason){if(!domainCache.has(domain))domainCache.set(domain,await districtReview(gmail,domain));if(domainCache.get(domain))reason='DISTRICT_CONVERSATION_REVIEW: '+domainCache.get(domain);}
   let match;if(!reason){match=await preflight(gmail,q,p,now());if(!match.eligible)reason=match.code+': '+(match.error||'Gmail review required');}
   if(reason){items.push({queueId:q.id,schoolId:q.school_id,eligible:false,reason});if(live&&!['OUTSIDE_HOURS','NOT_DUE'].includes(reason))await store.followupReview(q,reason,match);continue;}
@@ -76,7 +89,7 @@ export async function runFollowups({run,store,gmail,now=()=>Date.now(),phase=()=
   let accepted=null,sendStarted=false;
   try{
    await store.intent(claimed,{runId:run.id,phase:'send_requested',originalMessageId:match.originalId,threadId:match.threadId,rfcMessageId:match.rfcMessageId,checkedAt:new Date(now()).toISOString()});
-   sendStarted=true;accepted=await gmail.send(rawFollowup(q,match),async()=>{await store.beforeSend(claimed);const fresh=await preflight(gmail,q,p,now());if(!fresh.eligible||fresh.threadId!==match.threadId||fresh.rfcMessageId!==match.rfcMessageId)throw Error('Thread changed immediately before POST: '+(fresh.code||'identity mismatch'));gmail.ensureSendBudget?.();await store.beforeSend(claimed);},match.threadId);
+   sendStarted=true;accepted=await gmail.send(rawFollowup(q,match),async()=>{await store.beforeSend(claimed);const scopeHold=await districtReview(gmail,domain);if(scopeHold)throw Error('District restriction appeared before POST: '+scopeHold);const fresh=await preflight(gmail,q,p,now());if(!fresh.eligible||fresh.threadId!==match.threadId||fresh.rfcMessageId!==match.rfcMessageId)throw Error('Thread changed immediately before POST: '+(fresh.code||'identity mismatch'));gmail.ensureSendBudget?.();await store.beforeSend(claimed);},match.threadId);
    if(!accepted.id||accepted.threadId!==match.threadId)throw Error('GMAIL_ACCEPTED_THREAD_MISMATCH');
    await store.accepted(claimed,accepted);const confirmed=await gmail.full(accepted.id);
    if(!confirmedFollowup(confirmed,q,match))throw Error('GMAIL_SENT_THREAD_OR_COPY_NOT_CONFIRMED');
@@ -87,3 +100,4 @@ export async function runFollowups({run,store,gmail,now=()=>Date.now(),phase=()=
  }}catch(error){stopReason=error.message;providerStopped=!(error instanceof QuotaYield);if(providerStopped&&live)await store.pause('FOLLOWUP_PREFLIGHT: '+error.message);items.push({preflightFailed:true,error:error.message});}
  return {...base,sent,failed,ambiguous,inspected,providerStopped,stopReason,skipped:items.filter(i=>i.eligible===false).length,apiQuotaUnitsUsed:gmail.usedUnits??null,items};
 }
+
