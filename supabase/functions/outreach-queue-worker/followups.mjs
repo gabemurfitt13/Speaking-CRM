@@ -59,21 +59,18 @@ export async function runFollowups({run,store,gmail,now=()=>Date.now(),phase=()=
  if(!businessHours(now(),'America/Boise'))return {...base,sent:0,stopped:'Outside Boise hours'};
  const bounces=await gmail.list('in:anywhere after:'+Math.floor(dayStart(now())/1000)+' {from:mailer-daemon from:postmaster subject:"Delivery Status Notification" subject:"Undeliverable"}',10);
  if(!bounces.complete||bounces.messages.length>2){if(live)await store.pause('BOUNCE_REVIEW: more than two delivery notices today');return {...base,sent:0,stopped:'Bounce accumulation requires review'};}
- const context=await store.context(),byEmail=new Map(context.map(p=>[email(p.email),district(p)]));
+ const context=await store.context();
  const active=new Map(context.filter(p=>/discussion|booked|not interested|do not contact|try next year|closed/i.test(p.status)||p.status==='No'||p.record?.command?.workflow?.routinePaused).map(p=>[district(p),p.school_id]));
- const today=(key,domain)=>account.messages.some(m=>addresses(header(m,'To')).some(a=>a.split('@')[1]===domain||byEmail.get(a)===key));
  try{for(const {queue:q,prospect:p} of await store.followupCandidates()){
   if(now()-started>85000||sent>=run.max_sends||(!live&&items.filter(i=>i.eligible).length>=run.max_sends))break;
   inspected++;phase('Follow-up '+q.school_id);let reason=followupStatic(q,p,now());const key=district(p),domain=email(q.verified_email).split('@')[1];
   if(!reason&&active.has(key))reason='DISTRICT_CONVERSATION_REVIEW: '+active.get(key);
-  if(!reason&&today(key,domain))reason='DISTRICT_TODAY';
   if(!reason){if(!domainCache.has(domain))domainCache.set(domain,await districtReview(gmail,domain));if(domainCache.get(domain))reason='DISTRICT_CONVERSATION_REVIEW: '+domainCache.get(domain);}
   let match;if(!reason){match=await preflight(gmail,q,p,now());if(!match.eligible)reason=match.code+': '+(match.error||'Gmail review required');}
-  if(reason){items.push({queueId:q.id,schoolId:q.school_id,eligible:false,reason});if(live&&!['OUTSIDE_HOURS','NOT_DUE','DISTRICT_TODAY'].includes(reason))await store.followupReview(q,reason,match);continue;}
+  if(reason){items.push({queueId:q.id,schoolId:q.school_id,eligible:false,reason});if(live&&!['OUTSIDE_HOURS','NOT_DUE'].includes(reason))await store.followupReview(q,reason,match);continue;}
   if(!live){items.push({queueId:q.id,schoolId:q.school_id,recipient:q.verified_email,eligible:true,originalMessageId:match.originalId,threadId:match.threadId});continue;}
   account=await snapshot(gmail,now(),cache);
   if(account.daily>=270||account.hourly>=45){stopReason='Shared sending ceiling reached';break;}
-  if(today(key,domain)){items.push({queueId:q.id,eligible:false,reason:'DISTRICT_TODAY'});continue;}
   gmail.ensureSendBudget?.();
   const claimed=await store.claimFollowup(run,q,account,match);if(!claimed){items.push({queueId:q.id,schoolId:q.school_id,eligible:false,reason:'Approval or claim changed'});continue;}
   let accepted=null,sendStarted=false;
