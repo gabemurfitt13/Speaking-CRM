@@ -13,13 +13,13 @@ begin
  if coalesce(sales->>'revision','0') is distinct from expected_revision then raise exception 'This opportunity changed elsewhere. Reload it before saving; your edits are still here.';end if;
  s:=c->>'status';acts:=coalesce(sales->'activities','[]');
  if jsonb_typeof(acts)<>'array' then raise exception 'Invalid existing activities';end if;
- if operation like 'activity_%' and sales->>'legacyImported' is distinct from 'true' then
+ if operation like 'activity_%' then
   due:=public.crm_workflow_date(coalesce(c->>'followUp',c->>'follow_up'));
-  if due<>'' then acts:=acts||jsonb_build_array(jsonb_build_object('id','legacy','type','email','subject','Follow up','due',due,'note','Existing CRM follow-up','createdAt',now()));end if;
+  if due<>'' and not exists(select 1 from jsonb_array_elements(acts) a where a->>'due'=due) then acts:=acts||jsonb_build_array(jsonb_build_object('id',case when exists(select 1 from jsonb_array_elements(acts) a where a->>'id'='legacy') then 'legacy:'||due else 'legacy' end,'type','email','subject','Follow up','due',due,'note','Existing CRM follow-up','createdAt',now()));end if;
   sales:=sales||jsonb_build_object('legacyImported',true);
  end if;
  case operation
- when 'promote' then sales:=sales||jsonb_build_object('inPipeline',true,'stage',coalesce(nullif(payload->>'stage',''),'Qualified'),'promotedAt',now());
+ when 'promote' then if coalesce(nullif(payload->>'stage',''),'Qualified') not in ('Qualified','Contacted','Conversation','Pricing / Proposal','Decision') then raise exception 'Invalid pipeline stage';end if;sales:=sales||jsonb_build_object('inPipeline',true,'stage',coalesce(nullif(payload->>'stage',''),'Qualified'),'promotedAt',now());
  when 'stage' then
   stage:=payload->>'stage';
   if stage not in ('Qualified','Contacted','Conversation','Pricing / Proposal','Decision','Won','Lost') or stage is null then raise exception 'Invalid pipeline stage';end if;
@@ -29,6 +29,10 @@ begin
   if stage='Won' then s:=case when record_kind='progress' then 'Booked!' else 'Booked' end;
   elsif stage='Lost' then s:=case when record_kind='website_inquiries' then 'Closed' else 'Not Interested' end;cmd:=cmd||jsonb_build_object('outreachPaused',true);sales:=sales||jsonb_build_object('lostReason',coalesce(payload->>'reason',''));
   elsif stage in ('Conversation','Pricing / Proposal','Decision') and record_kind<>'website_inquiries' then s:='In Discussion';end if;
+ when 'reopen' then
+  if coalesce(cmd->>'doNotContact','false')='true' or coalesce(c->>'notes','') ~* 'do not contact|opt.?out|unsubscribe' then raise exception 'This contact has a do-not-contact restriction. Resolve it in the contact record before reopening.';end if;
+  s:=case when record_kind='website_inquiries' then 'Contacted' else 'In Discussion' end;
+  sales:=sales||jsonb_build_object('inPipeline',true,'stage','Conversation','reopenedAt',now());cmd:=cmd||jsonb_build_object('outreachPaused',false);
  when 'activity_add' then
   due:=payload->>'due';if public.crm_workflow_date(due) is distinct from due or nullif(due,'') is null then raise exception 'Choose a valid activity date';end if;
   if payload->>'type' not in ('call','email','meeting','task') or payload->>'type' is null then raise exception 'Invalid activity type';end if;
@@ -44,7 +48,7 @@ begin
   item:=jsonb_build_object('id',gen_random_uuid()::text,'text',trim(payload->>'text'),'createdAt',now());
   sales:=sales||jsonb_build_object('notes',coalesce(sales->'notes','[]')||jsonb_build_array(item));
  when 'details' then
-  if payload ? 'value' then if (payload->>'value')<>'' and ((payload->>'value') !~ '^[0-9]+([.][0-9]{1,2})?$') then raise exception 'Enter a valid non-negative amount';end if;sales:=sales||jsonb_build_object('value',payload->>'value');end if;
+  if payload ? 'value' then if (payload->>'value')<>'' and ((payload->>'value') !~ '^[0-9]+([.][0-9]{1,2})?$') then raise exception 'Enter a valid non-negative amount';end if;sales:=sales||jsonb_build_object('value',payload->>'value');cmd:=cmd||jsonb_build_object('potentialFee',payload->>'value');end if;
   if payload ? 'expectedClose' then if (payload->>'expectedClose')<>'' and public.crm_workflow_date(payload->>'expectedClose') is distinct from payload->>'expectedClose' then raise exception 'Invalid expected booking date';end if;sales:=sales||jsonb_build_object('expectedClose',payload->>'expectedClose');end if;
  else raise exception 'Unknown sales operation';end case;
  if operation like 'activity_%' then
