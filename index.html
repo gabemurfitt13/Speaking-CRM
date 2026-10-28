@@ -11,15 +11,15 @@
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/persistence.js"></script>
-<script src="js/inquiries.js?v=spam-trash-1"></script>
-<script src="js/command-model.js?v=working-pipeline-1"></script>
+<script src="js/inquiries.js?v=unified-1"></script>
+<script src="js/command-model.js?v=unified-1"></script>
 <script src="js/workflow.js?v=1"></script>
 <script src="js/workflow-board.js?v=1"></script>
 <script src="js/threaded-followups.js?v=threaded-school-1"></script>
-<script src="js/command-center.js?v=sales-workspace-1"></script>
-<script src="js/sales-model.js?v=1"></script>
-<script src="js/sales-workspace.js?v=2"></script>
-<link rel="stylesheet" href="js/sales-workspace.css?v=1">
+<script src="js/command-center.js?v=unified-1"></script>
+<script src="js/sales-model.js?v=unified-1"></script>
+<script src="js/sales-workspace.js?v=unified-1"></script>
+<link rel="stylesheet" href="js/sales-workspace.css?v=unified-1">
 <link rel="stylesheet" href="js/inquiries.css?v=1">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -7204,6 +7204,7 @@ SEED = SEED.map(function(s){
 
 const {useState,useEffect,useRef,useCallback,useMemo}=React;
 const STATUS_CFG={
+  'Contacted':{bg:'#eff6ff',color:'#1e40af',border:'#bfdbfe',bar:'#3b82f6'},
   'Not Started':{bg:'#f3f4f6',color:'#374151',border:'#d1d5db',bar:'#9ca3af'},
   'Left Voicemail':{bg:'#fffbeb',color:'#92400e',border:'#fcd34d',bar:'#f59e0b'},
   'Emailed':{bg:'#eff6ff',color:'#1e40af',border:'#bfdbfe',bar:'#3b82f6'},
@@ -7532,8 +7533,8 @@ function ProspectNotes({value,onChange}){
   return <textarea ref={ref} className="field-ta" style={{overflow:'hidden',resize:'none'}} value={value||''} onChange={onChange} placeholder="Add notes..."/>;
 }
 
-function DetailPanel({c,onUpdate,onClose}){
-  const [tab,setTab]=useState('track');
+function DetailPanel({c,onUpdate,onClose,unified=false}){
+  const [tab,setTab]=useState(unified?'contacts':'track');
   const [spokenBefore,setSpokenBefore]=useState(c.spokenBefore||false);
   const [extraContacts,setExtraContacts]=useState(c.extraContacts||[]);
   const [newContact,setNewContact]=useState({name:'',role:'AD',phone:'',email:''});
@@ -7559,7 +7560,7 @@ function DetailPanel({c,onUpdate,onClose}){
   useEffect(()=>{
     setStatus(c.status);setNotes(c.notes);
     setFollowUp(c.followUp||'');setContacted(c.contacted||'');
-    setTab('track');setCopied(false);setShowEditSchool(false);
+    setTab(unified?'contacts':'track');setCopied(false);setShowEditSchool(false);
   },[c.id]);
 
   function save(){onUpdate({...c,status,notes,followUp,contacted,spokenBefore,fee,expenses,students,payStatus,gigDate,extraContacts});showToast('Changes recorded; check cloud save status');}
@@ -7633,7 +7634,7 @@ function DetailPanel({c,onUpdate,onClose}){
         </div>
       </div>
       <div className="det-tabs">
-        {[['track','ti-chart-bar','Track'],['contacts','ti-users','Contacts'],['finance','ti-currency-dollar','Finance'],['email','ti-mail','Email']].map(([v,ic,lb])=>(
+        {(unified?[['contacts','ti-users','Contacts']]:[['track','ti-chart-bar','Track'],['contacts','ti-users','Contacts'],['finance','ti-currency-dollar','Finance'],['email','ti-mail','Email']]).map(([v,ic,lb])=>(
           <button key={v} className={'det-tab'+(tab===v?' active':'')} onClick={()=>setTab(v)}>
             <i className={'ti '+ic} style={{marginRight:4,fontSize:13,verticalAlign:-2}}/>{lb}
           </button>
@@ -7646,8 +7647,8 @@ function DetailPanel({c,onUpdate,onClose}){
             <h5>Status & Tracking</h5>
             <div className="field-group">
               <label>Status</label>
-              <select className="status-sel" value={status} onChange={e=>setStatus(e.target.value)} style={{background:st.bg,color:st.color,borderColor:st.border}}>
-                {STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
+              <select className="status-sel" value={CRMSalesModel.stageOf(c)} onChange={e=>{const next=CRMSalesModel.withStage(c,e.target.value);setStatus(next.status);onUpdate(next);}} style={{background:st.bg,color:st.color,borderColor:st.border}}>
+                {[...CRMSalesModel.stages,'Won','Lost','Deferred'].map(s=><option key={s} value={s}>{CRMSalesModel.labels[s]}</option>)}
               </select>
             </div>
             <div className="field-group">
@@ -7727,7 +7728,7 @@ function DetailPanel({c,onUpdate,onClose}){
           </div>
         </>}
 
-        {tab==='finance'&&<div className="det-sect"><h5>Booking Financials</h5><div className="field-group"><label>Gig Date</label><input type="date" className="inp" value={gigDate} onChange={e=>setGigDate(e.target.value)}/></div><div className="field-group"><label>Fee Charged ($)</label><input type="number" className="inp" placeholder="0.00" value={fee} onChange={e=>setFee(e.target.value)}/></div><div className="field-group"><label>Expenses ($)</label><input type="number" className="inp" placeholder="Travel, hotel, meals..." value={expenses} onChange={e=>setExpenses(e.target.value)}/></div><div className="field-group"><label>Fee Less Expenses</label><div style={{padding:'8px 12px',background:'var(--bg)',borderRadius:'var(--radius)',fontWeight:700,fontSize:15}}>${(parseFloat(fee||0)-parseFloat(expenses||0)).toFixed(2)}</div></div><div className="field-group"><label>Students in Room</label><input type="number" className="inp" placeholder="Attendance" value={students} onChange={e=>setStudents(e.target.value)}/></div>{fee&&students&&parseFloat(students)>0&&<div className="field-group"><label>Cost Per Student</label><div style={{padding:'8px 12px',background:'#f0fdf4',borderRadius:'var(--radius)',fontWeight:700,color:'#166534',fontSize:15}}>${(parseFloat(fee||0)/parseFloat(students||1)).toFixed(2)} per student</div></div>}<div className="field-group"><label>Payment Status</label><select className="sel" style={{width:'100%'}} value={payStatus} onChange={e=>setPayStatus(e.target.value)}>{['Not Invoiced','Invoiced','Received','Overdue'].map(function(s){return <option key={s}>{s}</option>;})}</select></div><button className="btn primary" style={{width:'100%',marginTop:8}} onClick={save}>Save Financials</button></div>}
+        {tab==='finance'&&<div className="det-sect"><h5>Booking Financials</h5><div className="field-group"><label>Gig Date</label><input type="date" className="inp" value={gigDate} onChange={e=>setGigDate(e.target.value)}/></div><div className="field-group"><label>Fee Charged ($)</label><input type="number" className="inp" placeholder="0.00" value={fee} onChange={e=>setFee(e.target.value)}/></div><div className="field-group"><label>Expenses ($)</label><input type="number" className="inp" placeholder="Travel, hotel, meals..." value={expenses} onChange={e=>setExpenses(e.target.value)}/></div><div className="field-group"><label>Fee Less Expenses</label><div style={{padding:'8px 12px',background:'var(--bg)',borderRadius:'var(--radius)',fontWeight:700,fontSize:15}}>${(parseFloat(fee||0)-parseFloat(expenses||0)).toFixed(2)}</div></div><div className="field-group"><label>Students in Room</label><input type="number" className="inp" placeholder="Attendance" value={students} onChange={e=>setStudents(e.target.value)}/></div>{fee&&students&&parseFloat(students)>0&&<div className="field-group"><label>Cost Per Student</label><div style={{padding:'8px 12px',background:'#f0fdf4',borderRadius:'var(--radius)',fontWeight:700,color:'#166534',fontSize:15}}>${(parseFloat(fee||0)/parseFloat(students||1)).toFixed(2)} per student</div></div>}<div className="field-group"><label>Payment Status</label><select className="sel" style={{width:'100%'}} value={payStatus} onChange={e=>setPayStatus(e.target.value)}>{['Not Invoiced','Invoiced','Received','Overdue'].map(function(s){return <option key={s}>{({'Not Started':'Not contacted','Left Voicemail':'Contacted',Emailed:'Contacted (emailed)','In Discussion':'In conversation','Quote Sent':'Proposal sent','Booked!':'Booked'})[s]||s}</option>;})}</select></div><button className="btn primary" style={{width:'100%',marginTop:8}} onClick={save}>Save Financials</button></div>}
         {tab==='email'&&<>
           <div className="tpl-picker">
             {[['initial','First Outreach'],['followup','Follow-up'],['booked','Booking Confirm']].map(([v,l])=>(
@@ -7960,10 +7961,10 @@ function MapView({contacts, onSelect, onUpdate}){
         </div>
         <button className="btn sm" onClick={runMapSearch}><i className="ti ti-map-search"/> Find</button>
         <select className="sel" value={stateF} onChange={function(e){setStateF(e.target.value);}}>
-          {states.map(function(s){return <option key={s}>{s}</option>;})}
+          {states.map(function(s){return <option key={s}>{({'Not Started':'Not contacted','Left Voicemail':'Contacted',Emailed:'Contacted (emailed)','In Discussion':'In conversation','Quote Sent':'Proposal sent','Booked!':'Booked'})[s]||s}</option>;})}
         </select>
         <select className="sel" value={statusF} onChange={function(e){setStatusF(e.target.value);}}>
-          {['All','Not Started','Left Voicemail','Emailed','In Discussion','Booked!','Not Interested','Try Next Year'].map(function(s){return <option key={s}>{s}</option>;})}
+          {['All','Not Started','Left Voicemail','Emailed','In Discussion','Booked!','Not Interested','Try Next Year'].map(function(s){return <option key={s}>{({'Not Started':'Not contacted','Left Voicemail':'Contacted',Emailed:'Contacted (emailed)','In Discussion':'In conversation','Quote Sent':'Proposal sent','Booked!':'Booked'})[s]||s}</option>;})}
         </select>
         <span style={{fontSize:11,color:'var(--text-light)'}}>{mappedCount} schools</span>
       </div>
@@ -7993,7 +7994,7 @@ function MapView({contacts, onSelect, onUpdate}){
                 onUpdate(updated);
                 showToast('Status updated','ti-check');
               }}>
-                {STATUSES.map(function(s){return <option key={s} value={s}>{s}</option>;})}
+                {STATUSES.map(function(s){return <option key={s} value={s}>{({'Not Started':'Not contacted','Left Voicemail':'Contacted',Emailed:'Contacted (emailed)','In Discussion':'In conversation','Quote Sent':'Proposal sent','Booked!':'Booked'})[s]||s}</option>;})}
               </select>
               <button className="btn" style={{width:'100%',marginTop:8,justifyContent:'center',background:info.spokenBefore?'#fef3c7':'var(--bg-card)',borderColor:info.spokenBefore?'#fcd34d':'var(--border)',color:info.spokenBefore?'#92400e':'var(--text)'}} onClick={function(){
                 var updated={...info,spokenBefore:!info.spokenBefore};
@@ -8019,8 +8020,8 @@ function MapView({contacts, onSelect, onUpdate}){
 }
 
 function FinanceDashboard({contacts}){
-  var booked=contacts.filter(function(c){return c.fee&&parseFloat(c.fee)>0;});
-  var totalRev=booked.reduce(function(s,c){return s+parseFloat(c.fee||0);},0);
+  var booked=contacts.filter(function(c){return (Number(c.fee)||0)+(Number(c.command?.workshopFee)||0)>0;});
+  var totalRev=booked.reduce(function(s,c){return s+(parseFloat(c.fee||0)+(Number(c.command?.workshopFee)||0));},0);
   var totalExp=booked.reduce(function(s,c){return s+parseFloat(c.expenses||0);},0);
   var totalNet=totalRev-totalExp;
   var totalStudents=booked.reduce(function(s,c){return s+parseFloat(c.students||0);},0);
@@ -8028,7 +8029,7 @@ function FinanceDashboard({contacts}){
   var byState={};
   booked.forEach(function(c){
     if(!byState[c.state]) byState[c.state]={rev:0,count:0};
-    byState[c.state].rev+=parseFloat(c.fee||0);
+    byState[c.state].rev+=(parseFloat(c.fee||0)+(Number(c.command?.workshopFee)||0));
     byState[c.state].count+=1;
   });
   var stateList=Object.entries(byState).sort(function(a,b){return b[1].rev-a[1].rev;});
@@ -8036,7 +8037,7 @@ function FinanceDashboard({contacts}){
   var invoiced=contacts.filter(function(c){return c.payStatus==='Invoiced';});
   function fmt(n){return '$'+Math.round(n).toLocaleString();}
   var stats=[
-    {label:'Payments Received',val:fmt(booked.filter(c=>c.payStatus==='Received').reduce((sum,c)=>sum+parseFloat(c.fee||0),0)),color:'#166534',bg:'#f0fdf4'},
+    {label:'Payments Received',val:fmt(booked.filter(c=>c.payStatus==='Received').reduce((sum,c)=>sum+(parseFloat(c.fee||0)+(Number(c.command?.workshopFee)||0)),0)),color:'#166534',bg:'#f0fdf4'},
     {label:'Recorded Fees',val:fmt(totalRev),color:'#166534',bg:'#f0fdf4'},
     {label:'Total Expenses',val:fmt(totalExp),color:'#92400e',bg:'#fef3c7'},
     {label:'Fees Less Expenses',val:fmt(totalNet),color:'#1e40af',bg:'#eff6ff'},
@@ -8057,13 +8058,13 @@ function FinanceDashboard({contacts}){
       {overdue.length>0&&(
         <div style={{background:'#fef2f2',border:'1px solid #fecaca',borderRadius:8,padding:'10px 14px',marginBottom:12}}>
           <div style={{fontWeight:700,color:'#dc2626',marginBottom:6}}>Overdue: {overdue.length} payment{overdue.length>1?'s':''}</div>
-          {overdue.map(function(c){return <div key={c.id} style={{fontSize:12,color:'#374151',padding:'2px 0'}}>{c.school} -- {fmt(parseFloat(c.fee||0))}</div>;})}
+          {overdue.map(function(c){return <div key={c.id} style={{fontSize:12,color:'#374151',padding:'2px 0'}}>{c.school} -- {fmt((parseFloat(c.fee||0)+(Number(c.command?.workshopFee)||0)))}</div>;})}
         </div>
       )}
       {invoiced.length>0&&(
         <div style={{background:'#fffbeb',border:'1px solid #fcd34d',borderRadius:8,padding:'10px 14px',marginBottom:12}}>
           <div style={{fontWeight:700,color:'#92400e',marginBottom:6}}>Pending: {invoiced.length} invoice{invoiced.length>1?'s':''}</div>
-          {invoiced.map(function(c){return <div key={c.id} style={{fontSize:12,color:'#374151',padding:'2px 0'}}>{c.school} -- {fmt(parseFloat(c.fee||0))}</div>;})}
+          {invoiced.map(function(c){return <div key={c.id} style={{fontSize:12,color:'#374151',padding:'2px 0'}}>{c.school} -- {fmt((parseFloat(c.fee||0)+(Number(c.command?.workshopFee)||0)))}</div>;})}
         </div>
       )}
       {stateList.length>0&&(
@@ -8108,7 +8109,7 @@ function DistrictView({contacts,stateF,setStateF,setDistrictF,setView}){
       <div className="topbar">
         <span className="topbar-title">District View</span>
         <select className="sel" value={stateF} onChange={function(e){setStateF(e.target.value);setDistrictF('All');}}>
-          {['All',...Array.from(new Set(contacts.map(function(c){return c.state;}).filter(Boolean))).sort()].map(function(s){return <option key={s}>{s}</option>;})}
+          {['All',...Array.from(new Set(contacts.map(function(c){return c.state;}).filter(Boolean))).sort()].map(function(s){return <option key={s}>{({'Not Started':'Not contacted','Left Voicemail':'Contacted',Emailed:'Contacted (emailed)','In Discussion':'In conversation','Quote Sent':'Proposal sent','Booked!':'Booked'})[s]||s}</option>;})}
         </select>
         <span style={{fontSize:11,color:'var(--text-light)',whiteSpace:'nowrap'}}>{districtList.length} districts</span>
       </div>
@@ -8397,7 +8398,7 @@ function App(){
     try{if(window.crmPersistence){window.crmPersistence.save(contacts);window.crmPersistence.flush();}}catch(e){console.error('Local save failed:',e.message);}
   },[contacts,loaded]);
 
-  function updateContact(updated){const next=window.CRMWorkflow?CRMWorkflow.transition(updated,contacts.find(c=>c.id===updated.id)||{}):updated;setContacts(cs=>cs.map(c=>c.id===next.id?next:c));setSelected(next);}
+  function updateContact(updated){if(updated.status==='Try Next Year'&&(!updated.followUp||updated.followUp<=CRMCommand.day(new Date()))){const due=window.prompt('When should this school return to Activities? (YYYY-MM-DD)',(new Date().getFullYear()+1)+'-01-15');if(!due)return;if(!CRMCommand.validDate(due)){alert('Enter a valid date as YYYY-MM-DD');return;}updated={...updated,followUp:due};}updated=CRMSalesModel.reconcile(updated,contacts.find(c=>c.id===updated.id)||{});const next=window.CRMWorkflow?CRMWorkflow.transition(updated,contacts.find(c=>c.id===updated.id)||{}):updated;setContacts(cs=>cs.map(c=>c.id===next.id?next:c));setSelected(next);}
   function addContact(c){setContacts(cs=>[...cs,c]);setShowAdd(false);}
 
   const spokenCount=contacts.filter(c=>c.spokenBefore).length;
@@ -8417,24 +8418,8 @@ function App(){
     return true;
   }).sort((a,b)=>a.priority-b.priority||(a.school>b.school?1:-1)),[contacts,search,statusF,typeF,stateF,districtF,spokenFilter]);
 
-  function openContactFromQueue(c){
-    var found=contacts.find(function(x){return x.id===c.id;});
-    if(!found) return;
-    setSelected(found);
-    setStatusF('All');
-    setTypeF('All');
-    setStateF('All');
-    setDistrictF('All');
-    setSpokenFilter(false);
-    setSearch(c.school||'');
-    setStatusF('All');
-    setTypeF('All');
-    setStateF('All');
-    setDistrictF('All');
-    setSpokenFilter(false);
-    setSelected(c);
-    setView('contacts');
-  }
+  function openContactFromQueue(c){window.crmRequestedRecord='progress:'+c.id;setView('dashboard');window.dispatchEvent(new CustomEvent('crm-open-record',{detail:window.crmRequestedRecord}));}
+  useEffect(()=>{const fn=e=>{window.crmRequestedRecord=e.detail;setView('dashboard');};window.addEventListener('crm-open-record',fn);return()=>window.removeEventListener('crm-open-record',fn);},[]);
 
   return (
     <div className="crm">
@@ -8449,8 +8434,8 @@ function App(){
           {[
             {v:'dashboard',icon:'ti-layout-kanban',label:'Pipeline'},
             {v:'leads',icon:'ti-inbox',label:'Leads inbox'},
-            {v:'activities',icon:'ti-calendar-check',label:'Activities'},
-            {v:'mail',icon:'ti-mail',label:'Mail & approvals'},
+            {v:'activities',icon:'ti-calendar-check',label:'Activities & approvals'},
+            
             {v:'people',icon:'ti-users',label:'Contacts'},
             {v:'reports',icon:'ti-chart-bar',label:'Reports'},
           ].map(({v,icon,label})=>(
@@ -8484,7 +8469,7 @@ function App(){
         {view==='inquiries'&&<WebsiteInquiries client={supabase} uid={window._supabaseUser?.id}/>}
         {['dashboard','leads','activities','people','mail','reports'].includes(view)&&<>
           <div className="topbar"><span className="topbar-title">Speaking CRM</span></div>
-          <div className="content"><SpeakingCommandCenter onNavigate={next=>{setView(next==='pipeline'?'dashboard':next==='contacts'?'people':next);setMobileMenu(false);}} initialTab={view==='dashboard'?'pipeline':view==='people'?'contacts':view} contacts={contacts} client={supabase} uid={window._supabaseUser?.id} onOpenContact={openContactFromQueue} onUpdateContact={updateContact} onInquiries={()=>setView('inquiries')}/></div>
+          <div className="content"><SpeakingCommandCenter renderContact={(record,close)=><div className="sales-full-contact"><DetailPanel key={record.id+':'+record.command?.sales?.revision} c={record} onUpdate={updateContact} onClose={close} unified/></div>} onNavigate={next=>{setView(next==='pipeline'?'dashboard':next==='contacts'?'people':next);setMobileMenu(false);}} initialTab={view==='dashboard'?'pipeline':view==='people'?'contacts':view} contacts={contacts} client={supabase} uid={window._supabaseUser?.id} onOpenContact={openContactFromQueue} onUpdateContact={updateContact} onInquiries={()=>setView('inquiries')}/></div>
         </>}
 
         {view==='queue'&&<>
@@ -8495,10 +8480,10 @@ function App(){
         {view==='contacts'&&<>
           <div className="topbar">
             <div className="srch-wrap"><i className="ti ti-search srch-icon"/><input className="srch" placeholder="Search schools, contacts, cities..." value={search} onChange={e=>setSearch(e.target.value)}/></div>
-            <select className="sel" value={statusF} onChange={e=>setStatusF(e.target.value)}>{['All','Reached Out',...STATUSES].map(s=><option key={s}>{s}</option>)}</select>
+            <select className="sel" value={statusF} onChange={e=>setStatusF(e.target.value)}>{['All','Reached Out',...STATUSES].map(s=><option key={s}>{({'Not Started':'Not contacted','Left Voicemail':'Contacted',Emailed:'Contacted (emailed)','In Discussion':'In conversation','Quote Sent':'Proposal sent','Booked!':'Booked'})[s]||s}</option>)}</select>
             <select className="sel" value={typeF} onChange={e=>setTypeF(e.target.value)}>{['All','High School','Middle/Jr High','Elementary','Business','Church','Conference','Partner / Sponsor','Referral'].map(t=><option key={t}>{t}</option>)}</select>
             <select className="sel" value={stateF} onChange={e=>{setStateF(e.target.value);setDistrictF('All');}}>
-              {['All',...Array.from(new Set(contacts.map(c=>c.state).filter(Boolean))).sort()].map(s=><option key={s}>{s}</option>)}
+              {['All',...Array.from(new Set(contacts.map(c=>c.state).filter(Boolean))).sort()].map(s=><option key={s}>{({'Not Started':'Not contacted','Left Voicemail':'Contacted',Emailed:'Contacted (emailed)','In Discussion':'In conversation','Quote Sent':'Proposal sent','Booked!':'Booked'})[s]||s}</option>)}
             </select>
             <select className="sel" value={districtF} onChange={e=>setDistrictF(e.target.value)}>
               {['All',...Array.from(new Set(contacts.filter(c=>stateF==='All'||c.state===stateF).map(c=>c.district).filter(Boolean))).sort()].map(d=><option key={d}>{d}</option>)}
@@ -8513,7 +8498,7 @@ function App(){
                 :pageRecords(filtered,prospectPage).map(c=><React.Fragment key={c.id}>
                     {selected&&selected.id===c.id
                       ? <DetailPanel key={selected.id} c={selected} onUpdate={updateContact} onClose={()=>setSelected(null)}/>
-                      : <ContactCard c={c} isActive={false} onClick={()=>setSelected(c)} queueStatus={schoolQueue[String(c.id)]||''} queueBusy={!!queueBusyIds[String(c.id)]} onToggleQueue={toggleSchoolQueue}/>}
+                      : <ContactCard c={c} isActive={false} onClick={()=>openContactFromQueue(c)} queueStatus={schoolQueue[String(c.id)]||''} queueBusy={!!queueBusyIds[String(c.id)]} onToggleQueue={toggleSchoolQueue}/>}
                   </React.Fragment>)
               }
               {pageControls(filtered.length,prospectPage,setProspectPage)}
@@ -8530,7 +8515,7 @@ function App(){
                 :pageRecords(fupContacts,followupPage).map(c=><React.Fragment key={c.id}>
                     {selected&&selected.id===c.id
                       ? <DetailPanel key={selected.id} c={selected} onUpdate={updateContact} onClose={()=>setSelected(null)}/>
-                      : <ContactCard c={c} isActive={false} onClick={()=>setSelected(c)} queueStatus={followupQueue[String(c.id)]||''} queueBusy={!!queueBusyIds[String(c.id)]} onToggleQueue={(contact,checked)=>toggleSchoolQueue(contact,checked,'follow_up')}/>}
+                      : <ContactCard c={c} isActive={false} onClick={()=>openContactFromQueue(c)} queueStatus={followupQueue[String(c.id)]||''} queueBusy={!!queueBusyIds[String(c.id)]} onToggleQueue={(contact,checked)=>toggleSchoolQueue(contact,checked,'follow_up')}/>}
                   </React.Fragment>)
               }
               {pageControls(fupContacts.length,followupPage,setFollowupPage)}
@@ -8540,7 +8525,7 @@ function App(){
 
         
         {view==='districts'&&<DistrictView contacts={contacts} stateF={stateF} setStateF={setStateF} setDistrictF={setDistrictF} setView={setView}/>}
-        {view==='map'&&<MapView contacts={contacts} onUpdate={updateContact} onSelect={function(school){setSelected(school);setStateF(school.state||'All');setDistrictF('All');setTypeF('All');setStatusF('All');setSpokenFilter(false);setSearch(school.school||'');setView('contacts');window.setTimeout(function(){var el=document.getElementById('card-'+school.id);if(el)el.scrollIntoView({behavior:'smooth',block:'center'});},300);}}/> }
+        {view==='map'&&<MapView contacts={contacts} onUpdate={updateContact} onSelect={openContactFromQueue}/> }
         {view==='finance'&&(
           <>
             <div className="topbar"><span className="topbar-title">Finance</span></div>

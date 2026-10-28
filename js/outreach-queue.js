@@ -15,8 +15,8 @@
     if (!item.approved_subject || !item.approved_body) return 'Review and save the email draft first.';
     return null;
   };
-  function Queue({client, uid, onlyKind}) {
-    const [rows, setRows] = React.useState([]), [school, setSchool] = React.useState(''), [kind, setKind] = React.useState('initial'), [schools,setSchools]=React.useState([]);
+  function Queue({client, uid, onlyKind,schoolId}) {
+    const [rows, setRows] = React.useState([]), [school, setSchool] = React.useState(schoolId||''), [kind, setKind] = React.useState('initial'), [schools,setSchools]=React.useState([]);
     const [filter, setFilter] = React.useState('review'), [draft, setDraft] = React.useState(null);
     const [schoolSearch,setSchoolSearch]=React.useState('');
     const draftEditorRef=React.useRef(null);React.useEffect(()=>{if(draft&&draftEditorRef.current){draftEditorRef.current.scrollIntoView({behavior:'smooth',block:'center'});draftEditorRef.current.querySelector('input')?.focus({preventScroll:true});}},[draft?.id]);
@@ -94,7 +94,7 @@
     }
     const resolved=item=>['FOLLOWUP_EXISTS','PRIOR_FOLLOWUP_RECORDED','HUMAN_RESPONSE','CRM_SUPPRESSED','RECONNECT_REVIEW','OLD_OUTREACH'].includes(item.thread_check_result);
     const approved=item=>!!item.review_approved_at||['ready','scheduled','sending'].includes(item.status);
-    const inScope=item=>(!onlyKind||item.kind===onlyKind)&&(onlyKind!=='follow_up'||! /^(biz-|church-|conf-|college-)/i.test(item.school_id));
+    const inScope=item=>(!schoolId||String(item.school_id)===String(schoolId))&&(!onlyKind||item.kind===onlyKind)&&(onlyKind!=='follow_up'||! /^(biz-|church-|conf-|college-)/i.test(item.school_id));
     const stageCounts={excluded:rows.filter(x=>inScope(x)&&x.status!=='sent'&&resolved(x)).length,review:rows.filter(x=>inScope(x)&&x.status!=='sent'&&!approved(x)&&!resolved(x)).length,approved:rows.filter(x=>inScope(x)&&x.status!=='sent'&&approved(x)&&!resolved(x)).length,sent:rows.filter(x=>inScope(x)&&x.status==='sent').length,all:rows.filter(inScope).length};
     const counts = Object.fromEntries(states.map(s=>[s,rows.filter(x=>(!onlyKind||x.kind===onlyKind)&&x.status===s).length]));
     const [queueContacts,setQueueContacts]=React.useState([]);

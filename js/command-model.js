@@ -13,10 +13,11 @@ function normalize(c,kind='progress'){
  const closed=['Not Interested','Closed'].includes(c.status);
  const stage=booked?'Booked':closed?'Closed':(x.stage&&x.stage!=='Booked'?x.stage:null)||({'Not Started':'New Lead',New:'New Lead','Left Voicemail':'Contacted',Emailed:'Contacted',Contacted:'Contacted','Follow-up':'Contacted','In Discussion':'Conversation','Quote Sent':'Pricing / Proposal','Try Next Year':'Contacted'}[c.status]||'New Lead');
  const mapped=({'Not Started':'New Lead',New:'New Lead','Left Voicemail':'Contacted',Emailed:'Contacted',Contacted:'Contacted','Follow-up':'Contacted','In Discussion':'Conversation','Quote Sent':'Pricing / Proposal'}[c.status]||'New Lead');
- const resolvedStage=(!booked&&!closed&&stages.indexOf(mapped)>stages.indexOf(stage))?mapped:stage;
+ let resolvedStage=(!booked&&!closed&&stages.indexOf(mapped)>stages.indexOf(stage))?mapped:stage;
+ const canonical=root.CRMSalesModel?.stageOf(c);if(canonical)resolvedStage=({Qualified:'New Lead',Won:'Booked',Lost:'Closed',Deferred:'Contacted'})[canonical]||canonical;
  const tracking=c.tracking||{};const source=x.source||(inquiry?sourceFor(tracking):'Unknown');
  return {id:String(c.id),key:kind+':'+c.id,kind,raw:c,command:x,name:c.school||c.organization||c.name||'Unnamed',market,stage:resolvedStage,booked,closed,source,
-  fee:money(inquiry?x.fee:(c.fee!==''&&c.fee!=null?c.fee:x.fee??(!booked?x.potentialFee:undefined))),date:validDate(inquiry?c.booking_date:c.gigDate||x.eventDate),bookedOn:validDate(x.bookedOn),followUp:validDate(inquiry?c.follow_up:c.followUp),log:c.log||[],created:validDate((c.created_at||x.createdAt||'').slice(0,10)),
+  fee:(()=>{const v=money(inquiry?x.fee:(c.fee!==''&&c.fee!=null?c.fee:x.fee??(!booked?x.potentialFee:undefined)));return v===null?null:v+(money(x.workshopFee)||0);})(),date:validDate(inquiry?c.booking_date:c.gigDate||x.eventDate),bookedOn:validDate(x.bookedOn),followUp:validDate(inquiry?c.follow_up:c.followUp),log:c.log||[],created:validDate((c.created_at||x.createdAt||'').slice(0,10)),
   payStatus:c.payStatus||c.pay_status||x.paymentStatus||'Not Invoiced',location:x.location||c.location||[c.city,c.state].filter(Boolean).join(', '),audience:c.students||c.audience_size||x.audience||'',contact:c.contact||c.email||'',test:/integration-test/i.test(tracking.source||'')};
 }
 function sourceFor(t){const v=(t.utm_source||t.source||'').toLowerCase();if(/organic|google|bing|duckduckgo/.test(v))return 'Google / SEO';if(/facebook|instagram|linkedin|tiktok|youtube|social/.test(v))return 'Social media';if(/referral/.test(v))return 'Referral';if(/partner/.test(v))return 'Partner';if(!v||/direct.*unknown/.test(v))return 'Website (unattributed)';return 'Website: '+(t.utm_source||t.source);}

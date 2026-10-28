@@ -1,7 +1,7 @@
 -- Keep the existing records and sending workflow. This API only edits sales work.
 create or replace function public.save_crm_sales_workspace(record_kind text,record_id text,expected_revision text,operation text,payload jsonb default '{}') returns jsonb
 language plpgsql security invoker set search_path='' as $$
-declare uid uuid:=auth.uid(); c jsonb; cmd jsonb; sales jsonb; acts jsonb; item jsonb; result jsonb; s text; due text; target text; stamp text:=to_char(now() at time zone 'America/Boise','YYYY-MM-DD'); next_due text; activity_id text; stage text;
+declare uid uuid:=auth.uid(); c jsonb; cmd jsonb; sales jsonb; acts jsonb; item jsonb; result jsonb; s text; due text; target text; stamp text:=to_char(now() at time zone 'America/Boise','YYYY-MM-DD'); next_due text; activity_id text; stage text; k text;
 begin
  if uid is null then raise exception 'Sign in before saving';end if;
  if record_kind='progress' then select coalesce(record,'{}')||jsonb_build_object('status',status,'log',coalesce(log,'[]'),'followUp',coalesce(follow_up,'')) into c from public.progress where user_id=uid and school_id=record_id for update;
@@ -22,17 +22,40 @@ begin
  when 'promote' then if coalesce(nullif(payload->>'stage',''),'Qualified') not in ('Qualified','Contacted','Conversation','Pricing / Proposal','Decision') then raise exception 'Invalid pipeline stage';end if;sales:=sales||jsonb_build_object('inPipeline',true,'stage',coalesce(nullif(payload->>'stage',''),'Qualified'),'promotedAt',now());
  when 'stage' then
   stage:=payload->>'stage';
-  if stage not in ('Qualified','Contacted','Conversation','Pricing / Proposal','Decision','Won','Lost') or stage is null then raise exception 'Invalid pipeline stage';end if;
-  if s in ('Not Interested','Closed','Try Next Year') and stage<>'Lost' then raise exception 'This record is closed or deferred. Reopen it in the contact record before moving it.';end if;
+  if stage not in ('Qualified','Contacted','Conversation','Pricing / Proposal','Decision','Won','Lost','Deferred') or stage is null then raise exception 'Invalid pipeline stage';end if;
+  if s in ('Not Interested','Closed','Try Next Year') and stage not in ('Lost','Deferred') then raise exception 'This record is closed or deferred. Reopen it in the contact record before moving it.';end if;
   if s in ('Booked!','Booked','Completed') and stage<>'Won' then raise exception 'A booked engagement must be reopened in the contact record before moving it.';end if;
   sales:=sales||jsonb_build_object('inPipeline',true,'stage',stage,'stageChangedAt',now());
   if stage='Won' then s:=case when record_kind='progress' then 'Booked!' else 'Booked' end;
   elsif stage='Lost' then s:=case when record_kind='website_inquiries' then 'Closed' else 'Not Interested' end;cmd:=cmd||jsonb_build_object('outreachPaused',true);sales:=sales||jsonb_build_object('lostReason',coalesce(payload->>'reason',''));
-  elsif stage in ('Conversation','Pricing / Proposal','Decision') and record_kind<>'website_inquiries' then s:='In Discussion';end if;
+  elsif stage='Deferred' then
+   due:=payload->>'due';if nullif(due,'') is null or public.crm_workflow_date(due) is distinct from due then raise exception 'Choose a date to revisit next year';end if;
+   s:='Try Next Year';cmd:=cmd||jsonb_build_object('outreachPaused',true);acts:=acts||jsonb_build_array(jsonb_build_object('id',gen_random_uuid()::text,'type','task','subject','Reconnect for next year','due',due,'createdAt',now()));sales:=sales||jsonb_build_object('activities',acts);next_due:=due;c:=c||jsonb_build_object('followUp',due,'follow_up',due);
+  elsif stage='Pricing / Proposal' then s:='Quote Sent';
+  elsif stage in ('Conversation','Decision') then s:=case when record_kind='website_inquiries' then 'Contacted' else 'In Discussion' end;
+  elsif stage='Contacted' then s:=case when s='Emailed' then s else 'Contacted' end;
+  elsif stage='Qualified' then s:=case when record_kind='website_inquiries' then 'New' else 'Not Started' end;end if;
+  cmd:=cmd||jsonb_build_object('stage',case stage when 'Qualified' then 'New Lead' when 'Won' then 'Booked' when 'Lost' then 'Closed' when 'Deferred' then 'Contacted' else stage end);
  when 'reopen' then
   if coalesce(cmd->>'doNotContact','false')='true' or coalesce(c->>'notes','') ~* 'do not contact|opt.?out|unsubscribe' then raise exception 'This contact has a do-not-contact restriction. Resolve it in the contact record before reopening.';end if;
   s:=case when record_kind='website_inquiries' then 'Contacted' else 'In Discussion' end;
   sales:=sales||jsonb_build_object('inPipeline',true,'stage','Conversation','reopenedAt',now());cmd:=cmd||jsonb_build_object('outreachPaused',false);
+ when 'link_inquiry' then
+  if record_kind<>'website_inquiries' then raise exception 'Only website inquiries can be linked';end if;
+  target:=payload->>'schoolId';if not exists(select 1 from public.progress where user_id=uid and school_id=target) then raise exception 'Choose an existing school record';end if;
+  cmd:=cmd||jsonb_build_object('linkedRecord','progress:'||target);
+ when 'booking' then
+  foreach k in array array['fee','workshopFee','depositAmount','amountReceived'] loop
+   if payload ? k and coalesce(payload->>k,'')<>'' and payload->>k !~ '^[0-9]+([.][0-9]{1,2})?$' then raise exception 'Enter valid non-negative fees and payments';end if;
+  end loop;
+  foreach k in array array['eventDate','paymentDue'] loop
+   if payload ? k and coalesce(payload->>k,'')<>'' and public.crm_workflow_date(payload->>k) is distinct from payload->>k then raise exception 'Choose a valid date';end if;
+  end loop;
+  if payload->>'contractStatus' not in ('Needed','Sent','Signed') or payload->>'paymentStatus' not in ('Not Invoiced','Invoiced','Received','Overdue') then raise exception 'Invalid contract or payment status';end if;
+  foreach k in array array['fee','workshopFee','workshopDescription','eventDate','eventName','contractStatus','depositAmount','depositReceived','amountReceived','paymentDue','paymentStatus','location','audience'] loop
+   if payload ? k then cmd:=cmd||jsonb_build_object(k,payload->k);end if;
+  end loop;
+  c:=c||jsonb_build_object('fee',coalesce(payload->>'fee',c->>'fee'),'gigDate',coalesce(payload->>'eventDate',c->>'gigDate'),'payStatus',coalesce(payload->>'paymentStatus',c->>'payStatus'));
  when 'activity_add' then
   due:=payload->>'due';if public.crm_workflow_date(due) is distinct from due or nullif(due,'') is null then raise exception 'Choose a valid activity date';end if;
   if payload->>'type' not in ('call','email','meeting','task') or payload->>'type' is null then raise exception 'Invalid activity type';end if;
@@ -58,9 +81,9 @@ begin
  end if;
  sales:=sales||jsonb_build_object('revision',gen_random_uuid()::text,'updatedAt',now());
  cmd:=cmd||jsonb_build_object('sales',sales);c:=c||jsonb_build_object('command',cmd,'status',s);
- if record_kind='progress' then update public.progress set record=c,status=s,follow_up=case when operation like 'activity_%' then next_due else follow_up end where user_id=uid and school_id=record_id returning record into result;
- elsif record_kind='leads' then update public.leads l set command=cmd,status=s,follow_up=case when operation like 'activity_%' then next_due else l.follow_up end where user_id=uid and id::text=record_id returning to_jsonb(l) into result;
- else update public.website_inquiries i set command=cmd,status=s,follow_up=case when operation like 'activity_%' then nullif(next_due,'')::date else i.follow_up end where user_id=uid and id::text=record_id returning to_jsonb(i) into result;end if;
+ if record_kind='progress' then update public.progress set record=c,status=s,fee=case when operation='booking' then c->>'fee' else fee end,gig_date=case when operation='booking' then c->>'gigDate' else gig_date end,pay_status=case when operation='booking' then c->>'payStatus' else pay_status end,follow_up=case when operation like 'activity_%' or (operation='stage' and stage='Deferred') then next_due else follow_up end where user_id=uid and school_id=record_id returning record into result;
+ elsif record_kind='leads' then update public.leads l set command=cmd,status=s,follow_up=case when operation like 'activity_%' or (operation='stage' and stage='Deferred') then next_due else l.follow_up end where user_id=uid and id::text=record_id returning to_jsonb(l) into result;
+ else update public.website_inquiries i set command=cmd,status=s,booking_date=case when operation='booking' then nullif(cmd->>'eventDate','')::date else i.booking_date end,follow_up=case when operation like 'activity_%' or (operation='stage' and stage='Deferred') then nullif(next_due,'')::date else i.follow_up end where user_id=uid and id::text=record_id returning to_jsonb(i) into result;end if;
  insert into public.crm_activity(user_id,record_kind,record_id,event_type,event_key,details) values(uid,record_kind,record_id,'sales_'||operation,'sales:'||(sales->>'revision'),jsonb_build_object('operation',operation,'payload',payload));
  return result;
 end $$;
