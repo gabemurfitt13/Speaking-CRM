@@ -144,3 +144,35 @@ The user explicitly authorized uploading the implementation to
 The changes are prepared on `codex/speaking-command-center`. All three additive
 database migrations are applied. The production frontend remains unchanged until
 the pull request is merged and the existing hosting deployment completes.
+
+## Sales workspace (October 28, 2026)
+
+The home screen is an opportunity pipeline with Qualified, Contacted, Conversation,
+Pricing / Proposal, and Decision stages. Won and Lost have separate filters.
+Drag a card or use its stage selector; stage placement never logs a fictitious send.
+Untouched and cold-emailed contacts remain in Leads until promoted. Existing active
+conversations and website inquiries appear as opportunities without rewriting data.
+
+Open an opportunity for contacts, recorded email history with Gmail links, notes,
+expected value/date, and next activities. Schedule calls, emails, meetings or tasks.
+Completing an email activity completes the reminder only; Mail & approvals retains
+all existing exact-copy approvals and server Gmail sending checks. No sending
+settings, credentials, limits, workers, or pending approvals are modified by this UI.
+
+`db/sales-workspace.sql` adds one security-invoker, owner-scoped RPC using existing
+record.command.sales metadata. Writes lock the latest row, merge only requested
+fields and reject stale sales revisions. Activities import an existing follow-up
+once and synchronize the next unfinished activity with the existing follow-up date.
+Expected values also update existing potentialFee for report compatibility. Activity
+completion, notes and manual stages are recorded separately from confirmed emails.
+Won/Lost update existing statuses and invoke the existing outreach suppression.
+Explicit reopen preserves do-not-contact restrictions and resumes in Discussion.
+
+This preserves the existing one-current-opportunity-per-organization data model;
+it does not create independent repeat-event deal records or full mailbox storage.
+Full legacy contact, financial, website inquiry and map tools remain in More tools.
+
+Validation: `node --test tests/*.test.cjs`; rollback-only authenticated database
+checks for promotion, activities, stale revisions, retained contact/history fields,
+Won/Lost and owner isolation. `tests/fixtures/sales-workspace.html` is an isolated
+fictional-data browser fixture: it never reads or writes production CRM records.

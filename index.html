@@ -16,7 +16,10 @@
 <script src="js/workflow.js?v=1"></script>
 <script src="js/workflow-board.js?v=1"></script>
 <script src="js/threaded-followups.js?v=threaded-school-1"></script>
-<script src="js/command-center.js?v=threaded-school-1"></script>
+<script src="js/command-center.js?v=sales-workspace-1"></script>
+<script src="js/sales-model.js?v=1"></script>
+<script src="js/sales-workspace.js?v=2"></script>
+<link rel="stylesheet" href="js/sales-workspace.css?v=1">
 <link rel="stylesheet" href="js/inquiries.css?v=1">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -8444,19 +8447,20 @@ function App(){
         </div>
         <div className="sid-nav">
           {[
-            {v:'dashboard',icon:'ti-layout-dashboard',label:'Command Center'},
-            {v:'inquiries',icon:'ti-inbox',label:'Website Inquiries'},
-            {v:'queue',icon:'ti-bolt',label:'Outreach Queue'},
-            {v:'contacts',icon:'ti-building-school',label:'All Prospects'},
-            {v:'followups',icon:'ti-bell',label:'Follow-ups'+(fupCount>0?` (${fupCount})`:'')},
-            {v:'districts',icon:'ti-building-community',label:'District View'},
-            {v:'finance',icon:'ti-chart-bar',label:'Finance'},
-            {v:'map',icon:'ti-map-pin',label:'Map View'},
+            {v:'dashboard',icon:'ti-layout-kanban',label:'Pipeline'},
+            {v:'leads',icon:'ti-inbox',label:'Leads inbox'},
+            {v:'activities',icon:'ti-calendar-check',label:'Activities'},
+            {v:'mail',icon:'ti-mail',label:'Mail & approvals'},
+            {v:'people',icon:'ti-users',label:'Contacts'},
+            {v:'reports',icon:'ti-chart-bar',label:'Reports'},
           ].map(({v,icon,label})=>(
             <button key={v} className={'nav-btn'+(view===v?' active':'')} onClick={()=>{if((window.crmInquiryDirty||window.crmCommandDirty)&&!window.confirm('Discard unsaved inquiry changes?'))return;setMobileMenu(false);setView(v);if(v==='contacts'){setSearch('');setSelected(null);setStateF('All');setDistrictF('All');setTypeF('All');setStatusF('All');setSpokenFilter(false);}}}>
               <i className={'ti '+icon}/>{label}
             </button>
           ))}
+          <details style={{marginTop:12}}><summary style={{padding:'8px 10px',cursor:'pointer',fontSize:12}}>More tools</summary>
+            {[{v:'inquiries',label:'Website inquiries'},{v:'contacts',label:'All contact records'},{v:'districts',label:'Districts'},{v:'finance',label:'Finance'},{v:'map',label:'Map'}].map(({v,label})=><button key={v} className={'nav-btn'+(view===v?' active':'')} onClick={()=>{if((window.crmInquiryDirty||window.crmCommandDirty)&&!window.confirm('Discard unsaved changes?'))return;setMobileMenu(false);setView(v);}}>{label}</button>)}
+          </details>
           <div className="nav-divider"/>
           <button className="nav-btn" onClick={()=>{setMobileMenu(false);setShowAdd(true);}}><i className="ti ti-plus"/>Add Prospect</button>
           <div className="nav-divider"/>
@@ -8478,9 +8482,9 @@ function App(){
 
       <div className="main">
         {view==='inquiries'&&<WebsiteInquiries client={supabase} uid={window._supabaseUser?.id}/>}
-        {view==='dashboard'&&<>
-          <div className="topbar"><span className="topbar-title">Command Center</span></div>
-          <div className="content"><SpeakingCommandCenter contacts={contacts} client={supabase} uid={window._supabaseUser?.id} onOpenContact={openContactFromQueue} onUpdateContact={updateContact} onInquiries={()=>setView('inquiries')}/></div>
+        {['dashboard','leads','activities','people','mail','reports'].includes(view)&&<>
+          <div className="topbar"><span className="topbar-title">Speaking CRM</span></div>
+          <div className="content"><SpeakingCommandCenter onNavigate={next=>{setView(next==='pipeline'?'dashboard':next==='contacts'?'people':next);setMobileMenu(false);}} initialTab={view==='dashboard'?'pipeline':view==='people'?'contacts':view} contacts={contacts} client={supabase} uid={window._supabaseUser?.id} onOpenContact={openContactFromQueue} onUpdateContact={updateContact} onInquiries={()=>setView('inquiries')}/></div>
         </>}
 
         {view==='queue'&&<>
