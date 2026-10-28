@@ -19,3 +19,12 @@ test('inquiry saves only workflow fields, scopes owner/id, and requires a return
   const denied={from(){return{update(){return this;},eq(){return this;},select(){return this;},single(){return Promise.resolve({error:Error('no row')});}};}};
   await assert.rejects(save(denied,'owner','inquiry',{status:'New',organization_type:'School'}),/no row/);
 });
+
+test('removed inquiries stay out of active work but remain restorable',async()=>{
+ const api=require('../js/inquiries.js'),rows=[{id:'ok'},{id:'spam',command:{crmModeration:{state:'spam'}}},{id:'trash',command:{crmModeration:{state:'trash'}}}];
+ const q={select(){return this},eq(){return this},order(){return this},range:async()=>({data:rows})};
+ assert.deepEqual((await api.list({from:()=>q},'owner')).map(r=>r.id),['ok']);
+ assert.equal((await api.list({from:()=>q},'owner',true)).length,3);
+ let args;assert.equal((await api.moderate({rpc:async(n,p)=>{args=p;return {data:rows[1]}}},'spam','restore')).id,'spam');assert.deepEqual(args,{inquiry_id:'spam',action:'restore'});
+ await assert.rejects(api.moderate({rpc:async()=>({error:Error('denied')})},'spam','trash'),/denied/);
+});
