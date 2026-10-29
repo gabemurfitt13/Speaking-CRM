@@ -43,6 +43,16 @@ test('failed cloud load does not overwrite local pending work',async()=>{
  h.client.from=()=>({select(){return this},eq(){return this},order(){return this},range:async()=>({error:new Error('denied')})});
  const p=create(h.client,h.storage,'u',[],()=>{});await assert.rejects(p.load(),/denied/);assert.equal(JSON.parse(h.storage.getItem('gabe-crm-v4:u')).pending['1'].notes,'unsynced');
 });
+test('record.infoSent round-trips through the saved contact and is not dropped by column fields',()=>{
+ const c={id:'1',school:'School',status:'Emailed',infoSent:true,notes:'Keep'};
+ const written=rowFor(c,'u');
+ assert.equal(written.record.infoSent,true);
+ assert.equal(written.status,'Emailed');
+ const loaded=restore([{id:'1',school:'School',status:'Not Started'}],[{...written,status:'Emailed',notes:'Keep'}],{})[0];
+ assert.equal(loaded.infoSent,true);
+ assert.equal(loaded.status,'Emailed');
+ assert.equal(loaded.notes,'Keep');
+});
 test('legacy contact columns survive loading and full-record writes',()=>{
  const row={school_id:'1',extra_contacts:[{name:'Existing adviser'}],sca_email:'adviser@example.com',contact_confidence:'VERIFIED',contact_source:'Directory',last_verified:'2026-09-01',manual_score:'7'};
  const c=restore([{id:'1',school:'School'}],[row],{})[0];

@@ -18,8 +18,8 @@
 <script src="js/threaded-followups.js?v=threaded-school-1"></script>
 <script src="js/command-center.js?v=unified-1"></script>
 <script src="js/sales-model.js?v=unified-1"></script>
-<script src="js/sales-workspace.js?v=unified-1"></script>
-<link rel="stylesheet" href="js/sales-workspace.css?v=unified-1">
+<script src="js/sales-workspace.js?v=info-sent-1"></script>
+<link rel="stylesheet" href="js/sales-workspace.css?v=info-sent-1">
 <link rel="stylesheet" href="js/inquiries.css?v=1">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -7459,6 +7459,9 @@ function Pill({status}){
   const s=STATUS_CFG[status]||STATUS_CFG['Not Started'];
   return <span className="pill" style={{background:s.bg,color:s.color,borderColor:s.border}}>{status}</span>;
 }
+function InfoSentBadge(){
+  return <span className="pill" style={{background:'#eff6ff',color:'#1e40af',borderColor:'#bfdbfe'}}>Info sent</span>;
+}
 function PriBadge({p}){
   const cls=['pri-1','pri-2','pri-3','pri-4','pri-5'][(p||1)-1]||'pri-5';
   const lbl=['6A','5A','4A','3A','2A'][p-1]||'';
@@ -7494,7 +7497,10 @@ function ContactCard({c,isActive,onClick,queueStatus,onToggleQueue,queueBusy}){
     <div id={'card-'+c.id} className={'c-card'+(isActive?' active':'')} onClick={onClick}>
       <div className="c-card-top">
         <h4>{c.school}{c.spokenBefore&&<span style={{marginLeft:6,fontSize:9,background:'#fef3c7',color:'#92400e',border:'1px solid #fcd34d',borderRadius:3,padding:'1px 5px',fontWeight:700,verticalAlign:'middle'}}>[STAR] SPOKEN</span>}</h4>
-        <Pill status={c.status}/>
+        <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',justifyContent:'flex-end'}}>
+          <Pill status={c.status}/>
+          {c.infoSent===true&&<InfoSentBadge/>}
+        </div>
       </div>
       <div className="c-card-meta">
         <span className="badge">{c.type}</span>
@@ -7631,6 +7637,7 @@ function DetailPanel({c,onUpdate,onClose,unified=false}){
           <span className="badge">{c.city}{c.state?`, ${c.state}`:''}</span>
           <span className="badge">{c.cls}</span>
           <span className="badge">{c.district}</span>
+          {c.infoSent===true&&<InfoSentBadge/>}
         </div>
       </div>
       <div className="det-tabs">
@@ -7646,7 +7653,7 @@ function DetailPanel({c,onUpdate,onClose,unified=false}){
           <div className="det-sect">
             <h5>Status & Tracking</h5>
             <div className="field-group">
-              <label>Status</label>
+              <label style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>Status{c.infoSent===true&&<InfoSentBadge/>}</label>
               <select className="status-sel" value={CRMSalesModel.stageOf(c)} onChange={e=>{const next=CRMSalesModel.withStage(c,e.target.value);setStatus(next.status);onUpdate(next);}} style={{background:st.bg,color:st.color,borderColor:st.border}}>
                 {[...CRMSalesModel.stages,'Won','Lost','Deferred'].map(s=><option key={s} value={s}>{CRMSalesModel.labels[s]}</option>)}
               </select>
@@ -7688,6 +7695,7 @@ function DetailPanel({c,onUpdate,onClose,unified=false}){
 
         {tab==='contacts'&&<>
           <div className="det-sect">
+            {unified&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10,flexWrap:'wrap'}}><Pill status={c.status}/>{c.infoSent===true&&<InfoSentBadge/>}</div>}
             <h5>Contacts</h5>
             {schoolContacts(c,extraContacts).map(function(ct,i){return (
               <div key={i} style={{background:'var(--bg)',borderRadius:8,padding:'10px 12px',marginBottom:8,border:'1px solid var(--border)'}}>
@@ -7881,7 +7889,8 @@ function MapView({contacts, onSelect, onUpdate}){
     var filtered=contacts.filter(function(c){
       if(!c.lat||!c.lon) return false;
       if(stateF!=='All'&&c.state!==stateF) return false;
-      if(statusF!=='All'&&c.status!==statusF) return false;
+      if(statusF==='Info sent'&&c.infoSent!==true) return false;
+      if(statusF!=='All'&&statusF!=='Info sent'&&c.status!==statusF) return false;
       return true;
     });
 
@@ -7908,7 +7917,7 @@ function MapView({contacts, onSelect, onUpdate}){
   },[contacts,stateF,statusF]);
 
   var states=['All',...Array.from(new Set(contacts.filter(function(c){return c.lat;}).map(function(c){return c.state;}))).sort()];
-  var mappedCount=contacts.filter(function(c){return c.lat&&(stateF==='All'||c.state===stateF)&&(statusF==='All'||c.status===statusF);}).length;
+  var mappedCount=contacts.filter(function(c){return c.lat&&(stateF==='All'||c.state===stateF)&&(statusF==='All'||(statusF==='Info sent'?c.infoSent===true:c.status===statusF));}).length;
   var normalizedMapSearch=mapSearch.trim().toLowerCase();
   var mapSearchMatches=normalizedMapSearch?contacts.filter(function(c){
     if(!c.lat||!c.lon) return false;
@@ -7964,7 +7973,7 @@ function MapView({contacts, onSelect, onUpdate}){
           {states.map(function(s){return <option key={s}>{({'Not Started':'Not contacted','Left Voicemail':'Contacted',Emailed:'Contacted (emailed)','In Discussion':'In conversation','Quote Sent':'Proposal sent','Booked!':'Booked'})[s]||s}</option>;})}
         </select>
         <select className="sel" value={statusF} onChange={function(e){setStatusF(e.target.value);}}>
-          {['All','Not Started','Left Voicemail','Emailed','In Discussion','Booked!','Not Interested','Try Next Year'].map(function(s){return <option key={s}>{({'Not Started':'Not contacted','Left Voicemail':'Contacted',Emailed:'Contacted (emailed)','In Discussion':'In conversation','Quote Sent':'Proposal sent','Booked!':'Booked'})[s]||s}</option>;})}
+          {['All','Info sent','Not Started','Left Voicemail','Emailed','In Discussion','Booked!','Not Interested','Try Next Year'].map(function(s){return <option key={s}>{({'Not Started':'Not contacted','Left Voicemail':'Contacted',Emailed:'Contacted (emailed)','In Discussion':'In conversation','Quote Sent':'Proposal sent','Booked!':'Booked'})[s]||s}</option>;})}
         </select>
         <span style={{fontSize:11,color:'var(--text-light)'}}>{mappedCount} schools</span>
       </div>
@@ -7980,10 +7989,11 @@ function MapView({contacts, onSelect, onUpdate}){
             {info.contact&&<div style={{fontSize:12,fontWeight:600,marginBottom:2}}>{info.contact}</div>}
             {info.phone&&<div style={{marginBottom:2}}><a href={'tel:'+info.phone} style={{fontSize:12,color:'var(--accent)'}}>{info.phone}</a></div>}
             {info.spokenBefore&&<div style={{fontSize:11,background:'#fef3c7',color:'#92400e',padding:'2px 8px',borderRadius:4,marginBottom:6,display:'inline-block'}}>\u2b50 Spoken Here</div>}
-            <div style={{marginBottom:10}}>
+            <div style={{marginBottom:10,display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
               <span style={{fontSize:11,padding:'2px 8px',borderRadius:4,fontWeight:600,
                 background:info.status==='Booked!'?'#f0fdf4':info.status==='Not Started'?'#f3f4f6':'#eff6ff',
                 color:info.status==='Booked!'?'#166534':'#374151'}}>{info.status}</span>
+              {info.infoSent===true&&<InfoSentBadge/>}
             </div>
             {info.notes&&<div style={{fontSize:11,color:'var(--text-muted)',marginBottom:10,fontStyle:'italic'}}>{info.notes.slice(0,80)}</div>}
             <div style={{borderTop:'1px solid var(--border)',paddingTop:10,marginTop:8,marginBottom:10}}>
@@ -8398,7 +8408,7 @@ function App(){
     try{if(window.crmPersistence){window.crmPersistence.save(contacts);window.crmPersistence.flush();}}catch(e){console.error('Local save failed:',e.message);}
   },[contacts,loaded]);
 
-  function updateContact(updated){if(updated.status==='Try Next Year'&&(!updated.followUp||updated.followUp<=CRMCommand.day(new Date()))){const due=window.prompt('When should this school return to Activities? (YYYY-MM-DD)',(new Date().getFullYear()+1)+'-01-15');if(!due)return;if(!CRMCommand.validDate(due)){alert('Enter a valid date as YYYY-MM-DD');return;}updated={...updated,followUp:due};}updated=CRMSalesModel.reconcile(updated,contacts.find(c=>c.id===updated.id)||{});const next=window.CRMWorkflow?CRMWorkflow.transition(updated,contacts.find(c=>c.id===updated.id)||{}):updated;setContacts(cs=>cs.map(c=>c.id===next.id?next:c));setSelected(next);}
+  function updateContact(updated){const previous=contacts.find(c=>c.id===updated.id)||{};if(updated.infoSent===undefined&&previous.infoSent!==undefined)updated={...updated,infoSent:previous.infoSent};if(updated.status==='Try Next Year'&&(!updated.followUp||updated.followUp<=CRMCommand.day(new Date()))){const due=window.prompt('When should this school return to Activities? (YYYY-MM-DD)',(new Date().getFullYear()+1)+'-01-15');if(!due)return;if(!CRMCommand.validDate(due)){alert('Enter a valid date as YYYY-MM-DD');return;}updated={...updated,followUp:due};}updated=CRMSalesModel.reconcile(updated,previous);const next=window.CRMWorkflow?CRMWorkflow.transition(updated,previous):updated;setContacts(cs=>cs.map(c=>c.id===next.id?next:c));setSelected(next);}
   function addContact(c){setContacts(cs=>[...cs,c]);setShowAdd(false);}
 
   const spokenCount=contacts.filter(c=>c.spokenBefore).length;
@@ -8409,8 +8419,9 @@ function App(){
   const filtered=useMemo(()=>contacts.filter(c=>{
     const q=search.toLowerCase();
     if(q&&![c.school,c.contact,c.city,c.state,c.district].some(v=>(v||'').toLowerCase().includes(q)))return false;
+    if(statusF==='Info sent'&&c.infoSent!==true)return false;
     if(statusF==='Reached Out'&&!isReachedOut(c))return false;
-    if(statusF!=='All'&&statusF!=='Reached Out'&&c.status!==statusF)return false;
+    if(statusF!=='All'&&statusF!=='Reached Out'&&statusF!=='Info sent'&&c.status!==statusF)return false;
     if(typeF!=='All'&&c.type!==typeF)return false;
     if(stateF!=='All'&&c.state!==stateF)return false;
     if(districtF!=='All'&&c.district!==districtF)return false;
@@ -8480,7 +8491,7 @@ function App(){
         {view==='contacts'&&<>
           <div className="topbar">
             <div className="srch-wrap"><i className="ti ti-search srch-icon"/><input className="srch" placeholder="Search schools, contacts, cities..." value={search} onChange={e=>setSearch(e.target.value)}/></div>
-            <select className="sel" value={statusF} onChange={e=>setStatusF(e.target.value)}>{['All','Reached Out',...STATUSES].map(s=><option key={s}>{({'Not Started':'Not contacted','Left Voicemail':'Contacted',Emailed:'Contacted (emailed)','In Discussion':'In conversation','Quote Sent':'Proposal sent','Booked!':'Booked'})[s]||s}</option>)}</select>
+            <select className="sel" value={statusF} onChange={e=>setStatusF(e.target.value)}>{['All','Reached Out','Info sent',...STATUSES].map(s=><option key={s}>{({'Not Started':'Not contacted','Left Voicemail':'Contacted',Emailed:'Contacted (emailed)','In Discussion':'In conversation','Quote Sent':'Proposal sent','Booked!':'Booked'})[s]||s}</option>)}</select>
             <select className="sel" value={typeF} onChange={e=>setTypeF(e.target.value)}>{['All','High School','Middle/Jr High','Elementary','Business','Church','Conference','Partner / Sponsor','Referral'].map(t=><option key={t}>{t}</option>)}</select>
             <select className="sel" value={stateF} onChange={e=>{setStateF(e.target.value);setDistrictF('All');}}>
               {['All',...Array.from(new Set(contacts.map(c=>c.state).filter(Boolean))).sort()].map(s=><option key={s}>{({'Not Started':'Not contacted','Left Voicemail':'Contacted',Emailed:'Contacted (emailed)','In Discussion':'In conversation','Quote Sent':'Proposal sent','Booked!':'Booked'})[s]||s}</option>)}
