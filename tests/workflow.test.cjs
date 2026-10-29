@@ -44,9 +44,9 @@ test('deferred and suppressed records do not enter ready',()=>{
  assert.equal(W.state({...verified,notes:'Do not contact'},day).lane,'paused');
 });
 test('transitions preserve contact data, notes, manual future dates, and unrelated metadata',()=>{
- const prev={...verified,notes:'Keep notes',extraContacts:[{name:'Second'}],followUp:'2026-11-03',command:{source:'Referral'}};
+ const prev={...verified,notes:'Keep notes',extraContacts:[{name:'Second'}],followUp:'2026-11-03',infoSent:true,command:{source:'Referral'}};
  const next=W.transition({...prev,status:'Emailed',log:[{type:'Email sent',date:day}]},prev,day);
- assert.equal(next.notes,prev.notes);assert.deepEqual(next.extraContacts,prev.extraContacts);assert.equal(next.followUp,prev.followUp);assert.equal(next.command.source,'Referral');
+ assert.equal(next.notes,prev.notes);assert.deepEqual(next.extraContacts,prev.extraContacts);assert.equal(next.followUp,prev.followUp);assert.equal(next.command.source,'Referral');assert.equal(next.infoSent,true);
 });
 test('website inquiries and snake-case lead fields participate in workflow',()=>{
  assert.equal(W.state({status:'New',command:{}},day,'website_inquiries').lane,'respond');
