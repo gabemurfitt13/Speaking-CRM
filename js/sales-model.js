@@ -22,6 +22,12 @@ function model(c,kind='progress',today=''){
 }
 function combine(records){const linked=new Set();const targets=new Map(records.map(r=>[r.key,r]));for(const r of records){const target=targets.get(r.command.linkedRecord);if(!target||r.kind!=='website_inquiries')continue;linked.add(r.key);target.log=[...target.log,...r.log,{type:'Website inquiry',date:r.raw.created_at||'',note:[r.name,r.person,r.email,r.raw.details].filter(Boolean).join(' · ')}];target.extraContacts=[...target.extraContacts,...(r.email&&r.email!==target.email?[{name:r.person,email:r.email,phone:r.phone,role:'Website inquiry'}]:[])];target.activities=[...target.activities,...r.activities];target.pending=[...target.pending,...r.pending.map(a=>({...a,linkedRecord:r}))].sort((a,b)=>a.due.localeCompare(b.due));target.next=target.pending[0]||null;target.activityState=target.next?(target.next.due<new Intl.DateTimeFormat('en-CA',{timeZone:'America/Boise'}).format(new Date())?'overdue':'scheduled'):'none';}return records.filter(r=>!linked.has(r.key));}
 function activityRows(records){return records.filter(r=>!r.lost).flatMap(r=>r.pending.map(a=>({...a,r}))).sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')||(a.time||'').localeCompare(b.time||'')||a.r.name.localeCompare(b.r.name));}
+function orderColumn(stage, rows){
+ const ordered=[...rows].sort((a,b)=>(a.next?.due||'9999').localeCompare(b.next?.due||'9999')||String(a.name||'').localeCompare(String(b.name||'')));
+ if(stage!=='Conversation') return ordered;
+ const sent=r=>r.raw&&r.raw.infoSent===true;
+ return ordered.filter(sent).concat(ordered.filter(r=>!sent(r)));
+}
 function history(r){return [...r.log.map((e,i)=>({id:e.gmailMessageId||e.messageId||'log'+i,date:String(e.timestamp||e.sentAt||e.date||''),title:e.type||e.activity||'Activity',text:e.note||e.summary||'',subject:e.subject||'',email:e.recipient||'',thread:e.gmailThreadId||e.originalThreadId||''})),...(r.sales.notes||[]).map(e=>({id:e.id,date:e.createdAt,title:'Note',text:e.text})),...r.activities.filter(a=>a.completedAt).map(a=>({id:a.id,date:a.completedAt,title:'Activity completed',text:a.subject}))].sort((a,b)=>b.date.localeCompare(a.date));}
-const api={stages,combine,labels,stageOf,withStage,reconcile,model,activityRows,history,date};root.CRMSalesModel=api;if(typeof module!=='undefined')module.exports=api;
+const api={stages,combine,labels,stageOf,withStage,reconcile,model,activityRows,history,date,orderColumn};root.CRMSalesModel=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof window==='undefined'?globalThis:window);
