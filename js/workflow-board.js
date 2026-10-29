@@ -27,9 +27,9 @@ function Board({records,onOpen,onSave,onQueue,activity=[]}){
  React.useEffect(()=>{setPage(0);},[search,view]);
  const stageLanes=[...C.stages,'Closed'].map(stage=>['stage:'+stage,stage]);
  const groups=Object.fromEntries([...W.lanes.map(([id])=>[id,filtered.filter(x=>x.w.lane===id)]),...stageLanes.map(([id,stage])=>[id,filtered.filter(x=>x.w.stage===stage)])]);
- Object.values(groups).forEach(rs=>rs.sort((a,b)=>(a.w.due||'9999').localeCompare(b.w.due||'9999')||a.r.name.localeCompare(b.r.name)));
+ Object.entries(groups).forEach(([id,rs])=>{rs.sort((a,b)=>(a.w.due||'9999').localeCompare(b.w.due||'9999')||a.r.name.localeCompare(b.r.name));if(id==='stage:Conversation'){const sent=x=>x.r.raw&&x.r.raw.infoSent===true;groups[id]=rs.filter(sent).concat(rs.filter(x=>!sent(x)));}});
  async function save(r,change){const updated=await onSave(r,change);const w=W.state(updated,day,r.kind);setNotice(r.name+' moved to '+(W.lanes.find(([id])=>id===w.lane)?.[1]||w.lane)+'. Next: '+w.label);}
- function card({r,w}){return h('article',{className:'wf-card',key:r.key},h('h5',null,h('button',{className:'cc-link',onClick:()=>onOpen(r)},r.name)),
+ function card({r,w}){const infoSent=w.stage==='Conversation'&&r.raw.infoSent===true;return h('article',{className:'wf-card',key:r.key},h('h5',null,h('button',{className:'cc-link',onClick:()=>onOpen(r)},r.name),infoSent&&h('span',{className:'sales-chip info-sent',style:{marginLeft:8}},'Info sent')),
   h('p',null,w.stage+' · '+r.market),h('p',null,(r.raw.contact||r.raw.email||'Main contact missing')+(w.verified?' · Verified':'')),
   h('p',{className:'wf-next'},w.label),w.due&&h('p',{className:w.due<=day?'wf-due':''},(w.due<day?'Overdue · ':'Due · ')+w.due),
   w.tasks.length>1&&h('p',null,w.tasks.length+' booking tasks remaining'),
